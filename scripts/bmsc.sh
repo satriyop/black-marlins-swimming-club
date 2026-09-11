@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Native aidev deploy (no Docker): existing PostgreSQL + systemd + Caddy.
-#   sudo bash scripts/aidev.sh install   # first time
-#   sudo bash scripts/aidev.sh update    # after git pull / code change
-#   sudo bash scripts/aidev.sh backup
-#   sudo bash scripts/aidev.sh status
+#   sudo bash scripts/bmsc.sh install   # first time
+#   sudo bash scripts/bmsc.sh update    # after git pull / code change
+#   sudo bash scripts/bmsc.sh backup
+#   sudo bash scripts/bmsc.sh status
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

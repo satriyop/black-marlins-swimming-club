@@ -18,7 +18,7 @@ sudo mkdir -p /var/www/bmsc
 sudo chown "$USER":"$USER" /var/www/bmsc
 cd /var/www/bmsc
 git clone git@github.com:satriyop/black-marlins-swimming-club.git .
-sudo bash scripts/aidev.sh install
+sudo bash scripts/bmsc.sh install
 ```
 
 The install script will:
@@ -38,7 +38,7 @@ On aidev:
 
 ```bash
 cd /var/www/bmsc
-sudo bash scripts/aidev.sh update
+sudo bash scripts/bmsc.sh update
 ```
 
 That is `git pull --ff-only`, install, build, migrate, restart.
@@ -46,9 +46,9 @@ That is `git pull --ff-only`, install, build, migrate, restart.
 ## Ops
 
 ```bash
-sudo bash scripts/aidev.sh status
-sudo bash scripts/aidev.sh backup                 # /var/backups/bmsc-YYYY-MM-DD.sql
-sudo bash scripts/aidev.sh backup /path/file.sql
+sudo bash scripts/bmsc.sh status
+sudo bash scripts/bmsc.sh backup                 # /var/backups/bmsc-YYYY-MM-DD.sql
+sudo bash scripts/bmsc.sh backup /path/file.sql
 sudo journalctl -u bmsc -e
 ```
 
