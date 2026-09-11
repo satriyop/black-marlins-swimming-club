@@ -18,6 +18,7 @@ sudo mkdir -p /var/www/bmsc
 sudo chown "$USER":"$USER" /var/www/bmsc
 cd /var/www/bmsc
 git clone git@github.com:satriyop/black-marlins-swimming-club.git .
+sudo bash scripts/bmsc.sh dry-run    # inspect only; does not write
 sudo bash scripts/bmsc.sh install
 ```
 
