@@ -121,6 +121,10 @@ async function main() {
     }
     console.log(count ? `[migrate] done — ${count} migration(s) applied.` : "[migrate] up to date.");
     await seedClubPg(client);
+    const { importKikoResults } = await import("./import-kiko-results.mjs");
+    const query = async (text, params = []) => (await client.query(text, params)).rows;
+    const stats = await importKikoResults(query);
+    console.log(`[migrate] kiko times inserted=${stats.inserted} skipped=${stats.skipped}`);
   } finally {
     client.release();
     await pool.end();

@@ -55,11 +55,11 @@ export async function seedClub(sql: Sql): Promise<number> {
   const haveSwimmers = await sql<{ n: number }>`select count(*)::int as n from swimmers where club_id = ${clubId}`;
   if ((haveSwimmers[0]?.n ?? 0) === 0) {
     const swimmers = await sql<{ id: number }>`
-      insert into swimmers (club_id, full_name, date_of_birth, gender, nationality, city, status)
+      insert into swimmers (club_id, full_name, nickname, date_of_birth, gender, nationality, city, status, notes)
       values
-        (${clubId}, 'Ken Athaya Nirwasita', '2012-06-30', 'putri', 'Indonesia', 'Klaten', 'aktif'),
-        (${clubId}, 'Luigi Banyu Pamungkas', '2014-06-05', 'putra', 'Indonesia', 'Klaten', 'aktif'),
-        (${clubId}, 'Kun Bumi Pamungkas', '2014-06-05', 'putra', 'Indonesia', 'Klaten', 'aktif')
+        (${clubId}, 'Ken Athaya Nirwasita', 'Kak Ken', '2012-06-30', 'putri', 'Indonesia', 'Klaten', 'aktif', 'Bebas & punggung · Popda 2026'),
+        (${clubId}, 'Luigi Banyu Pamungkas', 'Mas Banyu', '2014-06-05', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Bebas & kupu · elite youth'),
+        (${clubId}, 'Kun Bumi Pamungkas', 'Mas Bumi', '2014-06-05', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Punggung · elite youth')
       returning id
     `;
     for (const s of swimmers) {
