@@ -1,20 +1,57 @@
-# Aidev deploy
+# Aidev deploy (no Docker)
 
-Node + Postgres on the VPS. Cloudflare Tunnel is the public HTTPS door. Port 5432 stays on localhost (or the compose internal network).
+Host: **aidev** (`146.190.87.122`). App: Node 22 + existing PostgreSQL 16. Public HTTPS: Caddy. Hostname: **https://bmsc.klaten.org**.
 
-## Once
+Do **not** use Docker Compose or Cloudflare Tunnel for this site. DNS is an A record to the VPS.
 
-1. Copy `.env.example` to `.env` and fill Google OAuth + `BETTER_AUTH_SECRET` + `BETTER_AUTH_URL` (the public tunnel origin).
-2. Google Cloud authorized redirect: `https://<origin>/api/auth/callback/google`.
-3. `docker compose up -d --build`
-4. Point cloudflared at `http://127.0.0.1:3000`.
+## First time
 
-Migrate runs as a container start step, not during `vite build`.
+On your laptop, create the Google OAuth web client:
 
-## Backup
+- Origin: `https://bmsc.klaten.org`
+- Redirect: `https://bmsc.klaten.org/api/auth/callback/google`
 
-Daily on the box:
+On aidev:
 
-```sh
-docker compose exec -T postgres pg_dump -U bmsc bmsc > /var/backups/bmsc-$(date +%F).sql
+```bash
+sudo mkdir -p /var/www/bmsc
+sudo chown "$USER":"$USER" /var/www/bmsc
+cd /var/www/bmsc
+git clone git@github.com:satriyop/black-marlins-swimming-club.git .
+sudo bash scripts/aidev.sh install
 ```
+
+The install script will:
+
+1. Generate `BETTER_AUTH_SECRET` and a Postgres password if `.env` is new
+2. Ask for `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` if they are empty
+3. Create Postgres role/database `bmsc`
+4. `npm ci`, `npm run build`, `npm run db:migrate` (includes club seed)
+5. systemd unit `bmsc` on `127.0.0.1:3000`
+6. Caddy site `bmsc.klaten.org` → that port
+
+Then open https://bmsc.klaten.org/login as `satriyopamungkas@gmail.com`.
+
+## After code changes
+
+On aidev:
+
+```bash
+cd /var/www/bmsc
+sudo bash scripts/aidev.sh update
+```
+
+That is `git pull --ff-only`, install, build, migrate, restart.
+
+## Ops
+
+```bash
+sudo bash scripts/aidev.sh status
+sudo bash scripts/aidev.sh backup                 # /var/backups/bmsc-YYYY-MM-DD.sql
+sudo bash scripts/aidev.sh backup /path/file.sql
+sudo journalctl -u bmsc -e
+```
+
+## Google / env
+
+`.env` lives in the app directory. `BETTER_AUTH_URL` must stay `https://bmsc.klaten.org` with no trailing slash.
