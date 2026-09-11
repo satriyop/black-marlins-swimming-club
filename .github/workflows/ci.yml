@@ -33,6 +33,8 @@ jobs:
       BETTER_AUTH_SECRET: ci-smoke-secret-not-for-prod
       BETTER_AUTH_URL: http://127.0.0.1:3010
       VITE_AUTH_ENABLED: "true"
+      GOOGLE_CLIENT_ID: ci.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: ci-not-real
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -28,6 +28,8 @@ const child = spawn(process.execPath, [server], {
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "ci-smoke-secret-not-for-prod",
     BETTER_AUTH_URL: `http://${host}:${port}`,
     VITE_AUTH_ENABLED: "true",
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "ci.apps.googleusercontent.com",
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "ci-not-real",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -59,7 +61,7 @@ async function waitForLogin() {
     try {
       const res = await fetch(url, { redirect: "manual" });
       last = `${res.status}`;
-      if (res.status >= 200 && res.status < 500) return res.status;
+      if (res.status >= 200 && res.status < 400) return res.status;
     } catch (err) {
       last = err instanceof Error ? err.message : String(err);
     }

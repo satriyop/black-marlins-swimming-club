@@ -20,6 +20,8 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "ci-smoke-secret-not-for-prod",
       BETTER_AUTH_URL: baseURL,
       VITE_AUTH_ENABLED: "true",
+      GOOGLE_CLIENT_ID: "ci.apps.googleusercontent.com",
+      GOOGLE_CLIENT_SECRET: "ci-not-real",
     },
   },
 });
