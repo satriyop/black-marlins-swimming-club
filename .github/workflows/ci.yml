@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bmsc
+          POSTGRES_PASSWORD: bmsc
+          POSTGRES_DB: bmsc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bmsc -d bmsc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://bmsc:bmsc@localhost:5432/bmsc
+      BETTER_AUTH_SECRET: ci-smoke-secret-not-for-prod
+      BETTER_AUTH_URL: http://127.0.0.1:3010
+      VITE_AUTH_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Schema migrate does not import race times
+        run: |
+          npm run db:migrate
+          npm run db:seed
+          node --input-type=module -e '
+            import pg from "pg";
+            const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+            const { rows } = await pool.query("select count(*)::int as n from results");
+            console.log("results", rows[0].n);
+            if (rows[0].n !== 0) process.exit(1);
+            await pool.end();
+          '
+      - run: npm run build
+      - run: npm run smoke
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Pack release tarball
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          tar -czf bmsc-release.tgz \
+            .output \
+            package.json \
+            package-lock.json \
+            migrations \
+            scripts \
+            data
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          name: bmsc-release
+          path: bmsc-release.tgz
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: deploy
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bmsc-release
+      - name: Deploy exact SHA to aidev
+        env:
+          BMSC_DEPLOY_HOST: ${{ secrets.BMSC_DEPLOY_HOST }}
+          BMSC_DEPLOY_USER: ${{ secrets.BMSC_DEPLOY_USER }}
+          BMSC_DEPLOY_SSH_KEY: ${{ secrets.BMSC_DEPLOY_SSH_KEY }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BMSC_DEPLOY_SSH_KEY:-}" ]; then
+            echo "::notice::Skipping deploy — add repo secret BMSC_DEPLOY_SSH_KEY (ed25519 for root@aidev)."
+            exit 0
+          fi
+          HOST="${BMSC_DEPLOY_HOST:-146.190.87.122}"
+          USER="${BMSC_DEPLOY_USER:-root}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$BMSC_DEPLOY_SSH_KEY" > ~/.ssh/bmsc_deploy
+          chmod 600 ~/.ssh/bmsc_deploy
+          ssh-keyscan -T 10 -H "$HOST" >> ~/.ssh/known_hosts
+          # One SSH session (fail2ban): upload tarball, pull bmsc.sh, apply release.
+          ssh -i ~/.ssh/bmsc_deploy -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+            "${USER}@${HOST}" \
+            "cat > /tmp/bmsc-release.tgz && cd /var/www/bmsc && git pull --ff-only && sudo bash scripts/bmsc.sh apply-release /tmp/bmsc-release.tgz ${SHA} && rm -f /tmp/bmsc-release.tgz" \
+            < bmsc-release.tgz

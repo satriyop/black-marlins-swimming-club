@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Native aidev deploy (no Docker): existing PostgreSQL + systemd + Caddy.
 # Never touches other Postgres apps (enter365, etc.).
-#   sudo bash scripts/bmsc.sh dry-run   # inspect only
-#   sudo bash scripts/bmsc.sh install   # first time
-#   sudo bash scripts/bmsc.sh update    # after git pull / code change
+#   sudo bash scripts/bmsc.sh dry-run                      # inspect only
+#   sudo bash scripts/bmsc.sh install                      # first time
+#   sudo bash scripts/bmsc.sh update                       # legacy in-place git pull + build
+#   sudo bash scripts/bmsc.sh apply-release <tgz> <sha>    # CI artifact
+#   sudo bash scripts/bmsc.sh rollback
 #   sudo bash scripts/bmsc.sh backup
+#   sudo bash scripts/bmsc.sh import-kiko                  # not part of deploy
 #   sudo bash scripts/bmsc.sh status
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_ROOT="${APP_ROOT:-$APP_DIR}"
 APP_USER="${APP_USER:-bmsc}"
 APP_HOST="${APP_HOST:-bmsc.klaten.org}"
 APP_PORT="${APP_PORT:-3000}"
@@ -17,7 +21,13 @@ PG_DB="${PG_DB:-bmsc}"
 SERVICE="${SERVICE:-bmsc}"
 CADDY_SITE="/etc/caddy/sites/${APP_HOST}.caddy"
 UNIT="/etc/systemd/system/${SERVICE}.service"
-ENV_FILE="${APP_DIR}/.env"
+ENV_FILE="${APP_ROOT}/.env"
+RELEASES_DIR="${APP_ROOT}/releases"
+CURRENT_LINK="${APP_ROOT}/current"
+PREVIOUS_LINK="${APP_ROOT}/previous"
+LOCK_FILE="${LOCK_FILE:-/var/lock/bmsc-deploy.lock}"
+KEEP_RELEASES="${KEEP_RELEASES:-5}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups}"
 DRY_RUN=0
 BLOCKED=0
 PROTECTED_PG="enter365 postgres pg_database_owner"
@@ -162,18 +172,98 @@ ensure_user() {
   fi
 }
 
-build_and_migrate() {
-  cd "$APP_DIR"
-  npm ci
-  npm run build
+runtime_dir() {
+  if [[ -L "$CURRENT_LINK" || -d "$CURRENT_LINK" ]]; then
+    readlink -f "$CURRENT_LINK"
+  else
+    echo "$APP_DIR"
+  fi
+}
+
+acquire_lock() {
+  mkdir -p "$(dirname "$LOCK_FILE")"
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    echo "BLOCKED  another bmsc deploy holds ${LOCK_FILE}" >&2
+    exit 1
+  fi
+}
+
+run_migrate() {
+  local dir="$1"
   set -a
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
-  npm run db:migrate
+  (cd "$dir" && npm run db:migrate)
 }
 
-write_unit() {
+cmd_backup() {
+  need_root
+  guard_pg_names
+  local dest="${1:-${BACKUP_DIR}/bmsc-$(date +%Y%m%dT%H%M%SZ).sql}"
+  mkdir -p "$(dirname "$dest")"
+  sudo -u postgres pg_dump "$PG_DB" >"$dest"
+  chmod 600 "$dest"
+  echo "Wrote ${dest}"
+}
+
+require_backup() {
+  local dest="${BACKUP_DIR}/bmsc-$(date +%Y%m%dT%H%M%SZ).sql"
+  cmd_backup "$dest"
+}
+
+build_and_migrate() {
+  cd "$APP_DIR"
+  npm ci
+  npm run build
+  run_migrate "$APP_DIR"
+}
+
+verify_health() {
+  local sha="${1:-}"
+  local ok=1
+  if ! systemctl is-active --quiet "$SERVICE"; then
+    echo "FAIL  ${SERVICE} is not active"
+    ok=0
+  fi
+  if ! curl -fsS -o /dev/null -m 10 "http://127.0.0.1:${APP_PORT}/login"; then
+    echo "FAIL  http://127.0.0.1:${APP_PORT}/login"
+    ok=0
+  else
+    echo "OK    http://127.0.0.1:${APP_PORT}/login"
+  fi
+  if ! curl -fsS -o /dev/null -m 15 "https://${APP_HOST}/login"; then
+    echo "FAIL  https://${APP_HOST}/login"
+    ok=0
+  else
+    echo "OK    https://${APP_HOST}/login"
+  fi
+  if [[ -n "$sha" ]]; then
+    local live
+    live="$(cat "$(runtime_dir)/RELEASE_SHA" 2>/dev/null || true)"
+    if [[ "$live" != "$sha" ]]; then
+      echo "FAIL  RELEASE_SHA want=${sha} have=${live:-none}"
+      ok=0
+    else
+      echo "OK    RELEASE_SHA ${sha}"
+    fi
+  fi
+  [[ "$ok" -eq 1 ]]
+}
+
+prune_releases() {
+  [[ -d "$RELEASES_DIR" ]] || return 0
+  local extra
+  extra="$(ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) || true)"
+  if [[ -n "$extra" ]]; then
+    # shellcheck disable=SC2086
+    rm -rf $extra
+  fi
+}
+
+write_unit_for() {
+  local run_dir="$1"
   cat >"$UNIT" <<EOF
 [Unit]
 Description=Black Marlins Swimming Club
@@ -184,23 +274,26 @@ Requires=postgresql.service
 Type=simple
 User=${APP_USER}
 Group=${APP_USER}
-WorkingDirectory=${APP_DIR}
+WorkingDirectory=${run_dir}
 EnvironmentFile=${ENV_FILE}
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=${APP_PORT}
-ExecStart=/usr/bin/node ${APP_DIR}/.output/server/index.mjs
+ExecStart=/usr/bin/node ${run_dir}/.output/server/index.mjs
 Restart=on-failure
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
-  chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
-  # root must still be able to git pull / edit
-  chmod 750 "$APP_DIR"
+  chown -R "${APP_USER}:${APP_USER}" "$run_dir"
+  chmod 750 "$APP_ROOT"
   systemctl daemon-reload
   systemctl enable "$SERVICE"
+}
+
+write_unit() {
+  write_unit_for "$(runtime_dir)"
 }
 
 write_caddy() {
@@ -329,7 +422,7 @@ cmd_dry_run() {
   else
     echo "OK  GOOGLE_CLIENT_ID already set"
   fi
-  echo "WOULD npm ci && npm run build && npm run db:migrate (bmsc database only)"
+  echo "WOULD npm ci && npm run build && npm run db:migrate (schema only) && npm run db:seed"
   echo "WOULD systemctl enable --now ${SERVICE}"
   echo
 
@@ -349,6 +442,11 @@ cmd_install() {
   ensure_env
   ensure_postgres
   build_and_migrate
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+  (cd "$APP_DIR" && npm run db:seed)
   write_unit
   write_caddy
   local gid
@@ -361,8 +459,8 @@ cmd_install() {
     return 0
   fi
   systemctl restart "$SERVICE"
-  sleep 1
-  systemctl --no-pager --full status "$SERVICE" || true
+  sleep 2
+  verify_health || true
   echo
   echo "Local:  curl -sI http://127.0.0.1:${APP_PORT}/login"
   echo "Public: https://${APP_HOST}/login"
@@ -372,27 +470,97 @@ cmd_install() {
 cmd_update() {
   need_root
   guard_pg_names
-  echo "==> update ${APP_DIR}"
+  acquire_lock
+  echo "==> update ${APP_DIR} (legacy in-place build; prefer apply-release)"
+  require_backup
   cd "$APP_DIR"
   git pull --ff-only
   build_and_migrate
   chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
+  write_unit
   systemctl restart "$SERVICE"
-  systemctl --no-pager --full status "$SERVICE" || true
+  sleep 2
+  if ! verify_health; then
+    echo "FAIL  health check after update. Restore the database dump in ${BACKUP_DIR} if schema changed."
+    exit 1
+  fi
+  echo "update ok"
 }
 
-cmd_backup() {
+cmd_apply_release() {
+  local tarball="${1:-}" sha="${2:-}"
   need_root
   guard_pg_names
-  local dest="${1:-/var/backups/bmsc-$(date +%F).sql}"
-  mkdir -p "$(dirname "$dest")"
-  sudo -u postgres pg_dump "$PG_DB" >"$dest"
-  chmod 600 "$dest"
-  echo "Wrote ${dest}"
+  acquire_lock
+  if [[ -z "$tarball" || -z "$sha" || ! -f "$tarball" ]]; then
+    echo "Usage: sudo bash $0 apply-release <tarball> <sha>" >&2
+    exit 1
+  fi
+  echo "==> apply-release ${sha}"
+  require_backup
+  mkdir -p "$RELEASES_DIR"
+  local dest="${RELEASES_DIR}/${sha}"
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  tar -xzf "$tarball" -C "$dest"
+  printf '%s\n' "$sha" >"${dest}/RELEASE_SHA"
+  (cd "$dest" && npm ci --omit=dev)
+  run_migrate "$dest"
+  if [[ -e "$CURRENT_LINK" ]]; then
+    ln -sfn "$(readlink -f "$CURRENT_LINK")" "$PREVIOUS_LINK"
+  fi
+  ln -sfn "$dest" "$CURRENT_LINK"
+  write_unit_for "$(readlink -f "$CURRENT_LINK")"
+  systemctl restart "$SERVICE"
+  sleep 2
+  if ! verify_health "$sha"; then
+    echo "FAIL  health check — restoring previous application release"
+    echo "NOTE  schema migrations are not rolled back; use the dump in ${BACKUP_DIR} if needed"
+    if [[ -L "$PREVIOUS_LINK" ]]; then
+      cmd_rollback_unlocked
+    fi
+    exit 1
+  fi
+  prune_releases
+  echo "release ${sha} is live"
+}
+
+cmd_rollback_unlocked() {
+  if [[ ! -L "$PREVIOUS_LINK" ]]; then
+    echo "no previous release at ${PREVIOUS_LINK}" >&2
+    return 1
+  fi
+  local prev
+  prev="$(readlink -f "$PREVIOUS_LINK")"
+  ln -sfn "$prev" "$CURRENT_LINK"
+  write_unit_for "$prev"
+  systemctl restart "$SERVICE"
+  sleep 2
+  verify_health "$(cat "${prev}/RELEASE_SHA" 2>/dev/null || true)" || true
+  echo "rolled back to ${prev}"
+}
+
+cmd_rollback() {
+  need_root
+  acquire_lock
+  cmd_rollback_unlocked
+}
+
+cmd_import_kiko() {
+  need_root
+  guard_pg_names
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+  (cd "$(runtime_dir)" && npm run db:import-kiko)
 }
 
 cmd_status() {
   systemctl --no-pager --full status "$SERVICE" || true
+  echo
+  echo "current:  $(readlink -f "$CURRENT_LINK" 2>/dev/null || echo "(git tree ${APP_DIR})")"
+  echo "sha:      $(cat "$(runtime_dir)/RELEASE_SHA" 2>/dev/null || echo none)"
   echo
   curl -sI "http://127.0.0.1:${APP_PORT}/login" | head -n 15 || true
   echo
@@ -400,7 +568,7 @@ cmd_status() {
 }
 
 usage() {
-  echo "Usage: sudo bash $0 {dry-run|install|update|backup|status}"
+  echo "Usage: sudo bash $0 {dry-run|install|update|apply-release|rollback|backup|import-kiko|status}"
   exit 1
 }
 
@@ -408,7 +576,10 @@ case "${1:-}" in
   dry-run) cmd_dry_run ;;
   install) cmd_install ;;
   update) cmd_update ;;
+  apply-release) cmd_apply_release "${2:-}" "${3:-}" ;;
+  rollback) cmd_rollback ;;
   backup) cmd_backup "${2:-}" ;;
+  import-kiko) cmd_import_kiko ;;
   status) cmd_status ;;
   *) usage ;;
 esac

@@ -11,6 +11,10 @@ client_secret*.json
 !.env.example
 screenshots
 artifacts
+playwright-report
+test-results
+blob-report
+bmsc-release.tgz
 .grok
 *.log
 .DS_Store

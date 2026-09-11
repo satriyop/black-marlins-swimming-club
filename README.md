@@ -66,8 +66,18 @@ set the env vars above, deploy.
 Cloudflare: change the Nitro preset to a Cloudflare Workers target, attach
 Neon, and set the same env vars. Do not expect a pure static Pages upload.
 
+## Production (aidev)
+
+Native Node + Postgres + systemd + Caddy on **https://bmsc.klaten.org**. See [docs/aidev-deploy.md](docs/aidev-deploy.md) for CI, releases, and rollback.
+
 ## Scripts
 
 - `npm run dev` — live preview
 - `npm run build` — production build
-- `npm run typecheck`
+- `npm test` — vitest
+- `npm run lint` / `npm run typecheck`
+- `npm run db:migrate` — SQL schema only
+- `npm run db:seed` — club + adult accounts
+- `npm run db:import-kiko` — race times (not part of deploy)
+- `npm run smoke` — HTTP GET `/login` against `.output`
+- `npm run test:e2e` — Playwright login smoke
