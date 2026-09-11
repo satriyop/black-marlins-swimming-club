@@ -31,7 +31,7 @@ export const MEET_META = {
   KEJURPROVJTG2026: { name: "Kejurprov Jateng 2026", level: "pengprov", city: "Semarang" },
   KRAPPROVBYL2026: { name: "KRA Provinsi Boyolali 2026", level: "pengprov", city: "Boyolali" },
   DANLANALSMG2026: { name: "Danlanal Semarang 2026", level: "pengprov", city: "Semarang" },
-  O2SNJATENG2026: { name: "O2SN Jawa Tengah 2026", level: "sekolah", city: "Jawa Tengah" },
+  O2SNJATENG2026: { name: "O2SN Jawa Tengah 2026", level: "sekolah", city: "Semarang" },
   JATIDIRI2026: { name: "Popda Jateng 2026", level: "sekolah", city: "Semarang" },
 };
 
@@ -40,10 +40,11 @@ export const MEET_CALENDAR = {
   KAPOLRESMGL2025: { start: "2025-06-22", end: "2025-06-22" },
   ANTARPELAJARJTG2025: { start: "2025-08-09", end: "2025-08-09" },
   KRAS2025: { start: "2025-09-21", end: "2025-09-21" },
-  SMGOPEN2025: { start: "2025-10-03", end: "2025-10-03" },
+  SMGOPEN2025: { start: "2025-10-03", end: "2025-10-05" },
   BUPATICUP2025: { start: "2025-12-17", end: "2025-12-17" },
   DANLANALSMG2026: { start: "2026-02-14", end: "2026-02-14" },
   KEJURPROVJTG2026: { start: "2026-04-10", end: "2026-04-12" },
+  O2SNJATENG2026: { start: "2026-07-01", end: "2026-07-02" },
   JATIDIRI2026: { start: "2026-09-02", end: "2026-09-03" },
 };
 

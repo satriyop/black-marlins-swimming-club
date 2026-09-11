@@ -32,6 +32,10 @@ test("syncs placeholder event dates to medal and real meet days", () => {
   expect(unknown.every((r) => r.date === "2026-01-01")).toBe(true);
   const smg = synced.filter((r) => r.meetCode === "SMGOPEN2025");
   expect(smg.every((r) => r.date === "2025-10-03")).toBe(true);
+  const o2snFly = synced.find((r) => r.meetCode === "O2SNJATENG2026" && r.stroke === "kupu");
+  const o2snFree = synced.find((r) => r.meetCode === "O2SNJATENG2026" && r.stroke === "bebas");
+  expect(o2snFly?.date).toBe("2026-07-01");
+  expect(o2snFree?.date).toBe("2026-07-02");
 });
 
 test("parses Luigi 50 free Popda bronze as 30530 ms official LCM", () => {
