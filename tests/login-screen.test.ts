@@ -21,6 +21,15 @@ test("Masuk source has Google and password sign-in and no public register", () =
   expect(emailAndPasswordEnabled).toBe(true);
 });
 
+test("detail route files are flattened siblings", () => {
+  const event = readFileSync(join(root, "src/routes/event_.$id.tsx"), "utf8");
+  const latihan = readFileSync(join(root, "src/routes/latihan_.$id.tsx"), "utf8");
+  const perenang = readFileSync(join(root, "src/routes/perenang_.$id.tsx"), "utf8");
+  expect(event).toContain('createFileRoute("/event/$id")');
+  expect(latihan).toContain('createFileRoute("/latihan/$id")');
+  expect(perenang).toContain('createFileRoute("/perenang/$id")');
+});
+
 test("undangan route file exists", () => {
   const src = readFileSync(join(root, "src/routes/undangan.tsx"), "utf8");
   expect(src).toContain('createFileRoute("/undangan")');

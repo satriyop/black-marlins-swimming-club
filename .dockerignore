@@ -3,6 +3,7 @@ node_modules
 .env
 .env.*
 !.env.example
+client_secret*.json
 .output
 tests
 *.log

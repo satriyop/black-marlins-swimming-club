@@ -5,7 +5,7 @@ import { canMarkAttendance } from "./permissions";
 
 export async function updateAttendanceStatus(
   actor: Actor,
-  input: { id: number; status: "hadir" | "izin" | "sakit" | "alfa"; metersCompleted?: number | null },
+  input: { id: number; status: "belum" | "hadir" | "izin" | "sakit" | "alfa"; metersCompleted?: number | null },
 ): Promise<{ ok: true }> {
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");

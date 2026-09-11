@@ -119,6 +119,10 @@ export async function createInvite(actor: Actor, input: InviteInput): Promise<{ 
       throw new Error("Email ini sudah staf klub.");
     }
   }
+  if (input.kind === "swimmer_account") {
+    const taken = await actor.sql<{ n: number }>`select count(*)::int as n from "user" where lower(email) = ${email}`;
+    if ((taken[0]?.n ?? 0) > 0) throw new Error("Email ini sudah terpakai.");
+  }
 
   const pending = await actor.sql<{
     kind: string;
@@ -228,25 +232,35 @@ export async function acceptSwimmerInvite(
   const invite = rows[0];
   if (!invite || invite.kind !== "swimmer_account") throw new Error("Undangan tidak berlaku.");
   if (!invite.email) throw new Error("Undangan tidak berlaku.");
+  if (invite.accepted_at || new Date(invite.expires_at).getTime() < Date.now()) {
+    throw new Error("Undangan tidak berlaku.");
+  }
   if (!input.password || input.password.length < 8) throw new Error("Password minimal 8 karakter");
-  const existing = await sql<{ id: string }>`select id from "user" where email = ${invite.email} limit 1`;
-  let userId: string;
-  if (existing[0]) {
-    userId = existing[0].id;
-  } else {
-    userId = `usr_${randomBytes(8).toString("hex")}`;
+  const existing = await sql<{ id: string }>`select id from "user" where lower(email) = ${invite.email.toLowerCase()} limit 1`;
+  if (existing[0]) throw new Error("Email ini sudah terpakai.");
+  const userId = `usr_${randomBytes(8).toString("hex")}`;
+  const hashed = await hashPassword(input.password);
+  const accountId = `acc_${randomBytes(8).toString("hex")}`;
+  await sql.query("begin");
+  try {
     await sql`
       insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
       values (${userId}, ${invite.email}, ${invite.email}, true, now(), now())
     `;
+    await sql`
+      insert into account (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
+      values (${accountId}, ${userId}, 'credential', ${userId}, ${hashed}, now(), now())
+    `;
+    await acceptInvite(sql, { token: input.token, userId, email: invite.email });
+    await sql.query("commit");
+  } catch (err) {
+    try {
+      await sql.query("rollback");
+    } catch {
+      /* keep original */
+    }
+    throw err;
   }
-  const hashed = await hashPassword(input.password);
-  const accountId = `acc_${randomBytes(8).toString("hex")}`;
-  await sql`
-    insert into account (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
-    values (${accountId}, ${userId}, 'credential', ${userId}, ${hashed}, now(), now())
-  `;
-  await acceptInvite(sql, { token: input.token, userId, email: invite.email });
   return { userId };
 }
 

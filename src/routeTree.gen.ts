@@ -9,9 +9,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as TerimaRouteImport } from './routes/terima'
 import { Route as UndanganRouteImport } from './routes/undangan'
 import { Route as PerenangRouteImport } from './routes/perenang'
-import { Route as EventIdRouteImport } from './routes/event.$id'
-import { Route as LatihanIdRouteImport } from './routes/latihan.$id'
-import { Route as PerenangIdRouteImport } from './routes/perenang.$id'
+import { Route as EventIdRouteImport } from './routes/event_.$id'
+import { Route as LatihanIdRouteImport } from './routes/latihan_.$id'
+import { Route as PerenangIdRouteImport } from './routes/perenang_.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
@@ -22,20 +22,20 @@ const LoginRoute = LoginRouteImport.update({ id: '/login', path: '/login', getPa
 const TerimaRoute = TerimaRouteImport.update({ id: '/terima', path: '/terima', getParentRoute: () => rootRouteImport } as any)
 const UndanganRoute = UndanganRouteImport.update({ id: '/undangan', path: '/undangan', getParentRoute: () => rootRouteImport } as any)
 const PerenangRoute = PerenangRouteImport.update({ id: '/perenang', path: '/perenang', getParentRoute: () => rootRouteImport } as any)
-const EventIdRoute = EventIdRouteImport.update({ id: '/$id', path: '/$id', getParentRoute: () => EventRoute } as any)
-const LatihanIdRoute = LatihanIdRouteImport.update({ id: '/$id', path: '/$id', getParentRoute: () => LatihanRoute } as any)
-const PerenangIdRoute = PerenangIdRouteImport.update({ id: '/$id', path: '/$id', getParentRoute: () => PerenangRoute } as any)
+const EventIdRoute = EventIdRouteImport.update({ id: '/event/$id', path: '/event/$id', getParentRoute: () => rootRouteImport } as any)
+const LatihanIdRoute = LatihanIdRouteImport.update({ id: '/latihan/$id', path: '/latihan/$id', getParentRoute: () => rootRouteImport } as any)
+const PerenangIdRoute = PerenangIdRouteImport.update({ id: '/perenang/$id', path: '/perenang/$id', getParentRoute: () => rootRouteImport } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({ id: '/api/auth/$', path: '/api/auth/$', getParentRoute: () => rootRouteImport } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aktivitas': typeof AktivitasRoute
-  '/event': typeof EventRouteWithChildren
-  '/latihan': typeof LatihanRouteWithChildren
+  '/event': typeof EventRoute
+  '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
   '/terima': typeof TerimaRoute
   '/undangan': typeof UndanganRoute
-  '/perenang': typeof PerenangRouteWithChildren
+  '/perenang': typeof PerenangRoute
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
   '/perenang/$id': typeof PerenangIdRoute
@@ -44,12 +44,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/aktivitas': typeof AktivitasRoute
-  '/event': typeof EventRouteWithChildren
-  '/latihan': typeof LatihanRouteWithChildren
+  '/event': typeof EventRoute
+  '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
   '/terima': typeof TerimaRoute
   '/undangan': typeof UndanganRoute
-  '/perenang': typeof PerenangRouteWithChildren
+  '/perenang': typeof PerenangRoute
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
   '/perenang/$id': typeof PerenangIdRoute
@@ -59,12 +59,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/aktivitas': typeof AktivitasRoute
-  '/event': typeof EventRouteWithChildren
-  '/latihan': typeof LatihanRouteWithChildren
+  '/event': typeof EventRoute
+  '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
   '/terima': typeof TerimaRoute
   '/undangan': typeof UndanganRoute
-  '/perenang': typeof PerenangRouteWithChildren
+  '/perenang': typeof PerenangRoute
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
   '/perenang/$id': typeof PerenangIdRoute
@@ -81,12 +81,15 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AktivitasRoute: typeof AktivitasRoute
-  EventRoute: typeof EventRouteWithChildren
-  LatihanRoute: typeof LatihanRouteWithChildren
+  EventRoute: typeof EventRoute
+  LatihanRoute: typeof LatihanRoute
   LoginRoute: typeof LoginRoute
   TerimaRoute: typeof TerimaRoute
   UndanganRoute: typeof UndanganRoute
-  PerenangRoute: typeof PerenangRouteWithChildren
+  PerenangRoute: typeof PerenangRoute
+  EventIdRoute: typeof EventIdRoute
+  LatihanIdRoute: typeof LatihanIdRoute
+  PerenangIdRoute: typeof PerenangIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -100,26 +103,16 @@ declare module '@tanstack/react-router' {
     '/terima': { id: '/terima'; path: '/terima'; fullPath: '/terima'; preLoaderRoute: typeof TerimaRouteImport; parentRoute: typeof rootRouteImport }
     '/undangan': { id: '/undangan'; path: '/undangan'; fullPath: '/undangan'; preLoaderRoute: typeof UndanganRouteImport; parentRoute: typeof rootRouteImport }
     '/perenang': { id: '/perenang'; path: '/perenang'; fullPath: '/perenang'; preLoaderRoute: typeof PerenangRouteImport; parentRoute: typeof rootRouteImport }
-    '/event/$id': { id: '/event/$id'; path: '/$id'; fullPath: '/event/$id'; preLoaderRoute: typeof EventIdRouteImport; parentRoute: typeof EventRoute }
-    '/latihan/$id': { id: '/latihan/$id'; path: '/$id'; fullPath: '/latihan/$id'; preLoaderRoute: typeof LatihanIdRouteImport; parentRoute: typeof LatihanRoute }
-    '/perenang/$id': { id: '/perenang/$id'; path: '/$id'; fullPath: '/perenang/$id'; preLoaderRoute: typeof PerenangIdRouteImport; parentRoute: typeof PerenangRoute }
+    '/event/$id': { id: '/event/$id'; path: '/event/$id'; fullPath: '/event/$id'; preLoaderRoute: typeof EventIdRouteImport; parentRoute: typeof rootRouteImport }
+    '/latihan/$id': { id: '/latihan/$id'; path: '/latihan/$id'; fullPath: '/latihan/$id'; preLoaderRoute: typeof LatihanIdRouteImport; parentRoute: typeof rootRouteImport }
+    '/perenang/$id': { id: '/perenang/$id'; path: '/perenang/$id'; fullPath: '/perenang/$id'; preLoaderRoute: typeof PerenangIdRouteImport; parentRoute: typeof rootRouteImport }
     '/api/auth/$': { id: '/api/auth/$'; path: '/api/auth/$'; fullPath: '/api/auth/$'; preLoaderRoute: typeof ApiAuthSplatRouteImport; parentRoute: typeof rootRouteImport }
   }
 }
 
-interface EventRouteChildren { EventIdRoute: typeof EventIdRoute }
-const EventRouteChildren: EventRouteChildren = { EventIdRoute: EventIdRoute }
-const EventRouteWithChildren = EventRoute._addFileChildren(EventRouteChildren)
-interface LatihanRouteChildren { LatihanIdRoute: typeof LatihanIdRoute }
-const LatihanRouteChildren: LatihanRouteChildren = { LatihanIdRoute: LatihanIdRoute }
-const LatihanRouteWithChildren = LatihanRoute._addFileChildren(LatihanRouteChildren)
-interface PerenangRouteChildren { PerenangIdRoute: typeof PerenangIdRoute }
-const PerenangRouteChildren: PerenangRouteChildren = { PerenangIdRoute: PerenangIdRoute }
-const PerenangRouteWithChildren = PerenangRoute._addFileChildren(PerenangRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute, AktivitasRoute, EventRoute: EventRouteWithChildren,
-  LatihanRoute: LatihanRouteWithChildren, LoginRoute, TerimaRoute, UndanganRoute,
-  PerenangRoute: PerenangRouteWithChildren, ApiAuthSplatRoute,
+  IndexRoute, AktivitasRoute, EventRoute, LatihanRoute, LoginRoute, TerimaRoute, UndanganRoute,
+  PerenangRoute, EventIdRoute, LatihanIdRoute, PerenangIdRoute, ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
 

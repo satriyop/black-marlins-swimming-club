@@ -19,37 +19,33 @@ async function ensureUser(sql: Sql, fallbackId: string, name: string, email: str
 }
 
 export async function seedClub(sql: Sql): Promise<number> {
+  const existing = await sql<{ id: number }>`select id from clubs limit 1`;
+  if (existing[0]) return existing[0].id;
+
   const satriyoId = await ensureUser(sql, SATRIYO_ID, "Satriyo", SATRIYO_EMAIL);
   const azkiyaId = await ensureUser(sql, AZKIYA_ID, "Azkiya", AZKIYA_EMAIL);
   const ratihId = await ensureUser(sql, RATIH_ID, "Ratih", RATIH_EMAIL);
 
-  let clubId: number;
-  const existing = await sql<{ id: number }>`select id from clubs limit 1`;
-  if (existing[0]) {
-    clubId = existing[0].id;
-  } else {
-    const clubs = await sql<{ id: number }>`
-      insert into clubs (name, short_name, city, province, country, coach_name, venue, motto)
-      values (
-        'Black Marlins Swimming Club Klaten',
-        'BMSC',
-        'Klaten',
-        'Jawa Tengah',
-        'Indonesia',
-        'Hardiyanto Wibowo',
-        null,
-        null
-      )
-      returning id
-    `;
-    clubId = clubs[0]!.id;
-  }
+  const clubs = await sql<{ id: number }>`
+    insert into clubs (name, short_name, city, province, country, coach_name, venue, motto)
+    values (
+      'Black Marlins Swimming Club Klaten',
+      'BMSC',
+      'Klaten',
+      'Jawa Tengah',
+      'Indonesia',
+      'Hardiyanto Wibowo',
+      null,
+      null
+    )
+    returning id
+  `;
+  const clubId = clubs[0]!.id;
 
   await sql`
     insert into club_staff (club_id, user_id, role) values
       (${clubId}, ${satriyoId}, 'superadmin'),
       (${clubId}, ${azkiyaId}, 'club_admin')
-    on conflict (club_id, user_id) do nothing
   `;
 
   const haveSwimmers = await sql<{ n: number }>`select count(*)::int as n from swimmers where club_id = ${clubId}`;

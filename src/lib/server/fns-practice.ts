@@ -3,7 +3,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { requireClub } from "@/lib/club/context";
 import { updateAttendanceStatus } from "@/lib/club/attendance";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
-import { canWritePractice } from "@/lib/club/permissions";
+import { savePracticeRecord } from "@/lib/club/practice";
 import { deletePractice as deletePracticeFor } from "@/lib/club/writes";
 import type { Attendance, Practice, PracticeDetail, PracticeSet } from "@/lib/swim/types";
 
@@ -58,27 +58,8 @@ export const savePractice = createServerFn({ method: "POST" }).middleware([authM
   if (!input.sessionDate) throw new Error("Tanggal wajib diisi");
   return input;
 }).handler(async ({ context, data }) => {
-  const { sql, clubId, userId } = await requireClub(context.userId);
-  const hats = await hatsFor({ sql, userId });
-  if (!canWritePractice(hats)) throw new Error("Tidak diizinkan");
-  const total = data.sets.reduce((acc, s) => acc + s.reps * s.distanceM, 0);
-  let practiceId = data.id;
-  if (practiceId) {
-    await sql`update practices set session_date = ${data.sessionDate}, start_time = ${data.startTime || null}, duration_min = ${data.durationMin ?? null}, location = ${data.location?.trim() || null}, kind = ${data.kind}, title = ${data.title.trim()}, focus = ${data.focus?.trim() || null}, total_meters = ${total}, notes = ${data.notes?.trim() || null} where id = ${practiceId} and club_id = ${clubId}`;
-    await sql`delete from practice_sets where practice_id = ${practiceId} and club_id = ${clubId}`;
-  } else {
-    const rows = await sql<{ id: number }>`insert into practices (club_id, session_date, start_time, duration_min, location, kind, title, focus, total_meters, notes) values (${clubId}, ${data.sessionDate}, ${data.startTime || null}, ${data.durationMin ?? null}, ${data.location?.trim() || null}, ${data.kind}, ${data.title.trim()}, ${data.focus?.trim() || null}, ${total}, ${data.notes?.trim() || null}) returning id`;
-    practiceId = rows[0]!.id;
-    const roster = await sql<{ id: number }>`select id from swimmers where club_id = ${clubId} and status = 'aktif'`;
-    for (const s of roster) {
-      await sql`insert into practice_attendance (club_id, practice_id, swimmer_id, status, meters_completed) values (${clubId}, ${practiceId}, ${s.id}, 'hadir', ${total})`;
-    }
-  }
-  for (let i = 0; i < data.sets.length; i++) {
-    const s = data.sets[i]!;
-    await sql`insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description) values (${clubId}, ${practiceId}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})`;
-  }
-  return { id: practiceId };
+  const actor = await requireClub(context.userId);
+  return savePracticeRecord(actor, data);
 });
 
 export const deletePractice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
@@ -86,7 +67,7 @@ export const deletePractice = createServerFn({ method: "POST" }).middleware([aut
   return deletePracticeFor(actor, data.id);
 });
 
-export const updateAttendance = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; status: "hadir" | "izin" | "sakit" | "alfa"; metersCompleted?: number | null }) => input).handler(async ({ context, data }) => {
+export const updateAttendance = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; status: "belum" | "hadir" | "izin" | "sakit" | "alfa"; metersCompleted?: number | null }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return updateAttendanceStatus(actor, data);
 });

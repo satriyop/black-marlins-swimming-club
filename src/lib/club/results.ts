@@ -33,6 +33,8 @@ export async function saveResult(
   if (input.kind === "test" && !canWriteTestTime(hats, input.swimmerId)) {
     throw new Error("Tidak diizinkan");
   }
+  if (input.distanceM <= 0) throw new Error("Jarak tidak valid");
+  if (input.timeMs != null && input.timeMs <= 0) throw new Error("Waktu tidak valid");
   let isPb = false;
   if (input.status === "selesai" && input.timeMs != null) {
     const best = await actor.sql<{ t: number | null }>`

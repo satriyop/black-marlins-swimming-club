@@ -14,6 +14,7 @@ test("production boot refuses missing BETTER_AUTH_SECRET", () => {
       GOOGLE_CLIENT_ID: "id",
       GOOGLE_CLIENT_SECRET: "secret",
       BETTER_AUTH_URL: "https://club.example",
+      DATABASE_URL: "postgres://x",
     }),
   ).toThrow(/BETTER_AUTH_SECRET/);
 });
@@ -24,10 +25,23 @@ test("production boot refuses missing Google client", () => {
       NODE_ENV: "production",
       BETTER_AUTH_SECRET: "secret",
       BETTER_AUTH_URL: "https://club.example",
+      DATABASE_URL: "postgres://x",
     }),
   ).toThrow(/GOOGLE_CLIENT/);
 });
 
 test("non-production does not require secrets", () => {
   expect(() => assertProductionAuthEnv({ NODE_ENV: "test" })).not.toThrow();
+});
+
+test("production boot refuses missing DATABASE_URL", () => {
+  expect(() =>
+    assertProductionAuthEnv({
+      NODE_ENV: "production",
+      BETTER_AUTH_SECRET: "secret",
+      BETTER_AUTH_URL: "https://club.example",
+      GOOGLE_CLIENT_ID: "id",
+      GOOGLE_CLIENT_SECRET: "secret",
+    }),
+  ).toThrow(/DATABASE_URL/);
 });

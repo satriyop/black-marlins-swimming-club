@@ -69,6 +69,7 @@ export const SET_BLOCKS = [
 ] as const;
 
 export const ATTENDANCE = [
+  { id: "belum", label: "Belum" },
   { id: "hadir", label: "Hadir" },
   { id: "izin", label: "Izin" },
   { id: "sakit", label: "Sakit" },

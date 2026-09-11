@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth/verify.server";
 import { requireClub } from "@/lib/club/context";
 import { getSql } from "@/lib/db";
 import { acceptInvite, acceptSwimmerInvite, createInvite, listInvites, type InviteInput } from "@/lib/club/invites";
-import { seedClub } from "@/lib/club/seed";
+
 
 export const listClubInvites = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
   const actor = await requireClub(context.userId);
@@ -32,7 +32,6 @@ export const acceptClubInvite = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const sql = await getSql();
-    await seedClub(sql);
     if (data.password) {
       return acceptSwimmerInvite(sql, { token: data.token, password: data.password });
     }

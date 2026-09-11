@@ -79,10 +79,13 @@ async function createPgliteSql(): Promise<Sql> {
   const pass = (globalRef.__pgliteMigrateChain__ ?? Promise.resolve()).catch(() => undefined).then(migrate);
   globalRef.__pgliteMigrateChain__ = pass;
   await pass;
-  return toSql(async <T>(text: string, params: unknown[]) => {
+  const sql = toSql(async <T>(text: string, params: unknown[]) => {
     const result = await pg.query<T>(text, params);
     return result.rows;
   });
+  const { seedClub } = await import("@/lib/club/seed");
+  await seedClub(sql);
+  return sql;
 }
 
 let sqlPromise: Promise<Sql> | null = null;

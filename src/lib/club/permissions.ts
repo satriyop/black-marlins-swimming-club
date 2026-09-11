@@ -73,7 +73,7 @@ export function staffRoleAtLeast(existing: StaffRole, incoming: StaffRole): Staf
 export function canMarkAttendance(
   hats: Hats,
   swimmerId: number,
-  status: "hadir" | "izin" | "sakit" | "alfa",
+  status: "belum" | "hadir" | "izin" | "sakit" | "alfa",
 ): boolean {
   if (hats.staff != null) return true;
   if (!hats.guardianSwimmerIds.includes(swimmerId)) return false;

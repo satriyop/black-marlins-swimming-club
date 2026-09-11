@@ -3,6 +3,7 @@ const REQUIRED = [
   "BETTER_AUTH_URL",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
+  "DATABASE_URL",
 ] as const;
 
 export function assertProductionAuthEnv(env: Record<string, string | undefined>): void {
