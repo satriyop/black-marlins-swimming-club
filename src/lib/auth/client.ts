@@ -48,6 +48,15 @@ export async function signIn(
   if (data?.url) window.location.href = data.url;
 }
 
+export async function signInWithPassword(email: string, password: string): Promise<void> {
+  const { error } = await authClient.signIn.email({
+    email: email.trim(),
+    password,
+    callbackURL: "/",
+  });
+  if (error) throw new Error(error.message ?? "Masuk gagal");
+}
+
 export async function signOut(redirectTo = "/"): Promise<void> {
   const { error } = await authClient.signOut();
   if (error) throw new Error(error.message ?? "Sign-out failed");

@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2 } from "lucide-react";
-import { deletePractice, getPractice, updateAttendance } from "@/lib/server/fns";
+import { deletePractice, getAccess, getPractice, updateAttendance } from "@/lib/server/fns";
+import { canMarkAttendance } from "@/lib/club/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ function Page() {
   const id = Number(Route.useParams().id);
   const nav = useNavigate();
   const qc = useQueryClient();
+  const access = useQuery({ queryKey: ["access"], queryFn: () => getAccess() });
   const { data, isPending, error } = useQuery({
     queryKey: ["practice", id],
     queryFn: () => getPractice({ data: { id } }),
@@ -93,7 +95,7 @@ function Page() {
                   <Badge tone={a.status === "hadir" ? "pool" : "muted"}>{labelOf(ATTENDANCE, a.status)}</Badge>
                 </div>
                 <SelectNative value={a.status} onChange={(e) => att.mutate({ id: a.id, status: e.target.value as typeof a.status, meters: data.totalMeters })}>
-                  {ATTENDANCE.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
+                  {ATTENDANCE.filter((s) => s.id === a.status || !access.data?.hats || canMarkAttendance(access.data.hats, a.swimmerId, s.id)).map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
                 </SelectNative>
               </div>
             ))}

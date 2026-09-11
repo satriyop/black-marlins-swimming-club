@@ -1,19 +1,24 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { CalendarDays, LayoutDashboard, Trophy, Users, Waves } from "lucide-react";
+import { CalendarDays, LayoutDashboard, Mail, Trophy, Users, Waves } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { RedirectToSignIn, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Splash } from "@/components/auth/login-screen";
+import { getAccess } from "@/lib/server/fns";
+import { navItemsFor, type NavItem } from "@/lib/club/nav";
+import { UNINVITED_MESSAGE } from "@/lib/club/access";
 import { cn } from "@/lib/utils";
 import { MarlinMark } from "@/components/swim/mark";
 import type { ReactNode } from "react";
 
-const NAV = [
-  { to: "/", label: "Dasbor", icon: LayoutDashboard },
-  { to: "/perenang", label: "Perenang", icon: Users },
-  { to: "/latihan", label: "Latihan", icon: Waves },
-  { to: "/event", label: "Event", icon: Trophy },
-  { to: "/aktivitas", label: "Aktivitas", icon: CalendarDays },
-] as const;
+const ICONS: Record<NavItem["to"], typeof LayoutDashboard> = {
+  "/": LayoutDashboard,
+  "/perenang": Users,
+  "/latihan": Waves,
+  "/event": Trophy,
+  "/aktivitas": CalendarDays,
+  "/undangan": Mail,
+};
 
 function navActive(pathname: string, to: string) {
   if (to === "/") return pathname === "/";
@@ -23,9 +28,18 @@ function navActive(pathname: string, to: string) {
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const access = useQuery({
+    queryKey: ["access"],
+    queryFn: () => getAccess(),
+    enabled: Boolean(user),
+  });
 
   if (isPending) return <Splash />;
   if (!user) return <RedirectToSignIn />;
+  if (access.isPending || !access.data) return <Splash label="Memuat akses…" />;
+
+  const items = navItemsFor(access.data.hats);
+  const invited = access.data.invited;
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -40,11 +54,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </Link>
           <nav className="grid gap-1">
-            {NAV.map((item) => {
+            {items.map((item) => {
+              const Icon = ICONS[item.to];
               const active = navActive(pathname, item.to);
               return (
                 <Link key={item.to} to={item.to} className={cn("flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-150", active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
-                  <item.icon className="size-4" />
+                  <Icon className="size-4" />
                   {item.label}
                 </Link>
               );
@@ -68,15 +83,23 @@ export function AppShell({ children }: { children: ReactNode }) {
               <UserButton />
             </div>
           </header>
-          <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+          <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+            {invited ? children : (
+              <EmptyState
+                title={UNINVITED_MESSAGE}
+                description="Skuad klub tidak ditampilkan sampai admin mengundang akun ini."
+              />
+            )}
+          </main>
         </div>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] md:hidden">
-        {NAV.map((item) => {
+      <nav className={cn("fixed inset-x-0 bottom-0 z-40 grid border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] md:hidden", items.length > 5 ? "grid-cols-6" : "grid-cols-5")}>
+        {items.map((item) => {
+          const Icon = ICONS[item.to];
           const active = navActive(pathname, item.to);
           return (
             <Link key={item.to} to={item.to} className={cn("flex min-h-14 flex-col items-center justify-center gap-1 text-xs font-medium", active ? "text-primary" : "text-muted-foreground")}>
-              <item.icon className="size-5" />
+              <Icon className="size-5" />
               {item.label}
             </Link>
           );

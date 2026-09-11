@@ -51,6 +51,31 @@ test("accepting a coach invite grants the hat", async () => {
   expect(hats.staff).toBe("coach");
 });
 
+test("wali can invite another wali only on linked perenang", async () => {
+  const h = await createClubHarness();
+  const clubId = await seedClub(h.sql);
+  const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
+  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const extra = await h.sql<{ id: number }>`
+    insert into swimmers (club_id, full_name, date_of_birth, gender, nationality, status)
+    values (${clubId}, 'Anak Lain', '2015-01-01', 'putra', 'Indonesia', 'aktif')
+    returning id
+  `;
+  const ok = await createInvite(h.actor(RATIH_ID), {
+    kind: "guardian",
+    email: "ibu-dua@example.com",
+    swimmerIds: [luigi.id],
+  });
+  expect(ok.token).toBeTruthy();
+  await expect(
+    createInvite(h.actor(RATIH_ID), {
+      kind: "guardian",
+      email: "asing@example.com",
+      swimmerIds: [extra[0]!.id],
+    }),
+  ).rejects.toThrow(/Tidak diizinkan/);
+});
+
 test("expired invite is rejected", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);

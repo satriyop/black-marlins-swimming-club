@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { requireClub } from "@/lib/club/context";
+import { updateAttendanceStatus } from "@/lib/club/attendance";
 import { hatsFor } from "@/lib/club/hats";
 import { canWritePractice } from "@/lib/club/permissions";
 import type { Attendance, Practice, PracticeDetail, PracticeSet } from "@/lib/swim/types";
@@ -85,7 +86,6 @@ export const deletePractice = createServerFn({ method: "POST" }).middleware([aut
 });
 
 export const updateAttendance = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; status: "hadir" | "izin" | "sakit" | "alfa"; metersCompleted?: number | null }) => input).handler(async ({ context, data }) => {
-  const { sql, clubId } = await requireClub(context.userId);
-  await sql`update practice_attendance set status = ${data.status}, meters_completed = ${data.metersCompleted ?? null} where id = ${data.id} and club_id = ${clubId}`;
-  return { ok: true };
+  const actor = await requireClub(context.userId);
+  return updateAttendanceStatus(actor, data);
 });

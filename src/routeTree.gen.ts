@@ -6,6 +6,7 @@ import { Route as AktivitasRouteImport } from './routes/aktivitas'
 import { Route as EventRouteImport } from './routes/event'
 import { Route as LatihanRouteImport } from './routes/latihan'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as UndanganRouteImport } from './routes/undangan'
 import { Route as PerenangRouteImport } from './routes/perenang'
 import { Route as EventIdRouteImport } from './routes/event.$id'
 import { Route as LatihanIdRouteImport } from './routes/latihan.$id'
@@ -17,6 +18,7 @@ const AktivitasRoute = AktivitasRouteImport.update({ id: '/aktivitas', path: '/a
 const EventRoute = EventRouteImport.update({ id: '/event', path: '/event', getParentRoute: () => rootRouteImport } as any)
 const LatihanRoute = LatihanRouteImport.update({ id: '/latihan', path: '/latihan', getParentRoute: () => rootRouteImport } as any)
 const LoginRoute = LoginRouteImport.update({ id: '/login', path: '/login', getParentRoute: () => rootRouteImport } as any)
+const UndanganRoute = UndanganRouteImport.update({ id: '/undangan', path: '/undangan', getParentRoute: () => rootRouteImport } as any)
 const PerenangRoute = PerenangRouteImport.update({ id: '/perenang', path: '/perenang', getParentRoute: () => rootRouteImport } as any)
 const EventIdRoute = EventIdRouteImport.update({ id: '/$id', path: '/$id', getParentRoute: () => EventRoute } as any)
 const LatihanIdRoute = LatihanIdRouteImport.update({ id: '/$id', path: '/$id', getParentRoute: () => LatihanRoute } as any)
@@ -29,6 +31,7 @@ export interface FileRoutesByFullPath {
   '/event': typeof EventRouteWithChildren
   '/latihan': typeof LatihanRouteWithChildren
   '/login': typeof LoginRoute
+  '/undangan': typeof UndanganRoute
   '/perenang': typeof PerenangRouteWithChildren
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
@@ -41,6 +44,7 @@ export interface FileRoutesByTo {
   '/event': typeof EventRouteWithChildren
   '/latihan': typeof LatihanRouteWithChildren
   '/login': typeof LoginRoute
+  '/undangan': typeof UndanganRoute
   '/perenang': typeof PerenangRouteWithChildren
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
@@ -54,6 +58,7 @@ export interface FileRoutesById {
   '/event': typeof EventRouteWithChildren
   '/latihan': typeof LatihanRouteWithChildren
   '/login': typeof LoginRoute
+  '/undangan': typeof UndanganRoute
   '/perenang': typeof PerenangRouteWithChildren
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
@@ -62,10 +67,10 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/aktivitas' | '/event' | '/latihan' | '/login' | '/perenang' | '/event/$id' | '/latihan/$id' | '/perenang/$id' | '/api/auth/$'
+  fullPaths: '/' | '/aktivitas' | '/event' | '/latihan' | '/login' | '/undangan' | '/perenang' | '/event/$id' | '/latihan/$id' | '/perenang/$id' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/aktivitas' | '/event' | '/latihan' | '/login' | '/perenang' | '/event/$id' | '/latihan/$id' | '/perenang/$id' | '/api/auth/$'
-  id: '__root__' | '/' | '/aktivitas' | '/event' | '/latihan' | '/login' | '/perenang' | '/event/$id' | '/latihan/$id' | '/perenang/$id' | '/api/auth/$'
+  to: '/' | '/aktivitas' | '/event' | '/latihan' | '/login' | '/undangan' | '/perenang' | '/event/$id' | '/latihan/$id' | '/perenang/$id' | '/api/auth/$'
+  id: '__root__' | '/' | '/aktivitas' | '/event' | '/latihan' | '/login' | '/undangan' | '/perenang' | '/event/$id' | '/latihan/$id' | '/perenang/$id' | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -74,6 +79,7 @@ export interface RootRouteChildren {
   EventRoute: typeof EventRouteWithChildren
   LatihanRoute: typeof LatihanRouteWithChildren
   LoginRoute: typeof LoginRoute
+  UndanganRoute: typeof UndanganRoute
   PerenangRoute: typeof PerenangRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -85,6 +91,7 @@ declare module '@tanstack/react-router' {
     '/event': { id: '/event'; path: '/event'; fullPath: '/event'; preLoaderRoute: typeof EventRouteImport; parentRoute: typeof rootRouteImport }
     '/latihan': { id: '/latihan'; path: '/latihan'; fullPath: '/latihan'; preLoaderRoute: typeof LatihanRouteImport; parentRoute: typeof rootRouteImport }
     '/login': { id: '/login'; path: '/login'; fullPath: '/login'; preLoaderRoute: typeof LoginRouteImport; parentRoute: typeof rootRouteImport }
+    '/undangan': { id: '/undangan'; path: '/undangan'; fullPath: '/undangan'; preLoaderRoute: typeof UndanganRouteImport; parentRoute: typeof rootRouteImport }
     '/perenang': { id: '/perenang'; path: '/perenang'; fullPath: '/perenang'; preLoaderRoute: typeof PerenangRouteImport; parentRoute: typeof rootRouteImport }
     '/event/$id': { id: '/event/$id'; path: '/$id'; fullPath: '/event/$id'; preLoaderRoute: typeof EventIdRouteImport; parentRoute: typeof EventRoute }
     '/latihan/$id': { id: '/latihan/$id'; path: '/$id'; fullPath: '/latihan/$id'; preLoaderRoute: typeof LatihanIdRouteImport; parentRoute: typeof LatihanRoute }
@@ -104,7 +111,7 @@ const PerenangRouteChildren: PerenangRouteChildren = { PerenangIdRoute: Perenang
 const PerenangRouteWithChildren = PerenangRoute._addFileChildren(PerenangRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute, AktivitasRoute, EventRoute: EventRouteWithChildren,
-  LatihanRoute: LatihanRouteWithChildren, LoginRoute,
+  LatihanRoute: LatihanRouteWithChildren, LoginRoute, UndanganRoute,
   PerenangRoute: PerenangRouteWithChildren, ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()

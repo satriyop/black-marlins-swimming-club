@@ -1,5 +1,5 @@
 export {
-  getDashboard, getClub, listSwimmers, getSwimmer, saveSwimmer, deleteSwimmer,
+  getAccess, getDashboard, getClub, listSwimmers, getSwimmer, saveSwimmer, deleteSwimmer,
 } from "./fns-swimmers";
 export {
   listPractices, getPractice, savePractice, deletePractice, updateAttendance,
@@ -9,3 +9,4 @@ export {
   listMeets, getMeet, saveMeet, deleteMeet, saveEntry, deleteEntry, saveResult, deleteResult,
 } from "./fns-meets";
 export { listActivities, saveActivity, deleteActivity } from "./fns-activities";
+export { listClubInvites, createClubInvite } from "./fns-invites";

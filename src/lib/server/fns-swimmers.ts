@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
+import { accessFor } from "@/lib/club/access";
 import { loadClub, requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
 import { canWriteRoster } from "@/lib/club/permissions";
@@ -57,6 +58,11 @@ export const getDashboard = createServerFn({ method: "GET" })
       },
     };
   });
+
+export const getAccess = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const { sql, userId } = await loadClub(context.userId);
+  return accessFor({ sql, userId });
+});
 
 export const getClub = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
   const { sql, clubId } = await requireClub(context.userId);

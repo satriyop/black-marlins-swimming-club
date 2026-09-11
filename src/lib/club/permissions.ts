@@ -45,3 +45,13 @@ export function canWriteActivity(hats: Hats): boolean {
 export function canWriteClubProfile(hats: Hats): boolean {
   return hats.staff === "superadmin" || hats.staff === "club_admin";
 }
+
+export function canMarkAttendance(
+  hats: Hats,
+  swimmerId: number,
+  status: "hadir" | "izin" | "sakit" | "alfa",
+): boolean {
+  if (hats.staff != null) return true;
+  if (!hats.guardianSwimmerIds.includes(swimmerId)) return false;
+  return status === "izin" || status === "sakit";
+}

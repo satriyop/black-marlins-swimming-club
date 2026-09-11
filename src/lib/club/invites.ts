@@ -15,6 +15,44 @@ function token(): string {
   return randomBytes(24).toString("hex");
 }
 
+export type InviteRow = {
+  id: number;
+  email: string | null;
+  kind: string;
+  payload: { role?: StaffRole | null; swimmerIds?: number[] };
+  expiresAt: string;
+};
+
+export async function listInvites(actor: Actor): Promise<InviteRow[]> {
+  const clubId = await clubIdFor(actor);
+  if (clubId == null) throw new Error("Tidak diizinkan");
+  const hats = await hatsFor(actor);
+  const staffOk = hats.staff === "superadmin" || hats.staff === "club_admin";
+  const familyOk = hats.guardianSwimmerIds.length > 0;
+  if (!staffOk && !familyOk) throw new Error("Tidak diizinkan");
+  const rows = await actor.sql<{
+    id: number;
+    email: string | null;
+    kind: string;
+    payload: InviteRow["payload"] | string;
+    expires_at: string;
+  }>`
+    select id, email, kind, payload, expires_at
+    from invites
+    where club_id = ${clubId} and accepted_at is null
+    order by id desc
+  `;
+  const mapped = rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    kind: r.kind,
+    payload: typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload,
+    expiresAt: r.expires_at,
+  }));
+  if (staffOk) return mapped;
+  return mapped.filter((r) => r.kind === "guardian" || r.kind === "swimmer_account");
+}
+
 export async function createInvite(actor: Actor, input: InviteInput): Promise<{ token: string; id: number }> {
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
