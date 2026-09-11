@@ -99,6 +99,7 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
+          args: --accept-dns=true
       - name: Deploy exact SHA to aidev
         env:
           BMSC_DEPLOY_HOST: ${{ secrets.BMSC_DEPLOY_HOST }}
@@ -111,7 +112,7 @@ jobs:
             echo "::notice::Skipping deploy — add repo secret BMSC_DEPLOY_SSH_KEY (ed25519 for root@aidev)."
             exit 0
           fi
-          HOST="${BMSC_DEPLOY_HOST:-aidev}"
+          HOST="${BMSC_DEPLOY_HOST:-aidev.tail23e122.ts.net}"
           USER="${BMSC_DEPLOY_USER:-root}"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
