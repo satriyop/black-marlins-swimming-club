@@ -38,23 +38,23 @@ export function mapSwimmer(r: SwimmerRow): Swimmer {
   };
 }
 
-export async function clubOf(sql: Sql, userId: string): Promise<Club> {
+export async function clubOf(sql: Sql, clubId: number): Promise<Club> {
   const rows = await sql<{
-    id: number; user_id: string; name: string; short_name: string; city: string;
+    id: number; name: string; short_name: string; city: string;
     province: string; country: string; coach_name: string; venue: string | null; motto: string | null;
-  }>`select * from clubs where user_id = ${userId} limit 1`;
+  }>`select * from clubs where id = ${clubId} limit 1`;
   const c = rows[0];
   if (!c) throw new Error("Klub tidak ditemukan");
   return {
-    id: c.id, userId: c.user_id, name: c.name, shortName: c.short_name,
+    id: c.id, name: c.name, shortName: c.short_name,
     city: c.city, province: c.province, country: c.country,
     coachName: c.coach_name, venue: c.venue, motto: c.motto,
   };
 }
 
-export async function swimmersOf(sql: Sql, userId: string): Promise<Swimmer[]> {
+export async function swimmersOf(sql: Sql, clubId: number): Promise<Swimmer[]> {
   const rows = await sql<SwimmerRow>`
-    select * from swimmers where user_id = ${userId} order by date_of_birth, full_name
+    select * from swimmers where club_id = ${clubId} order by date_of_birth, full_name
   `;
   return rows.map(mapSwimmer);
 }

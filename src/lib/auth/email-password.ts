@@ -1,5 +1,2 @@
-/**
- * Local email/password sign-in (this app's Better Auth DB — not the broker).
- * Off by default. Flip `emailAndPasswordEnabled` to true to enable.
- */
-export const emailAndPasswordEnabled = false;
+/** Swimmer accounts sign in with password. Public register stays off. */
+export const emailAndPasswordEnabled = true;

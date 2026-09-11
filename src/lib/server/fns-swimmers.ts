@@ -1,44 +1,44 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { ensureSeeded } from "./bootstrap";
-import { clubOf, mapSwimmer, swimmersOf, type SwimmerRow } from "./fns-shared";
+import { loadClub, requireClub } from "@/lib/club/context";
+import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
+import { canWriteRoster } from "@/lib/club/permissions";
+import { listSwimmers as listSwimmersFor } from "@/lib/club/swimmers";
+import { clubOf, mapSwimmer, type SwimmerRow } from "./fns-shared";
 import type { Dashboard, PersonalBest, Practice, Meet, Result } from "@/lib/swim/types";
 
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<Dashboard> => {
-    const userId = context.userId;
-    await ensureSeeded(userId);
-    const sql = await getSql();
-    const club = await clubOf(sql, userId);
-    const swimmers = await swimmersOf(sql, userId);
+    const { sql, clubId, userId } = await requireClub(context.userId);
+    const club = await clubOf(sql, clubId);
+    const swimmers = await listSwimmersFor({ sql, userId });
     const upcomingPractices = await sql<PracticeRow>`
       select * from practices
-      where user_id = ${userId} and session_date >= current_date
+      where club_id = ${clubId} and session_date >= current_date
       order by session_date, start_time limit 4`;
     const upcomingMeets = await sql<MeetRow>`
       select * from meets
-      where user_id = ${userId} and start_date >= current_date and status <> 'batal'
+      where club_id = ${clubId} and start_date >= current_date and status <> 'batal'
       order by start_date limit 4`;
     const recentResults = await sql<ResultRow>`
       select r.*, s.full_name as swimmer_name, m.name as meet_name
       from results r join swimmers s on s.id = r.swimmer_id left join meets m on m.id = r.meet_id
-      where r.user_id = ${userId} order by r.result_date desc, r.id desc limit 8`;
+      where r.club_id = ${clubId} order by r.result_date desc, r.id desc limit 8`;
     const recentPbs = recentResults.filter((r) => r.is_pb).slice(0, 6);
     const monthPractices = await sql<{ n: number }>`
-      select count(*)::int as n from practices where user_id = ${userId}
+      select count(*)::int as n from practices where club_id = ${clubId}
         and date_trunc('month', session_date::timestamp) = date_trunc('month', current_date::timestamp)`;
     const pbMonth = await sql<{ n: number }>`
-      select count(*)::int as n from results where user_id = ${userId} and is_pb = true
+      select count(*)::int as n from results where club_id = ${clubId} and is_pb = true
         and date_trunc('month', result_date::timestamp) = date_trunc('month', current_date::timestamp)`;
     const att = await sql<{ hadir: number; total: number }>`
       select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*)::int as total
       from practice_attendance a join practices p on p.id = a.practice_id
-      where a.user_id = ${userId} and p.session_date >= (current_date - interval '30 days')`;
+      where a.club_id = ${clubId} and p.session_date >= (current_date - interval '30 days')`;
     const volume = await sql<{ n: number }>`
       select coalesce(sum(total_meters), 0)::int as n from practices
-      where user_id = ${userId} and session_date >= (current_date - interval '6 days') and session_date <= current_date`;
+      where club_id = ${clubId} and session_date >= (current_date - interval '6 days') and session_date <= current_date`;
     const hadir = att[0]?.hadir ?? 0;
     const total = att[0]?.total ?? 0;
     return {
@@ -59,35 +59,35 @@ export const getDashboard = createServerFn({ method: "GET" })
   });
 
 export const getClub = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
-  await ensureSeeded(context.userId);
-  return clubOf(await getSql(), context.userId);
+  const { sql, clubId } = await requireClub(context.userId);
+  return clubOf(sql, clubId);
 });
 
 export const listSwimmers = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
-  await ensureSeeded(context.userId);
-  return swimmersOf(await getSql(), context.userId);
+  const { sql, userId } = await loadClub(context.userId);
+  return listSwimmersFor({ sql, userId });
 });
 
 export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
-  await ensureSeeded(context.userId);
-  const sql = await getSql();
-  const rows = await sql<SwimmerRow>`select * from swimmers where id = ${data.id} and user_id = ${context.userId} limit 1`;
+  const { sql, clubId, userId } = await requireClub(context.userId);
+  const hats = await hatsFor({ sql, userId });
+  const rows = await sql<SwimmerRow>`select * from swimmers where id = ${data.id} and club_id = ${clubId} limit 1`;
   const row = rows[0];
-  if (!row) throw new Error("Perenang tidak ditemukan");
+  if (!row || !canSeeSwimmer(hats, data.id)) throw new Error("Perenang tidak ditemukan");
   const swimmer = mapSwimmer(row);
   const results = await sql<ResultRow>`
     select r.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name
     from results r left join meets m on m.id = r.meet_id
-    where r.user_id = ${context.userId} and r.swimmer_id = ${data.id} order by r.result_date desc, r.id desc`;
+    where r.club_id = ${clubId} and r.swimmer_id = ${data.id} order by r.result_date desc, r.id desc`;
   const pbs = await sql<{ stroke: string; distance_m: number; course: string; time_ms: number; result_date: string; meet_name: string | null }>`
     select distinct on (r.stroke, r.distance_m, r.course) r.stroke, r.distance_m, r.course, r.time_ms, r.result_date, m.name as meet_name
     from results r left join meets m on m.id = r.meet_id
-    where r.user_id = ${context.userId} and r.swimmer_id = ${data.id} and r.status = 'selesai' and r.time_ms is not null
+    where r.club_id = ${clubId} and r.swimmer_id = ${data.id} and r.status = 'selesai' and r.time_ms is not null
     order by r.stroke, r.distance_m, r.course, r.time_ms asc`;
   const att = await sql<{ hadir: number; total: number }>`
     select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*)::int as total
-    from practice_attendance where user_id = ${context.userId} and swimmer_id = ${data.id}`;
-  const volume = await sql<{ n: number }>`select coalesce(sum(meters_completed), 0)::int as n from practice_attendance where user_id = ${context.userId} and swimmer_id = ${data.id} and status = 'hadir'`;
+    from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id}`;
+  const volume = await sql<{ n: number }>`select coalesce(sum(meters_completed), 0)::int as n from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id} and status = 'hadir'`;
   const entries = await sql<{
     id: number; meet_id: number; swimmer_id: number; swimmer_name: string; stroke: string; distance_m: number;
     age_group: string | null; seed_time_ms: number | null; status: string; lane: number | null; heat: string | null;
@@ -95,7 +95,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
   }>`
     select e.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name, m.start_date
     from meet_entries e join meets m on m.id = e.meet_id
-    where e.user_id = ${context.userId} and e.swimmer_id = ${data.id} and m.start_date >= current_date
+    where e.club_id = ${clubId} and e.swimmer_id = ${data.id} and m.start_date >= current_date
     order by m.start_date, e.distance_m`;
   return {
     swimmer, results: results.map(mapResult),
@@ -115,17 +115,20 @@ export const saveSwimmer = createServerFn({ method: "POST" }).middleware([authMi
   if (!input.dateOfBirth) throw new Error("Tanggal lahir wajib diisi");
   return { ...input, fullName };
 }).handler(async ({ context, data }) => {
-  const sql = await getSql();
+  const { sql, clubId, userId } = await requireClub(context.userId);
+  const hats = await hatsFor({ sql, userId });
+  if (!canWriteRoster(hats, data.id)) throw new Error("Tidak diizinkan");
   if (data.id) {
-    await sql`update swimmers set full_name = ${data.fullName}, nickname = ${data.nickname?.trim() || null}, date_of_birth = ${data.dateOfBirth}, gender = ${data.gender}, city = ${data.city?.trim() || null}, status = ${data.status}, join_date = ${data.joinDate || null}, notes = ${data.notes?.trim() || null} where id = ${data.id} and user_id = ${context.userId}`;
+    await sql`update swimmers set full_name = ${data.fullName}, nickname = ${data.nickname?.trim() || null}, date_of_birth = ${data.dateOfBirth}, gender = ${data.gender}, city = ${data.city?.trim() || null}, status = ${data.status}, join_date = ${data.joinDate || null}, notes = ${data.notes?.trim() || null} where id = ${data.id} and club_id = ${clubId}`;
     return { id: data.id };
   }
-  const rows = await sql<{ id: number }>`insert into swimmers (user_id, full_name, nickname, date_of_birth, gender, nationality, city, status, join_date, notes) values (${context.userId}, ${data.fullName}, ${data.nickname?.trim() || null}, ${data.dateOfBirth}, ${data.gender}, 'Indonesia', ${data.city?.trim() || null}, ${data.status}, ${data.joinDate || null}, ${data.notes?.trim() || null}) returning id`;
+  const rows = await sql<{ id: number }>`insert into swimmers (club_id, full_name, nickname, date_of_birth, gender, nationality, city, status, join_date, notes) values (${clubId}, ${data.fullName}, ${data.nickname?.trim() || null}, ${data.dateOfBirth}, ${data.gender}, 'Indonesia', ${data.city?.trim() || null}, ${data.status}, ${data.joinDate || null}, ${data.notes?.trim() || null}) returning id`;
   return { id: rows[0]!.id };
 });
 
 export const deleteSwimmer = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
-  await (await getSql())`delete from swimmers where id = ${data.id} and user_id = ${context.userId}`;
+  const { sql, clubId } = await requireClub(context.userId);
+  await sql`delete from swimmers where id = ${data.id} and club_id = ${clubId}`;
   return { ok: true };
 });
 

@@ -1,0 +1,47 @@
+import type { Hats, StaffRole } from "./hats";
+
+export function canWriteRoster(hats: Hats, swimmerId?: number): boolean {
+  if (hats.staff === "superadmin" || hats.staff === "club_admin") return true;
+  if (swimmerId != null && hats.guardianSwimmerIds.includes(swimmerId)) return true;
+  return false;
+}
+
+export function canWritePractice(hats: Hats): boolean {
+  return hats.staff != null;
+}
+
+export function canWriteOfficialResult(hats: Hats, swimmerId: number): boolean {
+  if (hats.staff != null) return true;
+  return hats.selfSwimmerId === swimmerId;
+}
+
+export function canWriteTestTime(hats: Hats, swimmerId: number): boolean {
+  if (hats.staff != null) return true;
+  return hats.guardianSwimmerIds.includes(swimmerId);
+}
+
+export function canInviteStaff(hats: Hats, role: StaffRole): boolean {
+  if (hats.staff === "superadmin") return true;
+  if (hats.staff === "club_admin") return role === "club_admin" || role === "coach";
+  return false;
+}
+
+export function canRevokeStaff(hats: Hats, targetRole: StaffRole, remainingSuperadmins: number): boolean {
+  if (targetRole === "superadmin") {
+    if (hats.staff !== "superadmin") return false;
+    return remainingSuperadmins > 1;
+  }
+  return hats.staff === "superadmin" || hats.staff === "club_admin";
+}
+
+export function canInviteGuardian(hats: Hats): boolean {
+  return hats.staff === "superadmin" || hats.staff === "club_admin" || hats.guardianSwimmerIds.length > 0;
+}
+
+export function canWriteActivity(hats: Hats): boolean {
+  return hats.staff === "superadmin" || hats.staff === "club_admin";
+}
+
+export function canWriteClubProfile(hats: Hats): boolean {
+  return hats.staff === "superadmin" || hats.staff === "club_admin";
+}

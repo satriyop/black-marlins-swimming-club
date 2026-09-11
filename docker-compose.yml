@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_DB: bmsc
+      POSTGRES_USER: bmsc
+      POSTGRES_PASSWORD: bmsc
+    volumes:
+      - bmsc-pg:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://bmsc:bmsc@postgres:5432/bmsc
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      VITE_AUTH_ENABLED: "true"
+    command: ["sh", "-c", "node scripts/migrate.mjs && node .output/server/index.mjs"]
+
+volumes:
+  bmsc-pg:

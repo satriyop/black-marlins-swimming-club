@@ -1,10 +1,9 @@
-export type GrokProvider = {
-  providerId: string;
-  idp: string;
+export type AdultProvider = {
+  providerId: "google";
+  idp: "google";
   label: string;
 };
 
-export const GROK_PROVIDERS: readonly GrokProvider[] = [
-  { providerId: "grok-google", idp: "google", label: "Google" },
-  { providerId: "grok-x", idp: "twitter", label: "X" },
+export const ADULT_PROVIDERS: readonly AdultProvider[] = [
+  { providerId: "google", idp: "google", label: "Google" },
 ];

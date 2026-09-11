@@ -1,4 +1,4 @@
-import { GROK_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
+import { ADULT_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { MarlinMark } from "@/components/swim/mark";
 
@@ -26,8 +26,7 @@ export function Splash({ label = "Memuat klub…" }: { label?: string }) {
 }
 
 export function LoginScreen() {
-  const google = GROK_PROVIDERS.find((p) => p.idp === "google");
-  const others = GROK_PROVIDERS.filter((p) => p.idp !== "google");
+  const google = ADULT_PROVIDERS.find((p) => p.idp === "google");
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
@@ -52,11 +51,6 @@ export function LoginScreen() {
                   Masuk dengan Google
                 </Button>
               ) : null}
-              {others.map((p) => (
-                <Button key={p.providerId} type="button" variant="outline" onClick={() => signIn(p.providerId, { callbackURL: "/" })}>
-                  Lanjut dengan {p.label}
-                </Button>
-              ))}
               <p className="text-center text-xs text-muted-foreground">Masuk memakai Gmail pelatih atau pengurus klub.</p>
             </div>
           ) : (

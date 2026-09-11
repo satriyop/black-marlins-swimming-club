@@ -1,6 +1,5 @@
 export type Club = {
   id: number;
-  userId: string;
   name: string;
   shortName: string;
   city: string;
