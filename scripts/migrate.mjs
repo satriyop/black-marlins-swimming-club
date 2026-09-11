@@ -124,7 +124,7 @@ async function main() {
     const { importKikoResults } = await import("./import-kiko-results.mjs");
     const query = async (text, params = []) => (await client.query(text, params)).rows;
     const stats = await importKikoResults(query);
-    console.log(`[migrate] kiko times inserted=${stats.inserted} skipped=${stats.skipped}`);
+    console.log(`[migrate] kiko times inserted=${stats.inserted} skipped=${stats.skipped} updated=${stats.updated ?? 0}`);
   } finally {
     client.release();
     await pool.end();

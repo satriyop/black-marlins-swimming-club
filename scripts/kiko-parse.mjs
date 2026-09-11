@@ -145,3 +145,44 @@ export function applyMedalPlaces(events, medals) {
     return { ...ev, place: hit.place ?? ev.place, notes: notes || ev.notes };
   });
 }
+
+export function isPlaceholderDate(date) {
+  return /^\d{4}-01-01$/.test(String(date ?? ""));
+}
+
+export function meetDateRange(events, medals) {
+  /** @type {Record<string, string[]>} */
+  const byMeet = {};
+  const push = (code, date) => {
+    if (!code || !date || isPlaceholderDate(date)) return;
+    (byMeet[code] ??= []).push(date);
+  };
+  for (const ev of events) push(ev.meetCode, ev.date);
+  for (const m of medals) push(m.meetCode, m.date);
+  /** @type {Record<string, { start: string, end: string }>} */
+  const range = {};
+  for (const [code, dates] of Object.entries(byMeet)) {
+    const sorted = [...dates].sort();
+    range[code] = { start: sorted[0], end: sorted[sorted.length - 1] };
+  }
+  return range;
+}
+
+export function syncEventDates(events, medals) {
+  const range = meetDateRange(events, medals);
+  return events.map((ev) => {
+    const hit = medals.find(
+      (m) =>
+        m.athlete === ev.athlete &&
+        m.meetCode === ev.meetCode &&
+        m.distanceM === ev.distanceM &&
+        m.stroke === ev.stroke &&
+        m.date &&
+        !isPlaceholderDate(m.date),
+    );
+    let date = ev.date;
+    if (isPlaceholderDate(date) && hit) date = hit.date;
+    if (isPlaceholderDate(date) && range[ev.meetCode]) date = range[ev.meetCode].start;
+    return { ...ev, date };
+  });
+}

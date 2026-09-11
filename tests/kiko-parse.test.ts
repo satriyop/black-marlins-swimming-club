@@ -2,12 +2,26 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
-import { applyMedalPlaces, parseEvents, parseMedals, parseTimeToMs } from "../scripts/kiko-parse.mjs";
+import { applyMedalPlaces, parseEvents, parseMedals, parseTimeToMs, syncEventDates } from "../scripts/kiko-parse.mjs";
 import { seedClub } from "../src/lib/club/seed";
 import { createClubHarness } from "./harness";
 import { importKikoResults } from "../scripts/import-kiko-results.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+test("syncs placeholder event dates to medal and real meet days", () => {
+  const events = parseEvents(readFileSync(join(root, "data/kiko/renang_events.csv"), "utf8"));
+  const medals = parseMedals(readFileSync(join(root, "data/kiko/renang_medal.csv"), "utf8"));
+  const synced = syncEventDates(events, medals);
+  const kras = synced.find((r) => r.meetCode === "KRAS2025" && r.fullName.startsWith("Luigi") && r.distanceM === 25 && r.stroke === "kupu");
+  expect(kras?.date).toBe("2025-09-21");
+  const jatidiriPb = synced.find(
+    (r) => r.fullName.startsWith("Luigi") && r.distanceM === 50 && r.stroke === "bebas" && r.meetCode === "JATIDIRI2026",
+  );
+  expect(jatidiriPb?.date).toBe("2026-09-03");
+  const kejurnasPlaceholder = synced.filter((r) => r.meetCode === "KEJURPROVJTG2026");
+  expect(kejurnasPlaceholder.every((r) => r.date === "2026-01-01")).toBe(true);
+});
 
 test("parses Luigi 50 free Jatidiri gold as 30530 ms official LCM", () => {
   const csv = readFileSync(join(root, "data/kiko/renang_events.csv"), "utf8");
