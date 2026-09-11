@@ -20,10 +20,14 @@ Repo secrets:
 | Secret | Purpose |
 |--------|---------|
 | `BMSC_DEPLOY_SSH_KEY` | Private ed25519 for **root@aidev** (not the Mini `AIDEV_SSH_PRIVATE_KEY`) |
-| `BMSC_DEPLOY_HOST` | Optional, default `146.190.87.122` |
+| `BMSC_DEPLOY_HOST` | Tailscale name, default `aidev` (public `:22` is not reachable from GitHub-hosted runners) |
 | `BMSC_DEPLOY_USER` | Optional, default `root` |
+| `TS_OAUTH_CLIENT_ID` | Same Tailscale OAuth client as kiko-web (`tag:ci`) |
+| `TS_OAUTH_SECRET` | Same Tailscale OAuth secret as kiko-web |
 
-On aidev, append the matching public key to `/root/.ssh/authorized_keys`. One SSH session per deploy (fail2ban).
+GitHub-hosted runners join the tailnet, then SSH to `aidev` over Tailscale. Do not point `BMSC_DEPLOY_HOST` at the public VPS IP.
+
+On aidev, the matching public key is in `/root/.ssh/authorized_keys` (comment `bmsc-deploy@github-actions`). One SSH session per deploy (fail2ban).
 
 Create a GitHub **Environment** named `production` (Settings → Environments). Restrict the deploy job to that environment. Required reviewers are optional (this repo is often a solo merge).
 

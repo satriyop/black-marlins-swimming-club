@@ -93,6 +93,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: bmsc-release
+      - name: Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
       - name: Deploy exact SHA to aidev
         env:
           BMSC_DEPLOY_HOST: ${{ secrets.BMSC_DEPLOY_HOST }}
@@ -105,15 +111,19 @@ jobs:
             echo "::notice::Skipping deploy — add repo secret BMSC_DEPLOY_SSH_KEY (ed25519 for root@aidev)."
             exit 0
           fi
-          HOST="${BMSC_DEPLOY_HOST:-146.190.87.122}"
+          HOST="${BMSC_DEPLOY_HOST:-aidev}"
           USER="${BMSC_DEPLOY_USER:-root}"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$BMSC_DEPLOY_SSH_KEY" > ~/.ssh/bmsc_deploy
           chmod 600 ~/.ssh/bmsc_deploy
-          ssh-keyscan -T 10 -H "$HOST" >> ~/.ssh/known_hosts
+          for i in 1 2 3 4 5 6 7 8; do
+            if tailscale ping -c 1 "$HOST" >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          ssh-keyscan -T 10 -H "$HOST" >> ~/.ssh/known_hosts || true
           # One SSH session (fail2ban): upload tarball, pull bmsc.sh, apply release.
-          ssh -i ~/.ssh/bmsc_deploy -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+          ssh -i ~/.ssh/bmsc_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
             "${USER}@${HOST}" \
             "cat > /tmp/bmsc-release.tgz && cd /var/www/bmsc && git pull --ff-only && sudo bash scripts/bmsc.sh apply-release /tmp/bmsc-release.tgz ${SHA} && rm -f /tmp/bmsc-release.tgz" \
             < bmsc-release.tgz
