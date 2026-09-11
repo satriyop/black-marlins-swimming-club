@@ -113,23 +113,12 @@ jobs:
             exit 0
           fi
           USER="${BMSC_DEPLOY_USER:-root}"
+          # Tailscale IPv4 for aidev (MagicDNS does not work on GitHub-hosted runners).
+          HOST="${BMSC_DEPLOY_HOST:-100.104.62.51}"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$BMSC_DEPLOY_SSH_KEY" > ~/.ssh/bmsc_deploy
           chmod 600 ~/.ssh/bmsc_deploy
-          # MagicDNS is unreliable on hosted runners; resolve aidev via Tailscale status.
-          HOST="$(tailscale status --json | python3 -c 'import json,sys
-st=json.load(sys.stdin)
-for p in st.get("Peer", {}).values():
-    host=(p.get("HostName") or "").split(".")[0]
-    dns=(p.get("DNSName") or "").split(".")[0]
-    if host=="aidev" or dns=="aidev":
-        ips=p.get("TailscaleIPs") or []
-        v4=next((i for i in ips if "." in i and ":" not in i),"")
-        if v4:
-            print(v4); raise SystemExit
-raise SystemExit("aidev not found on tailnet")
-')"
           echo "aidev tailnet ip ${HOST}"
           for i in 1 2 3 4 5 6 7 8; do
             if tailscale ping -c 1 "$HOST" >/dev/null 2>&1; then break; fi
