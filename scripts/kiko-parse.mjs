@@ -50,7 +50,7 @@ export const MEET_CALENDAR = {
   JATIDIRI2026: { start: "2026-09-02", end: "2026-09-03" },
 };
 
-/** Luigi Spectra SwimPro event numbers → race day (1xx day 1, 2xx day 2, 3xx day 3). */
+/** Spectra SwimPro event numbers → race day (1xx day 1, 2xx day 2, 3xx day 3). Per athlete: same stroke can sit on different days by age group. */
 export const LUIGI_RACE_DAYS = {
   "BOYOLALI2025|50|PUNGGUNG": "2025-08-23",
   "BOYOLALI2025|200|BEBAS": "2025-08-23",
@@ -79,6 +79,35 @@ export const LUIGI_RACE_DAYS = {
   "JATIDIRI2026|100|BEBAS": "2026-09-02",
   "JATIDIRI2026|50|BEBAS": "2026-09-03",
 };
+
+export const KUN_RACE_DAYS = {
+  "BOYOLALI2025|50|PUNGGUNG": "2025-08-23",
+  "BOYOLALI2025|200|BEBAS": "2025-08-23",
+  "BOYOLALI2025|100|PUNGGUNG": "2025-08-23",
+  "BOYOLALI2025|50|KUPU": "2025-08-24",
+  "BOYOLALI2025|50|BEBAS": "2025-08-24",
+  "SMGOPEN2025|50|BEBAS": "2025-10-03",
+  "SMGOPEN2025|100|PUNGGUNG": "2025-10-03",
+  "SMGOPEN2025|50|KUPU": "2025-10-04",
+  "SMGOPEN2025|50|PUNGGUNG": "2025-10-05",
+  "SMGOPEN2025|100|BEBAS": "2025-10-05",
+  "KEJURPROVJTG2026|50|KUPU": "2026-04-10",
+  "KEJURPROVJTG2026|200|PUNGGUNG": "2026-04-10",
+  "KEJURPROVJTG2026|100|BEBAS": "2026-04-10",
+  "KEJURPROVJTG2026|50|PUNGGUNG": "2026-04-11",
+  "KEJURPROVJTG2026|50|BEBAS": "2026-04-11",
+  "KEJURPROVJTG2026|100|PUNGGUNG": "2026-04-12",
+  "KRAPPROVBYL2026|50|PUNGGUNG": "2026-07-04",
+  "KRAPPROVBYL2026|100|PUNGGUNG": "2026-07-05",
+  "KRAPPROVBYL2026|200|BEBAS": "2026-07-05",
+  "KRAPPROVBYL2026|50|BEBAS": "2026-07-05",
+};
+
+const RACE_DAYS = { banyu: LUIGI_RACE_DAYS, bumi: KUN_RACE_DAYS };
+
+export function raceDayOf(athlete, meetCode, distanceM, gayaKey) {
+  return RACE_DAYS[athlete]?.[`${meetCode}|${distanceM}|${gayaKey}`] ?? null;
+}
 
 /** Pool length: "50" LCM, "25" SCM. Kapolres Magelang is Samapta 50 m. */
 export const MEET_COURSE = {
@@ -154,7 +183,7 @@ export function parseEvents(csvText) {
     if (!fullName || !stroke || !Number.isFinite(distanceM) || timeMs == null || !meet) continue;
     const place = rank && /^\d+$/.test(rank.trim()) ? Number(rank) : null;
     const gayaKey = String(gaya ?? "").toUpperCase();
-    const raceDay = atlet === "banyu" ? LUIGI_RACE_DAYS[`${meet}|${distanceM}|${gayaKey}`] : null;
+    const raceDay = raceDayOf(atlet, meet, distanceM, gayaKey);
     const calendar = MEET_CALENDAR[meet];
     let date = tanggal;
     if (raceDay) date = raceDay;
@@ -252,7 +281,7 @@ export function syncEventDates(events, medals) {
         !isPlaceholderDate(m.date),
     );
     const gayaKey = Object.keys(STROKE).find((k) => STROKE[k] === ev.stroke);
-    const raceDay = ev.athlete === "banyu" && gayaKey ? LUIGI_RACE_DAYS[`${ev.meetCode}|${ev.distanceM}|${gayaKey}`] : null;
+    const raceDay = gayaKey ? raceDayOf(ev.athlete, ev.meetCode, ev.distanceM, gayaKey) : null;
     let date = ev.date;
     if (raceDay) date = raceDay;
     if (isPlaceholderDate(date) && hit) date = hit.date;

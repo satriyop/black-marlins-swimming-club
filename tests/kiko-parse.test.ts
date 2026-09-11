@@ -50,6 +50,32 @@ test("syncs placeholder event dates to medal and real meet days", () => {
     (r) => r.fullName.startsWith("Luigi") && r.meetCode === "KEJURPROVJTG2026" && r.distanceM === 400,
   );
   expect(kejur400?.date).toBe("2026-04-12");
+  const kunBoyolaliFree = synced.find(
+    (r) => r.fullName.startsWith("Kun") && r.meetCode === "BOYOLALI2025" && r.distanceM === 50 && r.stroke === "bebas",
+  );
+  expect(kunBoyolaliFree?.date).toBe("2025-08-24");
+  expect(kunBoyolaliFree?.timeMs).toBe(36780);
+  const kunBoyolaliFly = synced.find(
+    (r) => r.fullName.startsWith("Kun") && r.meetCode === "BOYOLALI2025" && r.stroke === "kupu" && r.distanceM === 50,
+  );
+  expect(kunBoyolaliFly?.date).toBe("2025-08-24");
+  expect(kunBoyolaliFly?.timeMs).toBe(40920);
+  const kunSmgBack = synced.find(
+    (r) => r.fullName.startsWith("Kun") && r.meetCode === "SMGOPEN2025" && r.stroke === "punggung" && r.distanceM === 50,
+  );
+  expect(kunSmgBack?.date).toBe("2025-10-05");
+  const kunKrapFree = synced.find(
+    (r) => r.fullName.startsWith("Kun") && r.meetCode === "KRAPPROVBYL2026" && r.stroke === "bebas" && r.distanceM === 50,
+  );
+  const kunKrapBack = synced.find(
+    (r) => r.fullName.startsWith("Kun") && r.meetCode === "KRAPPROVBYL2026" && r.stroke === "punggung" && r.distanceM === 50,
+  );
+  expect(kunKrapBack?.date).toBe("2026-07-04");
+  expect(kunKrapFree?.date).toBe("2026-07-05");
+  const kunKejur100Back = synced.find(
+    (r) => r.fullName.startsWith("Kun") && r.meetCode === "KEJURPROVJTG2026" && r.stroke === "punggung" && r.distanceM === 100,
+  );
+  expect(kunKejur100Back?.date).toBe("2026-04-12");
 });
 
 test("parses Luigi 50 free Popda bronze as 30530 ms official LCM", () => {
@@ -111,4 +137,13 @@ test("import writes Ken, Luigi, and Kun official times into the club", async () 
     select start_date::text as start_date from meets where notes = 'KEJURPROVJTG2026'
   `;
   expect(kejurprov[0]?.start_date.slice(0, 10)).toBe("2026-04-10");
+  const kunBoyolali = await h.sql<{ time_ms: number; result_date: string }>`
+    select r.time_ms, r.result_date::text as result_date
+    from results r
+    join swimmers s on s.id = r.swimmer_id
+    join meets m on m.id = r.meet_id
+    where s.full_name like 'Kun%' and m.notes = 'BOYOLALI2025' and r.stroke = 'bebas' and r.distance_m = 50
+  `;
+  expect(kunBoyolali[0]?.time_ms).toBe(36780);
+  expect(kunBoyolali[0]?.result_date.slice(0, 10)).toBe("2025-08-24");
 });
