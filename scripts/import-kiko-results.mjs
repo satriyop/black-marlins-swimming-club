@@ -48,10 +48,16 @@ export async function importKikoResults(query) {
     const dates = events.filter((e) => e.meetCode === code).map((e) => e.date).sort();
     const start = ranges[code]?.start ?? dates[0];
     const end = ranges[code]?.end ?? dates[dates.length - 1] ?? start;
-    const existing = await query("select id from meets where club_id = $1 and name = $2 limit 1", [clubId, meta.name]);
+    const existing = await query(
+      "select id from meets where club_id = $1 and (name = $2 or notes = $3) limit 1",
+      [clubId, meta.name, code],
+    );
     if (existing[0]) {
       meetIds[code] = existing[0].id;
-      await query("update meets set start_date = $1, end_date = $2 where id = $3", [start, end, existing[0].id]);
+      await query(
+        "update meets set name = $1, start_date = $2, end_date = $3, city = $4, level = $5 where id = $6",
+        [meta.name, start, end, meta.city, meta.level, existing[0].id],
+      );
       continue;
     }
     const course = events.find((e) => e.meetCode === code)?.course ?? "50";
@@ -75,15 +81,25 @@ export async function importKikoResults(query) {
       continue;
     }
     const dup = await query(
-      `select id, result_date from results
+      `select id, result_date, course, place, notes from results
        where club_id = $1 and swimmer_id = $2 and meet_id = $3
          and stroke = $4 and distance_m = $5 and time_ms = $6
        limit 1`,
       [clubId, swimmerId, meetId, ev.stroke, ev.distanceM, ev.timeMs],
     );
     if (dup[0]) {
-      if (String(dup[0].result_date).slice(0, 10) !== ev.date) {
-        await query("update results set result_date = $1 where id = $2", [ev.date, dup[0].id]);
+      const sameDate = String(dup[0].result_date).slice(0, 10) === ev.date;
+      const sameCourse = String(dup[0].course) === String(ev.course);
+      const samePlace = (dup[0].place ?? null) === (ev.place ?? null);
+      const sameNotes = (dup[0].notes ?? null) === (ev.notes ?? null);
+      if (!sameDate || !sameCourse || !samePlace || !sameNotes) {
+        await query("update results set result_date = $1, course = $2, place = $3, notes = $4 where id = $5", [
+          ev.date,
+          ev.course,
+          ev.place,
+          ev.notes,
+          dup[0].id,
+        ]);
         updated += 1;
       } else {
         skipped += 1;
