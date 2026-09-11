@@ -1,12 +1,34 @@
 export {
-  getAccess, getDashboard, getClub, listSwimmers, getSwimmer, saveSwimmer, deleteSwimmer,
+  getAccess,
+  getDashboard,
+  getClub,
+  listSwimmers,
+  getSwimmer,
+  saveSwimmer,
+  deleteSwimmer,
 } from "./fns-swimmers";
 export {
-  listPractices, getPractice, savePractice, deletePractice, updateAttendance,
+  listPractices,
+  getPractice,
+  savePractice,
+  deletePractice,
+  updateAttendance,
   type SetInput,
 } from "./fns-practice";
 export {
-  listMeets, getMeet, saveMeet, deleteMeet, saveEntry, deleteEntry, saveResult, deleteResult,
+  listMeets,
+  getMeet,
+  saveMeet,
+  deleteMeet,
+  saveEntry,
+  deleteEntry,
+  saveResult,
+  deleteResult,
 } from "./fns-meets";
 export { listActivities, saveActivity, deleteActivity } from "./fns-activities";
-export { listClubInvites, createClubInvite, acceptClubInvite } from "./fns-invites";
+export {
+  listClubInvites,
+  createClubInvite,
+  acceptClubInvite,
+  getInvitePreview,
+} from "./fns-invites";

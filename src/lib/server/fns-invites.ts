@@ -3,19 +3,38 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { requireClub } from "@/lib/club/context";
 import { getSql } from "@/lib/db";
-import { acceptInvite, acceptSwimmerInvite, createInvite, listInvites, type InviteInput } from "@/lib/club/invites";
+import {
+  acceptInvite,
+  acceptSwimmerInvite,
+  createInvite,
+  listInvites,
+  previewInvite,
+  type InviteInput,
+} from "@/lib/club/invites";
 
+export const getInvitePreview = createServerFn({ method: "GET" })
+  .validator((input: { token: string }) => {
+    if (typeof input?.token !== "string" || !/^[a-f0-9]{48}$/.test(input.token))
+      throw new Error("Undangan tidak berlaku.");
+    return { token: input.token };
+  })
+  .handler(async ({ data }) => previewInvite(await getSql(), data.token));
 
-export const listClubInvites = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
-  const actor = await requireClub(context.userId);
-  return listInvites(actor);
-});
+export const listClubInvites = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const actor = await requireClub(context.userId);
+    return listInvites(actor);
+  });
 
 export const createClubInvite = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: InviteInput) => {
     if (!input.email?.trim()) throw new Error("Email wajib diisi");
-    if ((input.kind === "guardian" || input.kind === "swimmer_account") && !input.swimmerIds?.length) {
+    if (
+      (input.kind === "guardian" || input.kind === "swimmer_account") &&
+      !input.swimmerIds?.length
+    ) {
       throw new Error("Pilih perenang");
     }
     return { ...input, email: input.email.trim() };

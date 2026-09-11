@@ -30,6 +30,35 @@ function acceptPathFor(token: string): string {
   return `/terima?token=${token}`;
 }
 
+/** A bearer link exposes only the information needed to choose the acceptance flow. */
+export async function previewInvite(sql: Actor["sql"], token: string) {
+  const rows = await sql<{
+    kind: "staff" | "guardian" | "swimmer_account";
+    payload: { role?: StaffRole } | string;
+    email: string;
+    expires_at: string;
+    accepted_at: string | null;
+    club_name: string;
+  }>`
+    select i.kind, i.payload, i.email, i.expires_at, i.accepted_at, c.name as club_name
+    from invites i join clubs c on c.id = i.club_id where i.token = ${token} limit 1
+  `;
+  const invite = rows[0];
+  if (!invite) return { state: "invalid" as const };
+  if (invite.accepted_at) return { state: "accepted" as const };
+  if (new Date(invite.expires_at).getTime() <= Date.now()) return { state: "expired" as const };
+  const payload = typeof invite.payload === "string" ? JSON.parse(invite.payload) : invite.payload;
+  const [local, domain] = invite.email.split("@");
+  return {
+    state: "pending" as const,
+    kind: invite.kind,
+    role: payload.role as StaffRole | undefined,
+    clubName: invite.club_name,
+    emailHint: `${local.slice(0, 1)}***@${domain}`,
+    expiresAt: new Date(invite.expires_at).toISOString(),
+  };
+}
+
 function sameAthleteSet(a: number[], b: number[]): boolean {
   if (a.length === 0 || b.length === 0) return false;
   const left = new Set(a);
@@ -63,7 +92,7 @@ export async function listInvites(actor: Actor): Promise<InviteRow[]> {
       email: r.email,
       kind: r.kind,
       payload,
-      expiresAt: r.expires_at,
+      expiresAt: new Date(r.expires_at).toISOString(),
       token: r.token,
       acceptPath: acceptPathFor(r.token),
     };
@@ -76,7 +105,10 @@ export async function listInvites(actor: Actor): Promise<InviteRow[]> {
   });
 }
 
-export async function createInvite(actor: Actor, input: InviteInput): Promise<{ token: string; id: number; acceptPath: string }> {
+export async function createInvite(
+  actor: Actor,
+  input: InviteInput,
+): Promise<{ token: string; id: number; acceptPath: string }> {
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
   const hats = await hatsFor(actor);
@@ -120,7 +152,9 @@ export async function createInvite(actor: Actor, input: InviteInput): Promise<{ 
     }
   }
   if (input.kind === "swimmer_account") {
-    const taken = await actor.sql<{ n: number }>`select count(*)::int as n from "user" where lower(email) = ${email}`;
+    const taken = await actor.sql<{
+      n: number;
+    }>`select count(*)::int as n from "user" where lower(email) = ${email}`;
     if ((taken[0]?.n ?? 0) > 0) throw new Error("Email ini sudah terpakai.");
   }
 
@@ -181,7 +215,8 @@ export async function acceptInvite(
   }>`select * from invites where token = ${input.token} limit 1`;
   const invite = rows[0];
   if (!invite || invite.accepted_at) throw new Error("Undangan tidak berlaku.");
-  if (new Date(invite.expires_at).getTime() < Date.now()) throw new Error("Undangan tidak berlaku.");
+  if (new Date(invite.expires_at).getTime() < Date.now())
+    throw new Error("Undangan tidak berlaku.");
   if (invite.email && invite.email.toLowerCase() !== input.email.toLowerCase()) {
     throw new Error("Undangan tidak berlaku.");
   }
@@ -236,7 +271,9 @@ export async function acceptSwimmerInvite(
     throw new Error("Undangan tidak berlaku.");
   }
   if (!input.password || input.password.length < 8) throw new Error("Password minimal 8 karakter");
-  const existing = await sql<{ id: string }>`select id from "user" where lower(email) = ${invite.email.toLowerCase()} limit 1`;
+  const existing = await sql<{
+    id: string;
+  }>`select id from "user" where lower(email) = ${invite.email.toLowerCase()} limit 1`;
   if (existing[0]) throw new Error("Email ini sudah terpakai.");
   const userId = `usr_${randomBytes(8).toString("hex")}`;
   const hashed = await hashPassword(input.password);
@@ -264,7 +301,10 @@ export async function acceptSwimmerInvite(
   return { userId };
 }
 
-export async function acceptPendingInvitesForEmail(sql: Actor["sql"], userId: string): Promise<void> {
+export async function acceptPendingInvitesForEmail(
+  sql: Actor["sql"],
+  userId: string,
+): Promise<void> {
   const users = await sql<{ email: string }>`select email from "user" where id = ${userId} limit 1`;
   const email = users[0]?.email;
   if (!email) return;
@@ -279,4 +319,3 @@ export async function acceptPendingInvitesForEmail(sql: Actor["sql"], userId: st
     await acceptInvite(sql, { token: row.token, userId, email });
   }
 }
-
