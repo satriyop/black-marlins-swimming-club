@@ -76,6 +76,47 @@ test("syncs placeholder event dates to medal and real meet days", () => {
     (r) => r.fullName.startsWith("Kun") && r.meetCode === "KEJURPROVJTG2026" && r.stroke === "punggung" && r.distanceM === 100,
   );
   expect(kunKejur100Back?.date).toBe("2026-04-12");
+  const kenBoyolaliFree = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "BOYOLALI2025" && r.distanceM === 50 && r.stroke === "bebas",
+  );
+  const kenBoyolaliBack = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "BOYOLALI2025" && r.distanceM === 50 && r.stroke === "punggung",
+  );
+  const kenBoyolali100Breast = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "BOYOLALI2025" && r.distanceM === 100 && r.stroke === "dada",
+  );
+  expect(kenBoyolaliFree?.date).toBe("2025-08-24");
+  expect(kenBoyolaliBack?.date).toBe("2025-08-23");
+  expect(kenBoyolali100Breast?.date).toBe("2025-08-24");
+  const kenSmgBack = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "SMGOPEN2025" && r.stroke === "punggung" && r.distanceM === 50,
+  );
+  const kenSmgFly = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "SMGOPEN2025" && r.stroke === "kupu" && r.distanceM === 50,
+  );
+  const kenSmg100Free = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "SMGOPEN2025" && r.stroke === "bebas" && r.distanceM === 100,
+  );
+  expect(kenSmgBack?.date).toBe("2025-10-03");
+  expect(kenSmgBack?.timeMs).toBe(45130);
+  expect(kenSmgFly?.date).toBe("2025-10-04");
+  expect(kenSmg100Free?.date).toBe("2025-10-05");
+  const kenKrapFree = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "KRAPPROVBYL2026" && r.stroke === "bebas" && r.distanceM === 50,
+  );
+  const kenKrap100Back = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "KRAPPROVBYL2026" && r.stroke === "punggung" && r.distanceM === 100,
+  );
+  expect(kenKrapFree?.date).toBe("2026-07-05");
+  expect(kenKrap100Back?.date).toBe("2026-07-05");
+  const kenKejurFree = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "KEJURPROVJTG2026" && r.stroke === "bebas" && r.distanceM === 50,
+  );
+  const kenKejur100Back = synced.find(
+    (r) => r.fullName.startsWith("Ken") && r.meetCode === "KEJURPROVJTG2026" && r.stroke === "punggung" && r.distanceM === 100,
+  );
+  expect(kenKejurFree?.date).toBe("2026-04-11");
+  expect(kenKejur100Back?.date).toBe("2026-04-12");
 });
 
 test("parses Luigi 50 free Popda bronze as 30530 ms official LCM", () => {
@@ -146,4 +187,13 @@ test("import writes Ken, Luigi, and Kun official times into the club", async () 
   `;
   expect(kunBoyolali[0]?.time_ms).toBe(36780);
   expect(kunBoyolali[0]?.result_date.slice(0, 10)).toBe("2025-08-24");
+  const kenSmgBack = await h.sql<{ time_ms: number; result_date: string }>`
+    select r.time_ms, r.result_date::text as result_date
+    from results r
+    join swimmers s on s.id = r.swimmer_id
+    join meets m on m.id = r.meet_id
+    where s.full_name like 'Ken%' and m.notes = 'SMGOPEN2025' and r.stroke = 'punggung' and r.distance_m = 50
+  `;
+  expect(kenSmgBack[0]?.time_ms).toBe(45130);
+  expect(kenSmgBack[0]?.result_date.slice(0, 10)).toBe("2025-10-03");
 });
