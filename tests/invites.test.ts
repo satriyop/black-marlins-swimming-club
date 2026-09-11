@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { acceptInvite, createInvite } from "../src/lib/club/invites";
+import { acceptInvite, createInvite, listInvites } from "../src/lib/club/invites";
 import { hatsFor } from "../src/lib/club/hats";
 import { AZKIYA_ID, RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
 import { createClubHarness } from "./harness";
@@ -74,6 +74,67 @@ test("wali can invite another wali only on linked perenang", async () => {
       swimmerIds: [extra[0]!.id],
     }),
   ).rejects.toThrow(/Tidak diizinkan/);
+});
+
+test("rejects a second pending guardian invite for the same email and perenang", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
+  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const first = await createInvite(h.actor(SATRIYO_ID), {
+    kind: "guardian",
+    email: "ibu-baru@example.com",
+    swimmerIds: [luigi.id],
+  });
+  expect(first.acceptPath).toContain("/terima?token=");
+  await expect(
+    createInvite(h.actor(SATRIYO_ID), {
+      kind: "guardian",
+      email: "ibu-baru@example.com",
+      swimmerIds: [luigi.id],
+    }),
+  ).rejects.toThrow(/sudah ada/);
+});
+
+test("rejects guardian invite when that email is already wali of the perenang", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
+  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  await expect(
+    createInvite(h.actor(SATRIYO_ID), {
+      kind: "guardian",
+      email: "ratihsasminta@gmail.com",
+      swimmerIds: [luigi.id],
+    }),
+  ).rejects.toThrow(/sudah wali/);
+});
+
+test("guardian invite requires a perenang", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  await expect(
+    createInvite(h.actor(SATRIYO_ID), {
+      kind: "guardian",
+      email: "baru@example.com",
+      swimmerIds: [],
+    }),
+  ).rejects.toThrow(/Pilih perenang/);
+});
+
+test("listInvites includes a copyable accept path", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  const kids = await h.sql<{ id: number }>`select id from swimmers limit 1`;
+  await createInvite(h.actor(SATRIYO_ID), {
+    kind: "guardian",
+    email: "copy@example.com",
+    swimmerIds: [kids[0]!.id],
+  });
+  const rows = await listInvites(h.actor(SATRIYO_ID));
+  const row = rows.find((r) => r.email === "copy@example.com");
+  expect(row?.acceptPath).toMatch(/^\/terima\?token=/);
+  expect(row?.token).toBeTruthy();
 });
 
 test("expired invite is rejected", async () => {

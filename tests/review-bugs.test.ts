@@ -54,12 +54,13 @@ test("accept swimmer_account invite creates a password login linked to that pere
 test("weaker staff invite does not downgrade superadmin", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
-  const invite = await createInvite(h.actor(AZKIYA_ID), {
-    kind: "staff",
-    email: "satriyopamungkas@gmail.com",
-    role: "coach",
-  });
-  await acceptInvite(h.sql, { token: invite.token, userId: SATRIYO_ID, email: "satriyopamungkas@gmail.com" });
+  await expect(
+    createInvite(h.actor(AZKIYA_ID), {
+      kind: "staff",
+      email: "satriyopamungkas@gmail.com",
+      role: "coach",
+    }),
+  ).rejects.toThrow(/sudah staf/);
   expect((await hatsFor(h.actor(SATRIYO_ID))).staff).toBe("superadmin");
 });
 

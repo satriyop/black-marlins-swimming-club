@@ -22,7 +22,19 @@ export type InviteRow = {
   kind: string;
   payload: { role?: StaffRole | null; swimmerIds?: number[] };
   expiresAt: string;
+  token: string;
+  acceptPath: string;
 };
+
+function acceptPathFor(token: string): string {
+  return `/terima?token=${token}`;
+}
+
+function sameAthleteSet(a: number[], b: number[]): boolean {
+  if (a.length === 0 || b.length === 0) return false;
+  const left = new Set(a);
+  return b.some((id) => left.has(id));
+}
 
 export async function listInvites(actor: Actor): Promise<InviteRow[]> {
   const clubId = await clubIdFor(actor);
@@ -37,19 +49,25 @@ export async function listInvites(actor: Actor): Promise<InviteRow[]> {
     kind: string;
     payload: InviteRow["payload"] | string;
     expires_at: string;
+    token: string;
   }>`
-    select id, email, kind, payload, expires_at
+    select id, email, kind, payload, expires_at, token
     from invites
     where club_id = ${clubId} and accepted_at is null
     order by id desc
   `;
-  const mapped = rows.map((r) => ({
-    id: r.id,
-    email: r.email,
-    kind: r.kind,
-    payload: typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload,
-    expiresAt: r.expires_at,
-  }));
+  const mapped = rows.map((r) => {
+    const payload = typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload;
+    return {
+      id: r.id,
+      email: r.email,
+      kind: r.kind,
+      payload,
+      expiresAt: r.expires_at,
+      token: r.token,
+      acceptPath: acceptPathFor(r.token),
+    };
+  });
   if (staffOk) return mapped;
   return mapped.filter((r) => {
     if (r.kind !== "guardian" && r.kind !== "swimmer_account") return false;
@@ -62,24 +80,77 @@ export async function createInvite(actor: Actor, input: InviteInput): Promise<{ 
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
   const hats = await hatsFor(actor);
+  const email = input.email.toLowerCase().trim();
+  const swimmerIds = input.swimmerIds ?? [];
   if (input.kind === "staff") {
     const role = input.role;
     if (!role || !canInviteStaff(hats, role)) throw new Error("Tidak diizinkan");
   } else if (input.kind === "guardian" || input.kind === "swimmer_account") {
+    if (swimmerIds.length === 0) throw new Error("Pilih perenang");
     const staffOk = hats.staff === "superadmin" || hats.staff === "club_admin";
     const familyOk = hats.guardianSwimmerIds.length > 0;
     if (!staffOk && !familyOk) throw new Error("Tidak diizinkan");
-    if (!staffOk && input.swimmerIds?.some((id) => !hats.guardianSwimmerIds.includes(id))) {
+    if (!staffOk && swimmerIds.some((id) => !hats.guardianSwimmerIds.includes(id))) {
       throw new Error("Tidak diizinkan");
     }
   }
-  const payload = { role: input.role ?? null, swimmerIds: input.swimmerIds ?? [] };
+
+  if (input.kind === "guardian" || input.kind === "swimmer_account") {
+    for (const swimmerId of swimmerIds) {
+      const linked = await actor.sql<{ n: number }>`
+        select count(*)::int as n
+        from guardians g
+        join "user" u on u.id = g.user_id
+        where g.swimmer_id = ${swimmerId} and lower(u.email) = ${email}
+      `;
+      if ((linked[0]?.n ?? 0) > 0) {
+        throw new Error("Email ini sudah wali perenang tersebut.");
+      }
+    }
+  }
+  if (input.kind === "staff") {
+    const already = await actor.sql<{ n: number }>`
+      select count(*)::int as n
+      from club_staff s
+      join "user" u on u.id = s.user_id
+      where s.club_id = ${clubId} and lower(u.email) = ${email}
+    `;
+    if ((already[0]?.n ?? 0) > 0) {
+      throw new Error("Email ini sudah staf klub.");
+    }
+  }
+
+  const pending = await actor.sql<{
+    kind: string;
+    payload: { role?: StaffRole | null; swimmerIds?: number[] } | string;
+  }>`
+    select kind, payload from invites
+    where club_id = ${clubId}
+      and accepted_at is null
+      and expires_at > now()
+      and lower(email) = ${email}
+  `;
+  for (const row of pending) {
+    const payload = typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload;
+    if (input.kind === "staff" && row.kind === "staff") {
+      throw new Error("Undangan untuk email ini sudah ada.");
+    }
+    if (
+      (input.kind === "guardian" || input.kind === "swimmer_account") &&
+      row.kind === input.kind &&
+      sameAthleteSet(swimmerIds, payload.swimmerIds ?? [])
+    ) {
+      throw new Error("Undangan untuk wali dan perenang ini sudah ada.");
+    }
+  }
+
+  const payload = { role: input.role ?? null, swimmerIds };
   const t = token();
   const rows = await actor.sql<{ id: number }>`
     insert into invites (club_id, email, kind, payload, token, invited_by, expires_at)
     values (
       ${clubId},
-      ${input.email.toLowerCase().trim()},
+      ${email},
       ${input.kind},
       ${JSON.stringify(payload)}::jsonb,
       ${t},
@@ -88,7 +159,7 @@ export async function createInvite(actor: Actor, input: InviteInput): Promise<{ 
     )
     returning id
   `;
-  return { id: rows[0]!.id, token: t, acceptPath: `/terima?token=${t}` };
+  return { id: rows[0]!.id, token: t, acceptPath: acceptPathFor(t) };
 }
 
 export async function acceptInvite(
