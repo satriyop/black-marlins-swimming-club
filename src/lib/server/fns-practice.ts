@@ -2,8 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { requireClub } from "@/lib/club/context";
 import { updateAttendanceStatus } from "@/lib/club/attendance";
-import { hatsFor } from "@/lib/club/hats";
+import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
 import { canWritePractice } from "@/lib/club/permissions";
+import { deletePractice as deletePracticeFor } from "@/lib/club/writes";
 import type { Attendance, Practice, PracticeDetail, PracticeSet } from "@/lib/swim/types";
 
 export type SetInput = {
@@ -25,7 +26,8 @@ export const listPractices = createServerFn({ method: "GET" }).middleware([authM
 });
 
 export const getPractice = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }): Promise<PracticeDetail> => {
-  const { sql, clubId } = await requireClub(context.userId);
+  const { sql, clubId, userId } = await requireClub(context.userId);
+  const hats = await hatsFor({ sql, userId });
   const rows = await sql<{
     id: number; session_date: string; start_time: string | null; duration_min: number | null;
     location: string | null; kind: string; title: string; focus: string | null; total_meters: number; notes: string | null;
@@ -44,7 +46,7 @@ export const getPractice = createServerFn({ method: "GET" }).middleware([authMid
     id: p.id, sessionDate: p.session_date, startTime: p.start_time, durationMin: p.duration_min,
     location: p.location, kind: p.kind, title: p.title, focus: p.focus, totalMeters: p.total_meters, notes: p.notes,
     sets: sets.map((s): PracticeSet => ({ id: s.id, practiceId: s.practice_id, sortOrder: s.sort_order, block: s.block, reps: s.reps, distanceM: s.distance_m, stroke: s.stroke, intervalSec: s.interval_sec, description: s.description })),
-    attendance: attendance.map((a): Attendance => ({ id: a.id, practiceId: a.practice_id, swimmerId: a.swimmer_id, swimmerName: a.swimmer_name, status: a.status, metersCompleted: a.meters_completed, notes: a.notes })),
+    attendance: attendance.filter((a) => canSeeSwimmer(hats, a.swimmer_id)).map((a): Attendance => ({ id: a.id, practiceId: a.practice_id, swimmerId: a.swimmer_id, swimmerName: a.swimmer_name, status: a.status, metersCompleted: a.meters_completed, notes: a.notes })),
   };
 });
 
@@ -80,9 +82,8 @@ export const savePractice = createServerFn({ method: "POST" }).middleware([authM
 });
 
 export const deletePractice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
-  const { sql, clubId } = await requireClub(context.userId);
-  await sql`delete from practices where id = ${data.id} and club_id = ${clubId}`;
-  return { ok: true };
+  const actor = await requireClub(context.userId);
+  return deletePracticeFor(actor, data.id);
 });
 
 export const updateAttendance = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; status: "hadir" | "izin" | "sakit" | "alfa"; metersCompleted?: number | null }) => input).handler(async ({ context, data }) => {

@@ -3,6 +3,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { requireClub } from "@/lib/club/context";
 import { hatsFor } from "@/lib/club/hats";
 import { canWriteActivity } from "@/lib/club/permissions";
+import { deleteActivity as deleteActivityFor } from "@/lib/club/writes";
 import type { Activity } from "@/lib/swim/types";
 
 export const listActivities = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
@@ -36,7 +37,6 @@ export const saveActivity = createServerFn({ method: "POST" }).middleware([authM
 });
 
 export const deleteActivity = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
-  const { sql, clubId } = await requireClub(context.userId);
-  await sql`delete from activities where id = ${data.id} and club_id = ${clubId}`;
-  return { ok: true };
+  const actor = await requireClub(context.userId);
+  return deleteActivityFor(actor, data.id);
 });

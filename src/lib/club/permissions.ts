@@ -46,6 +46,30 @@ export function canWriteClubProfile(hats: Hats): boolean {
   return hats.staff === "superadmin" || hats.staff === "club_admin";
 }
 
+export function canDeleteSwimmer(hats: Hats): boolean {
+  return hats.staff === "superadmin" || hats.staff === "club_admin";
+}
+
+export function canWriteMeet(hats: Hats): boolean {
+  return hats.staff != null;
+}
+
+export function canWriteMeetEntry(hats: Hats, swimmerId: number): boolean {
+  if (hats.staff != null) return true;
+  return hats.guardianSwimmerIds.includes(swimmerId);
+}
+
+export function canDeleteResult(hats: Hats, swimmerId: number): boolean {
+  if (hats.staff != null) return true;
+  return hats.selfSwimmerId === swimmerId;
+}
+
+const STAFF_RANK: Record<StaffRole, number> = { superadmin: 3, club_admin: 2, coach: 1 };
+
+export function staffRoleAtLeast(existing: StaffRole, incoming: StaffRole): StaffRole {
+  return STAFF_RANK[existing] >= STAFF_RANK[incoming] ? existing : incoming;
+}
+
 export function canMarkAttendance(
   hats: Hats,
   swimmerId: number,

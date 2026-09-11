@@ -4,59 +4,17 @@ import { accessFor } from "@/lib/club/access";
 import { loadClub, requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
 import { canWriteRoster } from "@/lib/club/permissions";
+import { getDashboardData } from "@/lib/club/dashboard";
 import { listSwimmers as listSwimmersFor } from "@/lib/club/swimmers";
+import { deleteSwimmer as deleteSwimmerFor } from "@/lib/club/writes";
 import { clubOf, mapSwimmer, type SwimmerRow } from "./fns-shared";
-import type { Dashboard, PersonalBest, Practice, Meet, Result } from "@/lib/swim/types";
+import type { Dashboard, PersonalBest, Result } from "@/lib/swim/types";
 
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<Dashboard> => {
-    const { sql, clubId, userId } = await requireClub(context.userId);
-    const club = await clubOf(sql, clubId);
-    const swimmers = await listSwimmersFor({ sql, userId });
-    const upcomingPractices = await sql<PracticeRow>`
-      select * from practices
-      where club_id = ${clubId} and session_date >= current_date
-      order by session_date, start_time limit 4`;
-    const upcomingMeets = await sql<MeetRow>`
-      select * from meets
-      where club_id = ${clubId} and start_date >= current_date and status <> 'batal'
-      order by start_date limit 4`;
-    const recentResults = await sql<ResultRow>`
-      select r.*, s.full_name as swimmer_name, m.name as meet_name
-      from results r join swimmers s on s.id = r.swimmer_id left join meets m on m.id = r.meet_id
-      where r.club_id = ${clubId} order by r.result_date desc, r.id desc limit 8`;
-    const recentPbs = recentResults.filter((r) => r.is_pb).slice(0, 6);
-    const monthPractices = await sql<{ n: number }>`
-      select count(*)::int as n from practices where club_id = ${clubId}
-        and date_trunc('month', session_date::timestamp) = date_trunc('month', current_date::timestamp)`;
-    const pbMonth = await sql<{ n: number }>`
-      select count(*)::int as n from results where club_id = ${clubId} and is_pb = true
-        and date_trunc('month', result_date::timestamp) = date_trunc('month', current_date::timestamp)`;
-    const att = await sql<{ hadir: number; total: number }>`
-      select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*)::int as total
-      from practice_attendance a join practices p on p.id = a.practice_id
-      where a.club_id = ${clubId} and p.session_date >= (current_date - interval '30 days')`;
-    const volume = await sql<{ n: number }>`
-      select coalesce(sum(total_meters), 0)::int as n from practices
-      where club_id = ${clubId} and session_date >= (current_date - interval '6 days') and session_date <= current_date`;
-    const hadir = att[0]?.hadir ?? 0;
-    const total = att[0]?.total ?? 0;
-    return {
-      club, swimmers,
-      upcomingPractices: upcomingPractices.map(mapPractice),
-      upcomingMeets: upcomingMeets.map(mapMeet),
-      recentResults: recentResults.map(mapResult),
-      recentPbs: recentPbs.map(mapResult),
-      stats: {
-        swimmerCount: swimmers.filter((s) => s.status === "aktif").length,
-        practicesThisMonth: monthPractices[0]?.n ?? 0,
-        meetsUpcoming: upcomingMeets.length,
-        pbThisMonth: pbMonth[0]?.n ?? 0,
-        attendanceRate: total === 0 ? 0 : Math.round((hadir / total) * 100),
-        volumeThisWeek: volume[0]?.n ?? 0,
-      },
-    };
+    const actor = await requireClub(context.userId);
+    return getDashboardData(actor);
   });
 
 export const getAccess = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
@@ -133,20 +91,11 @@ export const saveSwimmer = createServerFn({ method: "POST" }).middleware([authMi
 });
 
 export const deleteSwimmer = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
-  const { sql, clubId } = await requireClub(context.userId);
-  await sql`delete from swimmers where id = ${data.id} and club_id = ${clubId}`;
-  return { ok: true };
+  const actor = await requireClub(context.userId);
+  return deleteSwimmerFor(actor, data.id);
 });
 
-type PracticeRow = { id: number; session_date: string; start_time: string | null; duration_min: number | null; location: string | null; kind: string; title: string; focus: string | null; total_meters: number; notes: string | null };
-type MeetRow = { id: number; name: string; level: string; course: string; venue: string | null; city: string | null; start_date: string; end_date: string | null; organizer: string | null; status: string; notes: string | null };
-type ResultRow = { id: number; swimmer_id: number; swimmer_name: string; meet_id: number | null; meet_name: string | null; result_date: string; stroke: string; distance_m: number; course: string; time_ms: number | null; place: number | null; round: string | null; status: string; is_pb: boolean; notes: string | null };
-function mapPractice(p: PracticeRow): Practice {
-  return { id: p.id, sessionDate: p.session_date, startTime: p.start_time, durationMin: p.duration_min, location: p.location, kind: p.kind, title: p.title, focus: p.focus, totalMeters: p.total_meters, notes: p.notes };
-}
-function mapMeet(m: MeetRow): Meet {
-  return { id: m.id, name: m.name, level: m.level, course: m.course, venue: m.venue, city: m.city, startDate: m.start_date, endDate: m.end_date, organizer: m.organizer, status: m.status, notes: m.notes };
-}
+type ResultRow = { id: number; swimmer_id: number; swimmer_name: string; meet_id: number | null; meet_name: string | null; result_date: string; stroke: string; distance_m: number; course: string; time_ms: number | null; place: number | null; round: string | null; status: string; notes: string | null };
 function mapResult(r: ResultRow): Result {
-  return { id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name, resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms, place: r.place, round: r.round, status: r.status, isPb: r.is_pb, notes: r.notes };
+  return { id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name, resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms, place: r.place, round: r.round, status: r.status, isPb: false, notes: r.notes };
 }

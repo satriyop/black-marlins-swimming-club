@@ -172,7 +172,7 @@ function ResultDialog({ swimmerId }: { swimmerId: number }) {
     mutationFn: () => {
       const timeMs = form.time ? parseTimeToMs(form.time) : null;
       if (form.status === "selesai" && form.time && timeMs == null) throw new Error("Format waktu: 32.18 atau 1:05.72");
-      return saveResult({ data: { swimmerId, meetId: form.meetId ? Number(form.meetId) : null, resultDate: form.resultDate, stroke: form.stroke, distanceM: Number(form.distanceM), course: form.course, timeMs, place: form.place ? Number(form.place) : null, round: form.round, status: form.status } });
+      return saveResult({ data: { swimmerId, meetId: form.meetId ? Number(form.meetId) : null, resultDate: form.resultDate, stroke: form.stroke, distanceM: Number(form.distanceM), course: form.course, timeMs, place: form.place ? Number(form.place) : null, round: form.round, status: form.status, kind: form.meetId ? "official" : "test" } });
     },
     onSuccess: async (res) => { toast.success(res.isPb ? "Tersimpan — rekor pribadi baru" : "Hasil tersimpan"); setOpen(false); setForm((f) => ({ ...f, time: "", place: "" })); await qc.invalidateQueries(); },
     onError: (e: Error) => toast.error(e.message),

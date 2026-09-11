@@ -19,7 +19,7 @@ export async function saveResult(
     kind: "official" | "test";
     notes?: string;
   },
-): Promise<{ id: number }> {
+): Promise<{ id: number; isPb: boolean }> {
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
   const hats = await hatsFor(actor);
@@ -33,6 +33,17 @@ export async function saveResult(
   if (input.kind === "test" && !canWriteTestTime(hats, input.swimmerId)) {
     throw new Error("Tidak diizinkan");
   }
+  let isPb = false;
+  if (input.status === "selesai" && input.timeMs != null) {
+    const best = await actor.sql<{ t: number | null }>`
+      select min(time_ms) as t from results
+      where club_id = ${clubId} and swimmer_id = ${input.swimmerId}
+        and stroke = ${input.stroke} and distance_m = ${input.distanceM} and course = ${input.course}
+        and status = 'selesai' and time_ms is not null
+    `;
+    const prev = best[0]?.t;
+    isPb = prev == null || input.timeMs < prev;
+  }
   const rows = await actor.sql<{ id: number }>`
     insert into results (
       club_id, created_by, swimmer_id, meet_id, result_date, stroke, distance_m, course,
@@ -40,9 +51,9 @@ export async function saveResult(
     ) values (
       ${clubId}, ${actor.userId}, ${input.swimmerId}, ${input.meetId ?? null}, ${input.resultDate},
       ${input.stroke}, ${input.distanceM}, ${input.course}, ${input.timeMs ?? null},
-      ${input.place ?? null}, ${input.round || null}, ${input.status}, ${input.kind}, false,
+      ${input.place ?? null}, ${input.round || null}, ${input.status}, ${input.kind}, ${isPb},
       ${input.notes?.trim() || null}
     ) returning id
   `;
-  return { id: rows[0]!.id };
+  return { id: rows[0]!.id, isPb };
 }
