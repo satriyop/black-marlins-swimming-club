@@ -24,6 +24,7 @@ function Page() {
   const [kind, setKind] = useState<"staff" | "guardian" | "swimmer_account">(staffOk ? "staff" : "guardian");
   const [role, setRole] = useState<StaffRole>(hats?.staff === "superadmin" ? "coach" : "coach");
   const [swimmerId, setSwimmerId] = useState<number | "">("");
+  const [lastAccept, setLastAccept] = useState<string | null>(null);
 
   const mut = useMutation({
     mutationFn: () =>
@@ -35,8 +36,9 @@ function Page() {
           swimmerIds: kind === "staff" ? undefined : swimmerId === "" ? undefined : [Number(swimmerId)],
         },
       }),
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       toast.success("Undangan dibuat");
+      setLastAccept(res.acceptPath);
       setEmail("");
       await qc.invalidateQueries({ queryKey: ["invites"] });
     },
@@ -93,6 +95,9 @@ function Page() {
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>
           <Button type="submit" disabled={mut.isPending}>{mut.isPending ? "Mengirim…" : "Buat undangan"}</Button>
+          {lastAccept ? (
+            <p className="break-all text-xs text-muted-foreground">Tautan terima: {lastAccept}</p>
+          ) : null}
         </form>
         <div>
           <h2 className="font-display mb-3 text-2xl">Menunggu diterima</h2>

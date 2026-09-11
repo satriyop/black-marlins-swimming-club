@@ -9,4 +9,4 @@ export {
   listMeets, getMeet, saveMeet, deleteMeet, saveEntry, deleteEntry, saveResult, deleteResult,
 } from "./fns-meets";
 export { listActivities, saveActivity, deleteActivity } from "./fns-activities";
-export { listClubInvites, createClubInvite } from "./fns-invites";
+export { listClubInvites, createClubInvite, acceptClubInvite } from "./fns-invites";

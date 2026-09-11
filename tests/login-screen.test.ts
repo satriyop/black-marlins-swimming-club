@@ -24,4 +24,15 @@ test("Masuk source has Google and password sign-in and no public register", () =
 test("undangan route file exists", () => {
   const src = readFileSync(join(root, "src/routes/undangan.tsx"), "utf8");
   expect(src).toContain('createFileRoute("/undangan")');
+  expect(src).toContain("acceptPath");
+});
+
+test("accept invite is a server function and /terima exists", () => {
+  const fns = readFileSync(join(root, "src/lib/server/fns-invites.ts"), "utf8");
+  const terima = readFileSync(join(root, "src/routes/terima.tsx"), "utf8");
+  const dockerignore = readFileSync(join(root, ".dockerignore"), "utf8");
+  expect(fns).toContain("export const acceptClubInvite");
+  expect(terima).toContain('createFileRoute("/terima")');
+  expect(dockerignore).toMatch(/^node_modules$/m);
+  expect(dockerignore).toMatch(/^\.env$/m);
 });

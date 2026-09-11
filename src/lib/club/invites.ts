@@ -2,7 +2,8 @@ import { randomBytes } from "node:crypto";
 import type { Actor } from "./actor";
 import { hatsFor, type StaffRole } from "./hats";
 import { clubIdFor } from "./membership";
-import { canInviteStaff } from "./permissions";
+import { hashPassword } from "better-auth/crypto";
+import { canInviteStaff, staffRoleAtLeast } from "./permissions";
 
 export type InviteInput = {
   kind: "staff" | "guardian" | "swimmer_account";
@@ -50,10 +51,14 @@ export async function listInvites(actor: Actor): Promise<InviteRow[]> {
     expiresAt: r.expires_at,
   }));
   if (staffOk) return mapped;
-  return mapped.filter((r) => r.kind === "guardian" || r.kind === "swimmer_account");
+  return mapped.filter((r) => {
+    if (r.kind !== "guardian" && r.kind !== "swimmer_account") return false;
+    const ids = r.payload.swimmerIds ?? [];
+    return ids.length > 0 && ids.every((id: number) => hats.guardianSwimmerIds.includes(id));
+  });
 }
 
-export async function createInvite(actor: Actor, input: InviteInput): Promise<{ token: string; id: number }> {
+export async function createInvite(actor: Actor, input: InviteInput): Promise<{ token: string; id: number; acceptPath: string }> {
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
   const hats = await hatsFor(actor);
@@ -83,7 +88,7 @@ export async function createInvite(actor: Actor, input: InviteInput): Promise<{ 
     )
     returning id
   `;
-  return { id: rows[0]!.id, token: t };
+  return { id: rows[0]!.id, token: t, acceptPath: `/terima?token=${t}` };
 }
 
 export async function acceptInvite(
@@ -108,11 +113,20 @@ export async function acceptInvite(
   const payload = typeof invite.payload === "string" ? JSON.parse(invite.payload) : invite.payload;
   if (invite.kind === "staff") {
     const role = payload.role as StaffRole;
-    await sql`
-      insert into club_staff (club_id, user_id, role)
-      values (${invite.club_id}, ${input.userId}, ${role})
-      on conflict (club_id, user_id) do update set role = excluded.role
+    const existing = await sql<{ role: StaffRole }>`
+      select role from club_staff where club_id = ${invite.club_id} and user_id = ${input.userId} limit 1
     `;
+    if (existing[0]) {
+      const kept = staffRoleAtLeast(existing[0].role, role);
+      if (kept !== existing[0].role) {
+        await sql`update club_staff set role = ${kept} where club_id = ${invite.club_id} and user_id = ${input.userId}`;
+      }
+    } else {
+      await sql`
+        insert into club_staff (club_id, user_id, role)
+        values (${invite.club_id}, ${input.userId}, ${role})
+      `;
+    }
   } else if (invite.kind === "guardian") {
     for (const swimmerId of payload.swimmerIds ?? []) {
       await sql`
@@ -129,3 +143,55 @@ export async function acceptInvite(
   }
   await sql`update invites set accepted_at = now() where id = ${invite.id}`;
 }
+
+export async function acceptSwimmerInvite(
+  sql: Actor["sql"],
+  input: { token: string; password: string },
+): Promise<{ userId: string }> {
+  const rows = await sql<{
+    email: string | null;
+    kind: string;
+    accepted_at: string | null;
+    expires_at: string;
+  }>`select email, kind, accepted_at, expires_at from invites where token = ${input.token} limit 1`;
+  const invite = rows[0];
+  if (!invite || invite.kind !== "swimmer_account") throw new Error("Undangan tidak berlaku.");
+  if (!invite.email) throw new Error("Undangan tidak berlaku.");
+  if (!input.password || input.password.length < 8) throw new Error("Password minimal 8 karakter");
+  const existing = await sql<{ id: string }>`select id from "user" where email = ${invite.email} limit 1`;
+  let userId: string;
+  if (existing[0]) {
+    userId = existing[0].id;
+  } else {
+    userId = `usr_${randomBytes(8).toString("hex")}`;
+    await sql`
+      insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+      values (${userId}, ${invite.email}, ${invite.email}, true, now(), now())
+    `;
+  }
+  const hashed = await hashPassword(input.password);
+  const accountId = `acc_${randomBytes(8).toString("hex")}`;
+  await sql`
+    insert into account (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
+    values (${accountId}, ${userId}, 'credential', ${userId}, ${hashed}, now(), now())
+  `;
+  await acceptInvite(sql, { token: input.token, userId, email: invite.email });
+  return { userId };
+}
+
+export async function acceptPendingInvitesForEmail(sql: Actor["sql"], userId: string): Promise<void> {
+  const users = await sql<{ email: string }>`select email from "user" where id = ${userId} limit 1`;
+  const email = users[0]?.email;
+  if (!email) return;
+  const pending = await sql<{ token: string }>`
+    select token from invites
+    where lower(email) = ${email.toLowerCase()}
+      and accepted_at is null
+      and expires_at > now()
+      and kind in ('staff', 'guardian')
+  `;
+  for (const row of pending) {
+    await acceptInvite(sql, { token: row.token, userId, email });
+  }
+}
+
