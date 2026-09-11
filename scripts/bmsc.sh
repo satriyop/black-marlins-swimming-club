@@ -117,13 +117,21 @@ ensure_env() {
   gid="$(env_get GOOGLE_CLIENT_ID)"
   gsec="$(env_get GOOGLE_CLIENT_SECRET)"
   if [[ -z "$gid" ]]; then
-    read -r -p "GOOGLE_CLIENT_ID: " gid
-    upsert_env GOOGLE_CLIENT_ID "$gid"
+    if [[ -t 0 ]]; then
+      read -r -p "GOOGLE_CLIENT_ID: " gid
+      upsert_env GOOGLE_CLIENT_ID "$gid"
+    else
+      echo "INFO GOOGLE_CLIENT_ID empty (non-interactive — not prompting)"
+    fi
   fi
   if [[ -z "$gsec" ]]; then
-    read -r -s -p "GOOGLE_CLIENT_SECRET: " gsec
-    echo
-    upsert_env GOOGLE_CLIENT_SECRET "$gsec"
+    if [[ -t 0 ]]; then
+      read -r -s -p "GOOGLE_CLIENT_SECRET: " gsec
+      echo
+      upsert_env GOOGLE_CLIENT_SECRET "$gsec"
+    else
+      echo "INFO GOOGLE_CLIENT_SECRET empty (non-interactive — not prompting)"
+    fi
   fi
   chmod 640 "$ENV_FILE"
 }
@@ -343,6 +351,15 @@ cmd_install() {
   build_and_migrate
   write_unit
   write_caddy
+  local gid
+  gid="$(env_get GOOGLE_CLIENT_ID)"
+  if [[ -z "$gid" ]]; then
+    echo "Google OAuth is not set. Wrote unit and Caddy but did not start ${SERVICE}."
+    echo "Put GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in ${ENV_FILE}, then:"
+    echo "  systemctl start ${SERVICE}"
+    echo "Public site (after cert): https://${APP_HOST}/login"
+    return 0
+  fi
   systemctl restart "$SERVICE"
   sleep 1
   systemctl --no-pager --full status "$SERVICE" || true
