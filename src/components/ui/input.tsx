@@ -1,4 +1,10 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
+import { cloneElement, isValidElement, useId } from "react";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
@@ -21,12 +27,7 @@ export function SelectNative({
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      className={cn(fieldClass, "h-auto min-h-24 py-2.5", className)}
-      {...props}
-    />
-  );
+  return <textarea className={cn(fieldClass, "h-auto min-h-24 py-2.5", className)} {...props} />;
 }
 
 export function Field({
@@ -38,11 +39,31 @@ export function Field({
   children: ReactNode;
   hint?: string;
 }) {
+  const generatedId = useId();
+  const control = isValidElement<{ id?: string; "aria-describedby"?: string }>(children)
+    ? children
+    : null;
+  const id = control?.props.id ?? generatedId;
+  const hintId = `${id}-hint`;
   return (
-    <label className="grid gap-1.5 text-sm">
-      <span className="font-medium text-muted-foreground">{label}</span>
-      {children}
-      {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
-    </label>
+    <div className="grid gap-1.5 text-sm">
+      <label htmlFor={id} className="font-medium text-muted-foreground">
+        {label}
+      </label>
+      {control
+        ? cloneElement(control, {
+            id,
+            "aria-describedby":
+              [control.props["aria-describedby"], hint ? hintId : undefined]
+                .filter(Boolean)
+                .join(" ") || undefined,
+          })
+        : children}
+      {hint ? (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
+    </div>
   );
 }

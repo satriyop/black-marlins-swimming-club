@@ -7,18 +7,20 @@ export type NavItem = {
 };
 
 export function canSeeUndangan(hats: Hats): boolean {
-  return hats.staff === "superadmin" || hats.staff === "club_admin" || hats.guardianSwimmerIds.length > 0;
+  return (
+    hats.staff === "superadmin" || hats.staff === "club_admin" || hats.guardianSwimmerIds.length > 0
+  );
 }
 
 export function navItemsFor(hats: Hats): NavItem[] {
   if (!isInvited(hats)) {
-    return [{ to: "/", label: "Dasbor" }];
+    return [{ to: "/", label: "Hari Ini" }];
   }
   const items: NavItem[] = [
-    { to: "/", label: "Dasbor" },
-    { to: "/perenang", label: "Perenang" },
+    { to: "/", label: "Hari Ini" },
     { to: "/latihan", label: "Latihan" },
-    { to: "/event", label: "Event" },
+    { to: "/perenang", label: "Perenang" },
+    { to: "/event", label: "Kejuaraan" },
     { to: "/aktivitas", label: "Aktivitas" },
   ];
   if (canSeeUndangan(hats)) {

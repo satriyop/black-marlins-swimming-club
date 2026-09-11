@@ -35,13 +35,13 @@ export const getMeet = createServerFn({ method: "GET" }).middleware([authMiddlew
   const results = await sql<{
     id: number; swimmer_id: number; swimmer_name: string; meet_id: number | null; meet_name: string | null;
     result_date: string; stroke: string; distance_m: number; course: string; time_ms: number | null;
-    place: number | null; round: string | null; status: string; is_pb: boolean; notes: string | null;
+    place: number | null; round: string | null; status: string; kind: "official" | "test"; is_pb: boolean; notes: string | null;
   }>`select r.*, s.full_name as swimmer_name, ${m.name} as meet_name from results r join swimmers s on s.id = r.swimmer_id where r.meet_id = ${data.id} and r.club_id = ${clubId} order by r.place nulls last, r.stroke, r.distance_m`;
   const meet: Meet = { id: m.id, name: m.name, level: m.level, course: m.course, venue: m.venue, city: m.city, startDate: m.start_date, endDate: m.end_date, organizer: m.organizer, status: m.status, notes: m.notes };
   return {
     meet,
     entries: entries.filter((e) => canSeeSwimmer(hats, e.swimmer_id)).map((e): MeetEntry => ({ id: e.id, meetId: e.meet_id, swimmerId: e.swimmer_id, swimmerName: e.swimmer_name, stroke: e.stroke, distanceM: e.distance_m, ageGroup: e.age_group, seedTimeMs: e.seed_time_ms, status: e.status, lane: e.lane, heat: e.heat })),
-    results: results.filter((r) => canSeeSwimmer(hats, r.swimmer_id)).map((r): Result => ({ id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name, resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms, place: r.place, round: r.round, status: r.status, isPb: r.is_pb, notes: r.notes })),
+    results: results.filter((r) => canSeeSwimmer(hats, r.swimmer_id)).map((r): Result => ({ id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name, resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms, place: r.place, round: r.round, status: r.status, kind: r.kind, isPb: r.is_pb, notes: r.notes })),
   };
 });
 

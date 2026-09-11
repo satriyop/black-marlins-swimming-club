@@ -37,7 +37,7 @@
 }
 
 @layer base {
-  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  html { color-scheme: dark; scroll-padding-bottom: 10rem; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
   body { background: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); min-height: 100dvh; }
   h1, h2, h3 { text-wrap: balance; }
   p { text-wrap: pretty; }

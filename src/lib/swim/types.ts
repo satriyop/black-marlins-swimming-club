@@ -45,7 +45,7 @@ export type Attendance = {
   practiceId: number;
   swimmerId: number;
   swimmerName: string;
-  status: "hadir" | "izin" | "sakit" | "alfa";
+  status: "belum" | "hadir" | "izin" | "sakit" | "alfa";
   metersCompleted: number | null;
   notes: string | null;
 };
@@ -113,6 +113,7 @@ export type Result = {
   place: number | null;
   round: string | null;
   status: string;
+  kind: "official" | "test";
   isPb: boolean;
   notes: string | null;
 };
@@ -150,6 +151,7 @@ export type Dashboard = {
     meetsUpcoming: number;
     pbThisMonth: number;
     attendanceRate: number;
+    attendanceRecorded: number;
     volumeThisWeek: number;
   };
 };

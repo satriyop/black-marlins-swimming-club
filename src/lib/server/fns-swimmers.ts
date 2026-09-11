@@ -49,7 +49,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
     where r.club_id = ${clubId} and r.swimmer_id = ${data.id} and r.status = 'selesai' and r.time_ms is not null
     order by r.stroke, r.distance_m, r.course, r.time_ms asc`;
   const att = await sql<{ hadir: number; total: number }>`
-    select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*)::int as total
+    select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*) filter (where status <> 'belum')::int as total
     from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id}`;
   const volume = await sql<{ n: number }>`select coalesce(sum(meters_completed), 0)::int as n from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id} and status = 'hadir'`;
   const entries = await sql<{
@@ -95,7 +95,7 @@ export const deleteSwimmer = createServerFn({ method: "POST" }).middleware([auth
   return deleteSwimmerFor(actor, data.id);
 });
 
-type ResultRow = { id: number; swimmer_id: number; swimmer_name: string; meet_id: number | null; meet_name: string | null; result_date: string; stroke: string; distance_m: number; course: string; time_ms: number | null; place: number | null; round: string | null; status: string; notes: string | null };
+type ResultRow = { id: number; swimmer_id: number; swimmer_name: string; meet_id: number | null; meet_name: string | null; result_date: string; stroke: string; distance_m: number; course: string; time_ms: number | null; place: number | null; round: string | null; status: string; kind: "official" | "test"; notes: string | null };
 function mapResult(r: ResultRow): Result {
-  return { id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name, resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms, place: r.place, round: r.round, status: r.status, isPb: false, notes: r.notes };
+  return { id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name, resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms, place: r.place, round: r.round, status: r.status, kind: r.kind, isPb: false, notes: r.notes };
 }

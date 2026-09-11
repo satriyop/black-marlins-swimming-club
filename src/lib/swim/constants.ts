@@ -14,8 +14,8 @@ export const COMPETITION_STROKES = STROKES.filter((s) => s.id !== "campuran");
 export const DISTANCES = [25, 50, 100, 200, 400, 800, 1500] as const;
 
 export const COURSES = [
-  { id: "50", label: "Lintasan panjang 50 m", short: "LP" },
-  { id: "25", label: "Lintasan pendek 25 m", short: "SC" },
+  { id: "50", label: "Kolam 50 m", short: "LP" },
+  { id: "25", label: "Kolam 25 m", short: "SC" },
 ] as const;
 
 export type CourseId = (typeof COURSES)[number]["id"];
@@ -69,7 +69,7 @@ export const SET_BLOCKS = [
 ] as const;
 
 export const ATTENDANCE = [
-  { id: "belum", label: "Belum" },
+  { id: "belum", label: "Belum dicatat" },
   { id: "hadir", label: "Hadir" },
   { id: "izin", label: "Izin" },
   { id: "sakit", label: "Sakit" },
@@ -118,10 +118,7 @@ export const WEEKLY_PLAN = [
   { day: "Sabtu", kind: "tes", focus: "Tes waktu / race pace" },
 ] as const;
 
-export function labelOf<T extends { id: string; label: string }>(
-  list: readonly T[],
-  id: string,
-) {
+export function labelOf<T extends { id: string; label: string }>(list: readonly T[], id: string) {
   return list.find((x) => x.id === id)?.label ?? id;
 }
 

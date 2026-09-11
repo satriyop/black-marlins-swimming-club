@@ -1,3 +1,6 @@
+import { useAccess } from "@/lib/club/use-access";
+import { canWriteRoster } from "@/lib/club/permissions";
+import { QueryError } from "@/components/ui/query-error";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -16,21 +19,48 @@ import { formatDateId, todayIso } from "@/lib/utils";
 export const Route = createFileRoute("/perenang")({ component: Page });
 
 function Page() {
-  const { data, isPending } = useQuery({ queryKey: ["swimmers"], queryFn: () => listSwimmers() });
+  const { hats } = useAccess();
+  const canCreate = canWriteRoster(hats);
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey: ["swimmers"],
+    queryFn: () => listSwimmers(),
+  });
 
   return (
     <AppShell>
-      <PageHeader kicker="Skuad" title="Perenang" description="Anggota Black Marlins Swimming Club. Kelompok umur mengikuti aturan PRSI (usia per 31 Desember)." action={<SwimmerDialog />} />
+      <PageHeader
+        kicker="Skuad"
+        title="Perenang"
+        description="Anggota Black Marlins Swimming Club. Kelompok umur mengikuti aturan PRSI (usia per 31 Desember)."
+        action={canCreate ? <SwimmerDialog /> : undefined}
+      />
       {isPending ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (<div key={i} className="h-36 animate-pulse rounded-2xl bg-muted" />))}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-36 animate-pulse rounded-2xl bg-muted" />
+          ))}
         </div>
+      ) : isError ? (
+        <QueryError retry={() => refetch()} />
       ) : !data?.length ? (
-        <EmptyState title="Belum ada perenang" description="Tambahkan anggota klub untuk mulai mencatat latihan dan prestasi." action={<SwimmerDialog />} />
+        <EmptyState
+          title="Belum ada perenang"
+          description={
+            canCreate
+              ? "Tambahkan anggota klub untuk mulai mencatat latihan dan prestasi."
+              : "Perenang yang terhubung dengan akun Anda akan tampil di sini."
+          }
+          action={canCreate ? <SwimmerDialog /> : undefined}
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {data.map((s) => (
-            <Link key={s.id} to="/perenang/$id" params={{ id: String(s.id) }} className="rounded-2xl bg-card p-5 shadow-border transition-transform duration-150 hover:-translate-y-0.5">
+            <Link
+              key={s.id}
+              to="/perenang/$id"
+              params={{ id: String(s.id) }}
+              className="rounded-2xl bg-card p-5 shadow-border transition-transform duration-150 hover:-translate-y-0.5"
+            >
               <div className="flex items-start gap-3">
                 <SwimmerAvatar name={s.fullName} size="lg" />
                 <div className="min-w-0">
@@ -44,8 +74,16 @@ function Page() {
                 </div>
               </div>
               <dl className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                <div><dt>Lahir</dt><dd className="text-foreground">{formatDateId(s.dateOfBirth, "d MMM yyyy")}</dd></div>
-                <div><dt>Usia / KU {new Date().getFullYear()}</dt><dd className="text-foreground">{s.age} th · {s.ageGroupRange}</dd></div>
+                <div>
+                  <dt>Lahir</dt>
+                  <dd className="text-foreground">{formatDateId(s.dateOfBirth, "d MMM yyyy")}</dd>
+                </div>
+                <div>
+                  <dt>Usia / KU {new Date().getFullYear()}</dt>
+                  <dd className="text-foreground">
+                    {s.age} th · {s.ageGroupRange}
+                  </dd>
+                </div>
               </dl>
             </Link>
           ))}
@@ -59,9 +97,15 @@ export function SwimmerDialog({
   initial,
 }: {
   initial?: {
-    id: number; fullName: string; nickname: string | null; dateOfBirth: string;
-    gender: "putra" | "putri"; city: string | null; status: "aktif" | "cuti" | "alumni";
-    joinDate: string | null; notes: string | null;
+    id: number;
+    fullName: string;
+    nickname: string | null;
+    dateOfBirth: string;
+    gender: "putra" | "putri";
+    city: string | null;
+    status: "aktif" | "cuti" | "alumni";
+    joinDate: string | null;
+    notes: string | null;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -77,14 +121,20 @@ export function SwimmerDialog({
     notes: initial?.notes ?? "",
   });
   const mut = useMutation({
-    mutationFn: () => saveSwimmer({
-      data: {
-        id: initial?.id, fullName: form.fullName, nickname: form.nickname,
-        dateOfBirth: form.dateOfBirth, gender: form.gender as "putra" | "putri",
-        city: form.city, status: form.status as "aktif" | "cuti" | "alumni",
-        joinDate: form.joinDate, notes: form.notes,
-      },
-    }),
+    mutationFn: () =>
+      saveSwimmer({
+        data: {
+          id: initial?.id,
+          fullName: form.fullName,
+          nickname: form.nickname,
+          dateOfBirth: form.dateOfBirth,
+          gender: form.gender as "putra" | "putri",
+          city: form.city,
+          status: form.status as "aktif" | "cuti" | "alumni",
+          joinDate: form.joinDate,
+          notes: form.notes,
+        },
+      }),
     onSuccess: async () => {
       toast.success(initial ? "Data perenang diperbarui" : "Perenang ditambahkan");
       setOpen(false);
@@ -96,33 +146,95 @@ export function SwimmerDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button><Plus className="size-4" />{initial ? "Ubah data" : "Tambah perenang"}</Button>
+        <Button>
+          <Plus className="size-4" />
+          {initial ? "Ubah data" : "Tambah perenang"}
+        </Button>
       </DialogTrigger>
-      <DialogContent title={initial ? "Ubah perenang" : "Perenang baru"} description="Data anggota untuk kelompok umur PRSI dan laporan prestasi.">
-        <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
-          <Field label="Nama lengkap"><Input required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></Field>
+      <DialogContent
+        title={initial ? "Ubah perenang" : "Perenang baru"}
+        description="Data anggota untuk kelompok umur PRSI dan laporan prestasi."
+      >
+        <form
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+        >
+          <Field label="Nama lengkap">
+            <Input
+              required
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Nama panggilan"><Input value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} /></Field>
-            <Field label="Tanggal lahir"><Input required type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} /></Field>
+            <Field label="Nama panggilan">
+              <Input
+                value={form.nickname}
+                onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+              />
+            </Field>
+            <Field label="Tanggal lahir">
+              <Input
+                required
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+              />
+            </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Putra / putri">
-              <SelectNative value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value as "putra" | "putri" })}>
-                {GENDERS.map((g) => (<option key={g.id} value={g.id}>{g.label}</option>))}
+              <SelectNative
+                value={form.gender}
+                onChange={(e) => setForm({ ...form, gender: e.target.value as "putra" | "putri" })}
+              >
+                {GENDERS.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
               </SelectNative>
             </Field>
             <Field label="Status">
-              <SelectNative value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}>
-                {SWIMMER_STATUSES.map((g) => (<option key={g.id} value={g.id}>{g.label}</option>))}
+              <SelectNative
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}
+              >
+                {SWIMMER_STATUSES.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
               </SelectNative>
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Kota"><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></Field>
-            <Field label="Bergabung"><Input type="date" value={form.joinDate} onChange={(e) => setForm({ ...form, joinDate: e.target.value })} /></Field>
+            <Field label="Kota">
+              <Input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+              />
+            </Field>
+            <Field label="Bergabung">
+              <Input
+                type="date"
+                value={form.joinDate}
+                onChange={(e) => setForm({ ...form, joinDate: e.target.value })}
+              />
+            </Field>
           </div>
-          <Field label="Catatan pelatih"><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-          <Button type="submit" disabled={mut.isPending}>{mut.isPending ? "Menyimpan…" : "Simpan"}</Button>
+          <Field label="Catatan pelatih">
+            <Textarea
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </Field>
+          <Button type="submit" disabled={mut.isPending}>
+            {mut.isPending ? "Menyimpan…" : "Simpan"}
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

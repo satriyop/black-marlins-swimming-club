@@ -35,12 +35,16 @@ test("expired swimmer invite does not create a credential", async () => {
     swimmerIds: [kids[0]!.id],
   });
   await h.sql`update invites set expires_at = now() - interval '1 day' where token = ${invite.token}`;
-  await expect(acceptSwimmerInvite(h.sql, { token: invite.token, password: "renang123" })).rejects.toThrow(
-    /tidak berlaku/,
-  );
-  const users = await h.sql<{ n: number }>`select count(*)::int as n from "user" where email = 'anak-baru@example.com'`;
+  await expect(
+    acceptSwimmerInvite(h.sql, { token: invite.token, password: "renang123" }),
+  ).rejects.toThrow(/tidak berlaku/);
+  const users = await h.sql<{
+    n: number;
+  }>`select count(*)::int as n from "user" where email = 'anak-baru@example.com'`;
   expect(users[0]?.n).toBe(0);
-  const accounts = await h.sql<{ n: number }>`select count(*)::int as n from account where password is not null`;
+  const accounts = await h.sql<{
+    n: number;
+  }>`select count(*)::int as n from account where password is not null`;
   expect(accounts[0]?.n).toBe(0);
 });
 
@@ -107,13 +111,15 @@ test("dashboard applies family visibility before the recent-result cap", async (
     `;
   }
   const dash = await getDashboardData(h.actor(RATIH_ID));
-  expect(dash.recentResults.some((r) => r.timeMs === 40000 && r.swimmerName.startsWith("Luigi"))).toBe(true);
+  expect(
+    dash.recentResults.some((r) => r.timeMs === 40000 && r.swimmerName.startsWith("Luigi")),
+  ).toBe(true);
   expect(JSON.stringify(dash)).not.toContain("Anak Lain");
 });
 
 test("detail routes are not nested under list layouts", () => {
   const tree = readFileSync(join(root, "src/routeTree.gen.ts"), "utf8");
-  expect(tree).toContain('from \'./routes/event_.$id\'');
-  expect(tree).toMatch(/id: '\/event\/\$id'[\s\S]*getParentRoute: \(\) => rootRouteImport/);
+  expect(tree).toContain("from './routes/event_.$id'");
+  expect(tree).toMatch(/id: '\/event_\/\$id'[\s\S]*getParentRoute: \(\) => rootRouteImport/);
   expect(tree).not.toMatch(/getParentRoute: \(\) => EventRoute/);
 });

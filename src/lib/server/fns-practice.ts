@@ -40,7 +40,7 @@ export const getPractice = createServerFn({ method: "GET" }).middleware([authMid
   }>`select * from practice_sets where practice_id = ${data.id} and club_id = ${clubId} order by sort_order, id`;
   const attendance = await sql<{
     id: number; practice_id: number; swimmer_id: number; swimmer_name: string;
-    status: "hadir" | "izin" | "sakit" | "alfa"; meters_completed: number | null; notes: string | null;
+    status: "belum" | "hadir" | "izin" | "sakit" | "alfa"; meters_completed: number | null; notes: string | null;
   }>`select a.*, s.full_name as swimmer_name from practice_attendance a join swimmers s on s.id = a.swimmer_id where a.practice_id = ${data.id} and a.club_id = ${clubId} order by s.full_name`;
   return {
     id: p.id, sessionDate: p.session_date, startTime: p.start_time, durationMin: p.duration_min,

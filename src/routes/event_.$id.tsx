@@ -14,7 +14,7 @@ import { COMPETITION_STROKES, DISTANCES, MEET_LEVELS, MEET_STATUSES, eventCode, 
 import { formatTime, parseTimeToMs } from "@/lib/swim/time";
 import { formatDateId } from "@/lib/utils";
 
-export const Route = createFileRoute("/event/$id")({ component: Page });
+export const Route = createFileRoute("/event_/$id")({ component: Page });
 
 function Page() {
   const id = Number(Route.useParams().id);

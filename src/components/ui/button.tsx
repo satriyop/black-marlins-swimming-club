@@ -12,7 +12,7 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-muted",
         outline: "border border-border bg-transparent hover:bg-muted",
         ghost: "hover:bg-muted text-foreground",
-        destructive: "bg-destructive text-foreground hover:opacity-90",
+        destructive: "bg-destructive text-background hover:opacity-90",
       },
       size: {
         default: "h-11 px-4",
@@ -34,7 +34,5 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "button";
-  return (
-    <Comp className={cn(buttonVariants({ variant, size }), className)} {...props} />
-  );
+  return <Comp className={cn(buttonVariants({ variant, size }), className)} {...props} />;
 }

@@ -8,14 +8,14 @@ import { listSwimmers } from "./swimmers";
 type ResultRow = {
   id: number; swimmer_id: number; swimmer_name: string; meet_id: number | null; meet_name: string | null;
   result_date: string; stroke: string; distance_m: number; course: string; time_ms: number | null;
-  place: number | null; round: string | null; status: string; notes: string | null;
+  place: number | null; round: string | null; status: string; kind: "official" | "test"; notes: string | null;
 };
 
 function mapResult(r: ResultRow, bestMs: number | null): Result {
   return {
     id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name,
     resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms,
-    place: r.place, round: r.round, status: r.status,
+    place: r.place, round: r.round, status: r.status, kind: r.kind,
     isPb: r.time_ms != null && bestMs != null && r.time_ms === bestMs,
     notes: r.notes,
   };
@@ -24,7 +24,6 @@ function mapResult(r: ResultRow, bestMs: number | null): Result {
 export async function getDashboardData(actor: Actor): Promise<Dashboard> {
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Akun belum diundang. Hubungi admin.");
-  const hats = await hatsFor(actor);
   const sql = actor.sql;
   const club = await clubOf(sql, clubId);
   const swimmers = await listSwimmers(actor);
@@ -44,7 +43,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     const ph = visibleIds.map((_, i) => `$${i + 2}`).join(", ");
     recentRows = await sql.query<ResultRow>(
       `select r.id, r.swimmer_id, s.full_name as swimmer_name, r.meet_id, m.name as meet_name,
-        r.result_date, r.stroke, r.distance_m, r.course, r.time_ms, r.place, r.round, r.status, r.notes
+        r.result_date, r.stroke, r.distance_m, r.course, r.time_ms, r.place, r.round, r.status, r.kind, r.notes
        from results r join swimmers s on s.id = r.swimmer_id left join meets m on m.id = r.meet_id
        where r.club_id = $1 and r.swimmer_id in (${ph})
        order by r.result_date desc, r.id desc limit 40`,
@@ -87,7 +86,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir,
            count(*) filter (where status <> 'belum')::int as total
     from practice_attendance a join practices p on p.id = a.practice_id
-    where a.club_id = ${clubId} and p.session_date >= (current_date - interval '30 days')`;
+    where a.club_id = ${clubId} and p.session_date >= (current_date - interval '30 days') and p.session_date <= current_date`;
   const volume = await sql<{ n: number }>`
     select coalesce(sum(total_meters), 0)::int as n from practices
     where club_id = ${clubId} and session_date >= (current_date - interval '6 days') and session_date <= current_date`;
@@ -109,6 +108,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
       practicesThisMonth: monthPractices[0]?.n ?? 0,
       meetsUpcoming: meetCount[0]?.n ?? 0,
       pbThisMonth,
+      attendanceRecorded: total,
       attendanceRate: total === 0 ? 0 : Math.round((hadir / total) * 100),
       volumeThisWeek: volume[0]?.n ?? 0,
     },

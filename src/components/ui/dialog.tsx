@@ -40,7 +40,10 @@ export function DialogContent({
               <DialogPrimitive.Description className="sr-only">{title}</DialogPrimitive.Description>
             )}
           </div>
-          <DialogPrimitive.Close className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
+          <DialogPrimitive.Close
+            aria-label="Tutup dialog"
+            className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
             <X className="size-4" />
           </DialogPrimitive.Close>
         </div>

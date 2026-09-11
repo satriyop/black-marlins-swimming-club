@@ -1,8 +1,12 @@
+import { DeleteButton } from "@/components/ui/delete-button";
+import { useAccess } from "@/lib/club/use-access";
+import { canWriteActivity } from "@/lib/club/permissions";
+import { QueryError } from "@/components/ui/query-error";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { deleteActivity, listActivities, saveActivity } from "@/lib/server/fns";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +19,9 @@ import { formatDateId, todayIso } from "@/lib/utils";
 export const Route = createFileRoute("/aktivitas")({ component: Page });
 
 function Page() {
-  const { data, isPending } = useQuery({
+  const { hats } = useAccess();
+  const canCreate = canWriteActivity(hats);
+  const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["activities"],
     queryFn: () => listActivities(),
   });
@@ -34,17 +40,29 @@ function Page() {
         kicker="Kalender klub"
         title="Aktivitas"
         description="Rapat orang tua, latihan darat, tes fisik, keberangkatan event, dan kegiatan BMSC lainnya."
-        action={<ActivityDialog />}
+        action={canCreate ? <ActivityDialog /> : undefined}
       />
       {isPending ? (
         <div className="h-48 animate-pulse rounded-2xl bg-muted" />
+      ) : isError ? (
+        <QueryError retry={() => refetch()} />
       ) : !data?.length ? (
-        <EmptyState title="Belum ada aktivitas" description="Catat rapat, tes, atau kegiatan klub." action={<ActivityDialog />} />
+        <EmptyState
+          title="Belum ada aktivitas"
+          description={
+            canCreate
+              ? "Catat rapat, tes, atau kegiatan klub."
+              : "Belum ada kegiatan klub yang dijadwalkan."
+          }
+          action={canCreate ? <ActivityDialog /> : undefined}
+        />
       ) : (
         <div className="grid gap-8">
           {grouped.map(([month, items]) => (
             <section key={month}>
-              <h2 className="font-display mb-3 text-2xl">{formatDateId(`${month}-01`, "MMMM yyyy")}</h2>
+              <h2 className="font-display mb-3 text-2xl">
+                {formatDateId(`${month}-01`, "MMMM yyyy")}
+              </h2>
               <div className="grid gap-2">
                 {items.map((a) => (
                   <ActivityRow key={a.id} activity={a} />
@@ -58,7 +76,12 @@ function Page() {
   );
 }
 
-function ActivityRow({ activity }: { activity: Awaited<ReturnType<typeof listActivities>>[number] }) {
+function ActivityRow({
+  activity,
+}: {
+  activity: Awaited<ReturnType<typeof listActivities>>[number];
+}) {
+  const { hats } = useAccess();
   const qc = useQueryClient();
   const del = useMutation({
     mutationFn: () => deleteActivity({ data: { id: activity.id } }),
@@ -79,12 +102,18 @@ function ActivityRow({ activity }: { activity: Awaited<ReturnType<typeof listAct
           </span>
         </div>
         <p className="mt-2 font-semibold">{activity.title}</p>
-        {activity.location ? <p className="text-xs text-muted-foreground">{activity.location}</p> : null}
+        {activity.location ? (
+          <p className="text-xs text-muted-foreground">{activity.location}</p>
+        ) : null}
         {activity.description ? <p className="mt-2 text-sm">{activity.description}</p> : null}
       </div>
-      <Button variant="ghost" size="icon" onClick={() => del.mutate()}>
-        <Trash2 className="size-4" />
-      </Button>
+      {canWriteActivity(hats) && (
+        <DeleteButton
+          label="Hapus aktivitas"
+          description={`Kegiatan ${activity.title} akan dihapus.`}
+          onDelete={() => del.mutateAsync()}
+        />
+      )}
     </div>
   );
 }
@@ -93,7 +122,13 @@ function ActivityDialog() {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    title: "", kind: "rapat", activityDate: todayIso(), startTime: "", endTime: "", location: "", description: "",
+    title: "",
+    kind: "rapat",
+    activityDate: todayIso(),
+    startTime: "",
+    endTime: "",
+    location: "",
+    description: "",
   });
   const mut = useMutation({
     mutationFn: () => saveActivity({ data: form }),
@@ -109,24 +144,76 @@ function ActivityDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button><Plus className="size-4" /> Aktivitas baru</Button>
+        <Button>
+          <Plus className="size-4" /> Aktivitas baru
+        </Button>
       </DialogTrigger>
       <DialogContent title="Aktivitas klub">
-        <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
-          <Field label="Judul"><Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
+        <form
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+        >
+          <Field label="Judul">
+            <Input
+              required
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+          </Field>
           <Field label="Jenis">
-            <SelectNative value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
-              {ACTIVITY_KINDS.map((k) => (<option key={k.id} value={k.id}>{k.label}</option>))}
+            <SelectNative
+              value={form.kind}
+              onChange={(e) => setForm({ ...form, kind: e.target.value })}
+            >
+              {ACTIVITY_KINDS.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.label}
+                </option>
+              ))}
             </SelectNative>
           </Field>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Tanggal"><Input type="date" required value={form.activityDate} onChange={(e) => setForm({ ...form, activityDate: e.target.value })} /></Field>
-            <Field label="Mulai"><Input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} /></Field>
-            <Field label="Selesai"><Input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} /></Field>
+            <Field label="Tanggal">
+              <Input
+                type="date"
+                required
+                value={form.activityDate}
+                onChange={(e) => setForm({ ...form, activityDate: e.target.value })}
+              />
+            </Field>
+            <Field label="Mulai">
+              <Input
+                type="time"
+                value={form.startTime}
+                onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+              />
+            </Field>
+            <Field label="Selesai">
+              <Input
+                type="time"
+                value={form.endTime}
+                onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+              />
+            </Field>
           </div>
-          <Field label="Lokasi"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
-          <Field label="Keterangan"><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
-          <Button type="submit" disabled={mut.isPending}>Simpan</Button>
+          <Field label="Lokasi">
+            <Input
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+            />
+          </Field>
+          <Field label="Keterangan">
+            <Textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </Field>
+          <Button type="submit" disabled={mut.isPending}>
+            Simpan
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

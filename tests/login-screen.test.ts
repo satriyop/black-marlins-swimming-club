@@ -25,9 +25,9 @@ test("detail route files are flattened siblings", () => {
   const event = readFileSync(join(root, "src/routes/event_.$id.tsx"), "utf8");
   const latihan = readFileSync(join(root, "src/routes/latihan_.$id.tsx"), "utf8");
   const perenang = readFileSync(join(root, "src/routes/perenang_.$id.tsx"), "utf8");
-  expect(event).toContain('createFileRoute("/event/$id")');
-  expect(latihan).toContain('createFileRoute("/latihan/$id")');
-  expect(perenang).toContain('createFileRoute("/perenang/$id")');
+  expect(event).toContain('createFileRoute("/event_/$id")');
+  expect(latihan).toContain('createFileRoute("/latihan_/$id")');
+  expect(perenang).toContain('createFileRoute("/perenang_/$id")');
 });
 
 test("undangan route file exists", () => {

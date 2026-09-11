@@ -16,7 +16,7 @@ import { COMPETITION_STROKES, COURSES, DISTANCES, RESULT_ROUNDS, RESULT_STATUSES
 import { formatTime, parseTimeToMs } from "@/lib/swim/time";
 import { formatDateId, todayIso } from "@/lib/utils";
 
-export const Route = createFileRoute("/perenang/$id")({ component: Page });
+export const Route = createFileRoute("/perenang_/$id")({ component: Page });
 
 function Page() {
   const swimmerId = Number(Route.useParams().id);
