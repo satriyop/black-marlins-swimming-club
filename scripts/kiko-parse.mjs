@@ -40,6 +40,7 @@ export const MEET_CALENDAR = {
   KAPOLRESMGL2025: { start: "2025-06-22", end: "2025-06-22" },
   ANTARPELAJARJTG2025: { start: "2025-08-09", end: "2025-08-09" },
   KRAS2025: { start: "2025-09-21", end: "2025-09-21" },
+  SMGOPEN2025: { start: "2025-10-03", end: "2025-10-03" },
   BUPATICUP2025: { start: "2025-12-17", end: "2025-12-17" },
   DANLANALSMG2026: { start: "2026-02-14", end: "2026-02-14" },
   KEJURPROVJTG2026: { start: "2026-04-10", end: "2026-04-12" },
