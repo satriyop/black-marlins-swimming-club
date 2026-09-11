@@ -19,8 +19,6 @@ test("syncs placeholder event dates to medal and real meet days", () => {
     (r) => r.fullName.startsWith("Luigi") && r.distanceM === 50 && r.stroke === "bebas" && r.meetCode === "JATIDIRI2026",
   );
   expect(jatidiriPb?.date).toBe("2026-09-03");
-  const kejurprov = synced.filter((r) => r.meetCode === "KEJURPROVJTG2026");
-  expect(kejurprov.every((r) => r.date === "2026-04-10")).toBe(true);
   const danlanal = synced.filter((r) => r.meetCode === "DANLANALSMG2026");
   expect(danlanal.every((r) => r.date === "2026-02-14")).toBe(true);
   const kapolresBack = synced.find(
@@ -28,14 +26,30 @@ test("syncs placeholder event dates to medal and real meet days", () => {
   );
   expect(kapolresBack?.course).toBe("50");
   expect(kapolresBack?.timeMs).toBe(43770);
-  const unknown = synced.filter((r) => r.meetCode === "KRAPPROVBYL2026");
-  expect(unknown.every((r) => r.date === "2026-01-01")).toBe(true);
-  const smg = synced.filter((r) => r.meetCode === "SMGOPEN2025");
-  expect(smg.every((r) => r.date === "2025-10-03")).toBe(true);
+  const boyolali = synced.find(
+    (r) => r.fullName.startsWith("Luigi") && r.meetCode === "BOYOLALI2025" && r.distanceM === 50 && r.stroke === "bebas",
+  );
+  expect(boyolali?.date).toBe("2025-08-24");
+  const krapFly = synced.find(
+    (r) => r.fullName.startsWith("Luigi") && r.meetCode === "KRAPPROVBYL2026" && r.stroke === "kupu" && r.distanceM === 50,
+  );
+  const krapFree = synced.find(
+    (r) => r.fullName.startsWith("Luigi") && r.meetCode === "KRAPPROVBYL2026" && r.stroke === "bebas" && r.distanceM === 50,
+  );
+  expect(krapFly?.date).toBe("2026-07-04");
+  expect(krapFree?.date).toBe("2026-07-05");
+  const smgBack = synced.find(
+    (r) => r.fullName.startsWith("Luigi") && r.meetCode === "SMGOPEN2025" && r.stroke === "punggung" && r.distanceM === 50,
+  );
+  expect(smgBack?.date).toBe("2025-10-05");
   const o2snFly = synced.find((r) => r.meetCode === "O2SNJATENG2026" && r.stroke === "kupu");
   const o2snFree = synced.find((r) => r.meetCode === "O2SNJATENG2026" && r.stroke === "bebas");
   expect(o2snFly?.date).toBe("2026-07-01");
   expect(o2snFree?.date).toBe("2026-07-02");
+  const kejur400 = synced.find(
+    (r) => r.fullName.startsWith("Luigi") && r.meetCode === "KEJURPROVJTG2026" && r.distanceM === 400,
+  );
+  expect(kejur400?.date).toBe("2026-04-12");
 });
 
 test("parses Luigi 50 free Popda bronze as 30530 ms official LCM", () => {

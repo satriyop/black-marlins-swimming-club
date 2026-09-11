@@ -22,14 +22,14 @@ export const STROKE = {
 
 export const MEET_META = {
   SMGOPEN2025: { name: "Semarang Open 2025", level: "pengprov", city: "Semarang" },
-  BOYOLALI2025: { name: "Boyolali 2025", level: "pengcab", city: "Boyolali" },
+  BOYOLALI2025: { name: "Bupati Boyolali Cup 2025", level: "pengprov", city: "Boyolali" },
   KAPOLRESMGL2025: { name: "Piala Kapolres Magelang Kota Open 2025", level: "pengcab", city: "Magelang" },
   ANTARPELAJARJTG2025: { name: "Antar Pelajar Jateng 2025", level: "sekolah", city: "Magelang" },
   KRAS2025: { name: "Piala Bupati Sukoharjo (KRAS) 2025", level: "pengcab", city: "Sukoharjo" },
   BUPATICUP2024: { name: "Bupati Cup 2024", level: "pengcab", city: "Klaten" },
   BUPATICUP2025: { name: "Bupati Cup 2025", level: "pengcab", city: "Klaten" },
   KEJURPROVJTG2026: { name: "Kejurprov Jateng 2026", level: "pengprov", city: "Semarang" },
-  KRAPPROVBYL2026: { name: "KRA Provinsi Boyolali 2026", level: "pengprov", city: "Boyolali" },
+  KRAPPROVBYL2026: { name: "KRAPPROV Didik Melon Cup 2026", level: "pengprov", city: "Boyolali" },
   DANLANALSMG2026: { name: "Danlanal Semarang 2026", level: "pengprov", city: "Semarang" },
   O2SNJATENG2026: { name: "O2SN Jawa Tengah 2026", level: "sekolah", city: "Semarang" },
   JATIDIRI2026: { name: "Popda Jateng 2026", level: "sekolah", city: "Semarang" },
@@ -39,13 +39,45 @@ export const MEET_META = {
 export const MEET_CALENDAR = {
   KAPOLRESMGL2025: { start: "2025-06-22", end: "2025-06-22" },
   ANTARPELAJARJTG2025: { start: "2025-08-09", end: "2025-08-09" },
+  BOYOLALI2025: { start: "2025-08-23", end: "2025-08-24" },
   KRAS2025: { start: "2025-09-21", end: "2025-09-21" },
   SMGOPEN2025: { start: "2025-10-03", end: "2025-10-05" },
   BUPATICUP2025: { start: "2025-12-17", end: "2025-12-17" },
   DANLANALSMG2026: { start: "2026-02-14", end: "2026-02-14" },
   KEJURPROVJTG2026: { start: "2026-04-10", end: "2026-04-12" },
   O2SNJATENG2026: { start: "2026-07-01", end: "2026-07-02" },
+  KRAPPROVBYL2026: { start: "2026-07-04", end: "2026-07-05" },
   JATIDIRI2026: { start: "2026-09-02", end: "2026-09-03" },
+};
+
+/** Luigi Spectra SwimPro event numbers → race day (1xx day 1, 2xx day 2, 3xx day 3). */
+export const LUIGI_RACE_DAYS = {
+  "BOYOLALI2025|50|PUNGGUNG": "2025-08-23",
+  "BOYOLALI2025|200|BEBAS": "2025-08-23",
+  "BOYOLALI2025|100|PUNGGUNG": "2025-08-23",
+  "BOYOLALI2025|50|KUPU": "2025-08-24",
+  "BOYOLALI2025|50|BEBAS": "2025-08-24",
+  "BOYOLALI2025|100|BEBAS": "2025-08-24",
+  "SMGOPEN2025|50|BEBAS": "2025-10-03",
+  "SMGOPEN2025|100|PUNGGUNG": "2025-10-03",
+  "SMGOPEN2025|200|BEBAS": "2025-10-04",
+  "SMGOPEN2025|50|KUPU": "2025-10-04",
+  "SMGOPEN2025|50|PUNGGUNG": "2025-10-05",
+  "SMGOPEN2025|100|BEBAS": "2025-10-05",
+  "KEJURPROVJTG2026|50|KUPU": "2026-04-10",
+  "KEJURPROVJTG2026|100|BEBAS": "2026-04-10",
+  "KEJURPROVJTG2026|200|BEBAS": "2026-04-11",
+  "KEJURPROVJTG2026|50|BEBAS": "2026-04-11",
+  "KEJURPROVJTG2026|400|BEBAS": "2026-04-12",
+  "KEJURPROVJTG2026|50|DADA": "2026-04-12",
+  "KRAPPROVBYL2026|50|KUPU": "2026-07-04",
+  "KRAPPROVBYL2026|100|DADA": "2026-07-05",
+  "KRAPPROVBYL2026|50|BEBAS": "2026-07-05",
+  "O2SNJATENG2026|50|KUPU": "2026-07-01",
+  "O2SNJATENG2026|50|BEBAS": "2026-07-02",
+  "JATIDIRI2026|200|BEBAS": "2026-09-02",
+  "JATIDIRI2026|100|BEBAS": "2026-09-02",
+  "JATIDIRI2026|50|BEBAS": "2026-09-03",
 };
 
 /** Pool length: "50" LCM, "25" SCM. Kapolres Magelang is Samapta 50 m. */
@@ -121,8 +153,14 @@ export function parseEvents(csvText) {
     const timeMs = parseTimeToMs(waktu);
     if (!fullName || !stroke || !Number.isFinite(distanceM) || timeMs == null || !meet) continue;
     const place = rank && /^\d+$/.test(rank.trim()) ? Number(rank) : null;
+    const gayaKey = String(gaya ?? "").toUpperCase();
+    const raceDay = atlet === "banyu" ? LUIGI_RACE_DAYS[`${meet}|${distanceM}|${gayaKey}`] : null;
+    const calendar = MEET_CALENDAR[meet];
+    let date = tanggal;
+    if (raceDay) date = raceDay;
+    else if (isPlaceholderDate(date) && calendar) date = calendar.start;
     rows.push({
-      date: tanggal,
+      date,
       athlete: atlet,
       fullName,
       distanceM,
@@ -213,7 +251,10 @@ export function syncEventDates(events, medals) {
         m.date &&
         !isPlaceholderDate(m.date),
     );
+    const gayaKey = Object.keys(STROKE).find((k) => STROKE[k] === ev.stroke);
+    const raceDay = ev.athlete === "banyu" && gayaKey ? LUIGI_RACE_DAYS[`${ev.meetCode}|${ev.distanceM}|${gayaKey}`] : null;
     let date = ev.date;
+    if (raceDay) date = raceDay;
     if (isPlaceholderDate(date) && hit) date = hit.date;
     if (isPlaceholderDate(date) && range[ev.meetCode]) date = range[ev.meetCode].start;
     if (isPlaceholderDate(date) && MEET_CALENDAR[ev.meetCode]) date = MEET_CALENDAR[ev.meetCode].start;
