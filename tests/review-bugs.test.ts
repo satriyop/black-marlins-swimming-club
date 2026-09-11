@@ -139,6 +139,13 @@ test("wali dashboard, practice, and meet payloads omit unlinked child names", as
   expect(att.map((a) => a.swimmer_name)).not.toContain("Anak Lain");
   const names = await meetEntryNames(h.actor(RATIH_ID), meet[0]!.id);
   expect(names).not.toContain("Anak Lain");
+  await seedClub(h.sql);
+  const afterReseed = await getDashboardData(h.actor(RATIH_ID));
+  expect(JSON.stringify(afterReseed)).not.toContain("Anak Lain");
+  expect((await hatsFor(h.actor(RATIH_ID))).guardianSwimmerIds).not.toContain(extraId);
+  const attAfter = await listPracticeAttendance(h.actor(RATIH_ID), practice[0]!.id);
+  expect(attAfter.map((a) => a.swimmer_name)).not.toContain("Anak Lain");
+  expect(await meetEntryNames(h.actor(RATIH_ID), meet[0]!.id)).not.toContain("Anak Lain");
 });
 
 test("wali saveResult tes succeeds and official fails; PB comes from time_ms", async () => {

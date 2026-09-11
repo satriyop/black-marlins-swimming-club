@@ -56,8 +56,7 @@ async function seedClubPg(client) {
     [clubId, satriyoId, azkiyaId],
   );
   const swimmers = await client.query("select id from swimmers where club_id = $1", [clubId]);
-  let swimmerIds = swimmers.rows.map((r) => r.id);
-  if (swimmerIds.length === 0) {
+  if (swimmers.rows.length === 0) {
     const created = await client.query(
       `insert into swimmers (club_id, full_name, date_of_birth, gender, nationality, city, status) values
         ($1, 'Ken Athaya Nirwasita', '2012-06-30', 'putri', 'Indonesia', 'Klaten', 'aktif'),
@@ -66,14 +65,13 @@ async function seedClubPg(client) {
        returning id`,
       [clubId],
     );
-    swimmerIds = created.rows.map((r) => r.id);
-  }
-  for (const sid of swimmerIds) {
-    await client.query(
-      `insert into guardians (user_id, swimmer_id) values ($1, $3), ($2, $3)
-       on conflict (user_id, swimmer_id) do nothing`,
-      [satriyoId, ratihId, sid],
-    );
+    for (const row of created.rows) {
+      await client.query(
+        `insert into guardians (user_id, swimmer_id) values ($1, $3), ($2, $3)
+         on conflict (user_id, swimmer_id) do nothing`,
+        [satriyoId, ratihId, row.id],
+      );
+    }
   }
   console.log("[migrate] club seed ensured.");
 }

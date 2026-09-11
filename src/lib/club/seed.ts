@@ -70,16 +70,6 @@ export async function seedClub(sql: Sql): Promise<number> {
         on conflict (user_id, swimmer_id) do nothing
       `;
     }
-  } else {
-    const swimmers = await sql<{ id: number }>`select id from swimmers where club_id = ${clubId}`;
-    for (const s of swimmers) {
-      await sql`
-        insert into guardians (user_id, swimmer_id) values
-          (${satriyoId}, ${s.id}),
-          (${ratihId}, ${s.id})
-        on conflict (user_id, swimmer_id) do nothing
-      `;
-    }
   }
 
   return clubId;
