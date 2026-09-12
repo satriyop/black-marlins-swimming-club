@@ -26,6 +26,7 @@ export {
   deleteResult,
 } from "./fns-meets";
 export { listActivities, saveActivity, deleteActivity } from "./fns-activities";
+export { listAnnouncements, getAnnouncement, createAnnouncement } from "./fns-announcements";
 export {
   listClubInvites,
   createClubInvite,

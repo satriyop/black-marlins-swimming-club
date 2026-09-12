@@ -2,7 +2,7 @@ import type { Hats } from "./hats";
 import { isInvited } from "./access";
 
 export type NavItem = {
-  to: "/" | "/perenang" | "/latihan" | "/event" | "/aktivitas" | "/undangan";
+  to: "/" | "/perenang" | "/latihan" | "/event" | "/aktivitas" | "/undangan" | "/pengumuman";
   label: string;
 };
 
@@ -21,6 +21,7 @@ export function navItemsFor(hats: Hats): NavItem[] {
     { to: "/latihan", label: "Latihan" },
     { to: "/perenang", label: "Perenang" },
     { to: "/event", label: "Kejuaraan" },
+    { to: "/pengumuman", label: "Pengumuman" },
     { to: "/aktivitas", label: "Aktivitas" },
   ];
   if (canSeeUndangan(hats)) {

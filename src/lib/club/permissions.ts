@@ -42,6 +42,10 @@ export function canWriteActivity(hats: Hats): boolean {
   return hats.staff === "superadmin" || hats.staff === "club_admin";
 }
 
+export function canPostAnnouncement(hats: Hats): boolean {
+  return hats.staff != null;
+}
+
 export function canWriteClubProfile(hats: Hats): boolean {
   return hats.staff === "superadmin" || hats.staff === "club_admin";
 }
