@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Result } from "@/lib/swim/types";
 import { formatTime } from "@/lib/swim/time";
 import { eventCode } from "@/lib/swim/constants";
+import {
+  activeFilter,
+  emptyResultsMessage,
+  filterResults,
+  meetFilterOptions,
+  nomorFilterOptions,
+  showMeetFilter,
+} from "@/lib/swim/result-filters";
 import { formatDateId } from "@/lib/utils";
 import { useAccess } from "@/lib/club/use-access";
 import { canDeleteResult } from "@/lib/club/permissions";
@@ -18,8 +26,15 @@ export function ResultList({
   showSwimmer?: boolean;
 }) {
   const { hats } = useAccess();
-  const [kind, setKind] = useState("all");
-  const visible = results.filter((r) => kind === "all" || r.kind === kind);
+  const [meet, setMeet] = useState("all");
+  const [nomor, setNomor] = useState("all");
+  const meetOptions = useMemo(() => meetFilterOptions(results), [results]);
+  const nomorOptions = useMemo(() => nomorFilterOptions(results), [results]);
+  const meetVisible = showMeetFilter(results);
+  const meetFilter = meetVisible ? activeFilter(meet, meetOptions) : "all";
+  const nomorFilter = activeFilter(nomor, nomorOptions);
+  const visible = filterResults(results, meetFilter, nomorFilter);
+  const filterMiss = meetFilter !== "all" || nomorFilter !== "all";
   const remove = (r: Result) =>
     onDelete && canDeleteResult(hats, r.swimmerId) ? (
       <DeleteButton
@@ -32,18 +47,33 @@ export function ResultList({
     r.status !== "selesai" ? r.status.toUpperCase() : formatTime(r.timeMs);
   return (
     <div>
-      <div className="mb-3 max-w-xs">
-        <Field label="Sumber catatan">
-          <SelectNative value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="all">Semua catatan</option>
-            <option value="official">Hasil resmi</option>
-            <option value="test">Tes latihan</option>
-          </SelectNative>
-        </Field>
-      </div>
+      {results.length > 0 ? (
+        <div className={`mb-3 grid gap-3 ${meetVisible ? "max-w-xl sm:grid-cols-2" : "max-w-xs"}`}>
+          {meetVisible ? (
+            <Field label="Kejuaraan">
+              <SelectNative value={meetFilter} onChange={(e) => setMeet(e.target.value)}>
+                {meetOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </SelectNative>
+            </Field>
+          ) : null}
+          <Field label="Nomor">
+            <SelectNative value={nomorFilter} onChange={(e) => setNomor(e.target.value)}>
+              {nomorOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </SelectNative>
+          </Field>
+        </div>
+      ) : null}
       {!visible.length ? (
         <p className="rounded-xl bg-card p-5 text-sm text-muted-foreground">
-          Belum ada catatan untuk sumber ini.
+          {emptyResultsMessage(filterMiss)}
         </p>
       ) : (
         <>
@@ -53,9 +83,7 @@ export function ResultList({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     {showSwimmer && <p className="mb-1 font-semibold">{r.swimmerName}</p>}
-                    <p>
-                      {eventCode(r.distanceM, r.stroke)} · kolam {r.course} m
-                    </p>
+                    <p>{eventCode(r.distanceM, r.stroke, r.course)}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {formatDateId(r.resultDate)}
                     </p>
@@ -103,9 +131,7 @@ export function ResultList({
                   <tr key={r.id}>
                     <td className="p-3">{formatDateId(r.resultDate)}</td>
                     {showSwimmer && <td className="p-3">{r.swimmerName}</td>}
-                    <td className="p-3">
-                      {eventCode(r.distanceM, r.stroke)} · {r.course} m
-                    </td>
+                    <td className="p-3">{eventCode(r.distanceM, r.stroke, r.course)}</td>
                     <td className="p-3 font-mono">
                       {time(r)}
                       {r.isPb && (

@@ -38,7 +38,6 @@ import {
   RESULT_ROUNDS,
   RESULT_STATUSES,
   eventCode,
-  strokeLabel,
 } from "@/lib/swim/constants";
 import { formatTime, parseTimeToMs } from "@/lib/swim/time";
 import { formatDateId, todayIso } from "@/lib/utils";
@@ -259,7 +258,7 @@ function ProgressChart({
         {options.length > 0 ? (
           <SelectNative
             aria-label="Nomor dan sumber tren"
-            className="sm:w-72"
+            className="sm:w-80"
             value={
               selected
                 ? `${selected.stroke}-${selected.distanceM}-${selected.course}-${selected.kind}`
@@ -511,8 +510,7 @@ function ResultDialog({ swimmerId }: { swimmerId: number }) {
             </Field>
           </div>
           <p className="text-xs text-muted-foreground">
-            Nomor: {eventCode(Number(form.distanceM), form.stroke, form.course)} ·{" "}
-            {strokeLabel(form.stroke)}
+            Nomor: {eventCode(Number(form.distanceM), form.stroke, form.course)}
           </p>
           {mut.isError && (
             <p role="alert" className="text-sm text-destructive">
