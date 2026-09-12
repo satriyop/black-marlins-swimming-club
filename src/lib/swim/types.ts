@@ -145,6 +145,13 @@ export type Dashboard = {
   upcomingMeets: Meet[];
   recentResults: Result[];
   recentPbs: Result[];
+  unreadAnnouncements: {
+    id: number;
+    title: string;
+    important: boolean;
+    createdAt: string;
+  }[];
+  unreadCount: number;
   stats: {
     swimmerCount: number;
     practicesThisMonth: number;

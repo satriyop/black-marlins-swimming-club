@@ -92,6 +92,24 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     where club_id = ${clubId} and session_date >= (current_date - interval '6 days') and session_date <= current_date`;
   const hadir = att[0]?.hadir ?? 0;
   const total = att[0]?.total ?? 0;
+  const unreadTotal = await sql<{ n: number }>`
+    select count(*)::int as n
+    from announcements a
+    left join announcement_reads r
+      on r.announcement_id = a.id and r.user_id = ${actor.userId}
+    where a.club_id = ${clubId} and r.user_id is null
+  `;
+  const unreadAnnouncements = await sql<{
+    id: number; title: string; important: boolean; created_at: string;
+  }>`
+    select a.id, a.title, a.important, a.created_at::text as created_at
+    from announcements a
+    left join announcement_reads r
+      on r.announcement_id = a.id and r.user_id = ${actor.userId}
+    where a.club_id = ${clubId} and r.user_id is null
+    order by a.important desc, a.created_at desc
+    limit 8
+  `;
   return {
     club, swimmers,
     upcomingPractices: upcomingPractices.map((p): Practice => ({
@@ -103,6 +121,13 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
       startDate: m.start_date, endDate: m.end_date, organizer: m.organizer, status: m.status, notes: m.notes,
     })),
     recentResults, recentPbs,
+    unreadAnnouncements: unreadAnnouncements.map((a) => ({
+      id: a.id,
+      title: a.title,
+      important: a.important,
+      createdAt: a.created_at,
+    })),
+    unreadCount: unreadTotal[0]?.n ?? 0,
     stats: {
       swimmerCount: swimmers.filter((s) => s.status === "aktif").length,
       practicesThisMonth: monthPractices[0]?.n ?? 0,

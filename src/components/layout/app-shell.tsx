@@ -3,6 +3,7 @@ import {
   CalendarDays,
   LayoutDashboard,
   Mail,
+  Megaphone,
   Trophy,
   Users,
   Waves,
@@ -28,6 +29,7 @@ const ICONS: Record<NavItem["to"], typeof LayoutDashboard> = {
   "/event": Trophy,
   "/aktivitas": CalendarDays,
   "/undangan": Mail,
+  "/pengumuman": Megaphone,
 };
 
 function navActive(pathname: string, to: string) {
@@ -60,8 +62,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = navItemsFor(access.data.hats);
   const invited = access.data.invited;
-  const primaryItems = items.filter((item) => !["/aktivitas", "/undangan"].includes(item.to));
-  const moreItems = items.filter((item) => ["/aktivitas", "/undangan"].includes(item.to));
+  const primaryItems = items.filter((item) => !["/aktivitas", "/undangan", "/pengumuman"].includes(item.to));
+  const moreItems = items.filter((item) =>
+    ["/aktivitas", "/undangan", "/pengumuman"].includes(item.to),
+  );
 
   return (
     <div className="min-h-dvh bg-background text-foreground">

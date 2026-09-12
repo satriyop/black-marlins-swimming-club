@@ -25,9 +25,17 @@ test("detail route files are flattened siblings", () => {
   const event = readFileSync(join(root, "src/routes/event_.$id.tsx"), "utf8");
   const latihan = readFileSync(join(root, "src/routes/latihan_.$id.tsx"), "utf8");
   const perenang = readFileSync(join(root, "src/routes/perenang_.$id.tsx"), "utf8");
+  const pengumuman = readFileSync(join(root, "src/routes/pengumuman_.$id.tsx"), "utf8");
   expect(event).toContain('createFileRoute("/event_/$id")');
   expect(latihan).toContain('createFileRoute("/latihan_/$id")');
   expect(perenang).toContain('createFileRoute("/perenang_/$id")');
+  expect(pengumuman).toContain('createFileRoute("/pengumuman_/$id")');
+});
+
+test("pengumuman is only in Lainnya on mobile, not also a primary tab", () => {
+  const src = readFileSync(join(root, "src/components/layout/app-shell.tsx"), "utf8");
+  expect(src).toContain('!["/aktivitas", "/undangan", "/pengumuman"]');
+  expect(src).toContain('["/aktivitas", "/undangan", "/pengumuman"]');
 });
 
 test("undangan route file exists", () => {
