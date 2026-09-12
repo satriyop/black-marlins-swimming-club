@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { hatsFor } from "../src/lib/club/hats";
-import { navItemsFor } from "../src/lib/club/nav";
+import { homePracticeCta, navItemsFor } from "../src/lib/club/nav";
 import { AZKIYA_ID, RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
 import { createClubHarness } from "./harness";
 
@@ -45,4 +45,24 @@ test("swimmer-only nav omits Undangan", () => {
   const items = navItemsFor({ staff: null, guardianSwimmerIds: [], selfSwimmerId: 1 });
   expect(items.map((i) => i.to)).not.toContain("/undangan");
   expect(items.map((i) => i.to)).toContain("/");
+});
+
+test("zero-child wali home CTA is Daftarkan anak, not izin", () => {
+  expect(
+    homePracticeCta({ staff: null, family: true, guardianSwimmerIds: [], selfSwimmerId: null }),
+  ).toBe("enroll");
+  expect(
+    homePracticeCta({ staff: null, family: true, guardianSwimmerIds: [1], selfSwimmerId: null }),
+  ).toBe("izin");
+});
+
+test("admitted wali with no children sees Perenang but not Undangan", () => {
+  const items = navItemsFor({
+    staff: null,
+    family: true,
+    guardianSwimmerIds: [],
+    selfSwimmerId: null,
+  });
+  expect(items.map((i) => i.to)).toContain("/perenang");
+  expect(items.map((i) => i.to)).not.toContain("/undangan");
 });

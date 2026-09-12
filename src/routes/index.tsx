@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
 import { useAccess } from "@/lib/club/use-access";
+import { isFamilyMember } from "@/lib/club/hats";
+import { homePracticeCta } from "@/lib/club/nav";
 import { canWritePractice } from "@/lib/club/permissions";
 import { eventCode } from "@/lib/swim/constants";
 import { formatTime } from "@/lib/swim/time";
@@ -63,7 +65,8 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
   } = data;
   const next = upcomingPractices[0];
   const staff = canWritePractice(hats);
-  const guardian = hats.guardianSwimmerIds.length > 0;
+  const guardian = isFamilyMember(hats);
+  const practiceCta = homePracticeCta(hats);
   const family = swimmers.filter(
     (s) => hats.guardianSwimmerIds.includes(s.id) || s.id === hats.selfSwimmerId,
   );
@@ -133,10 +136,21 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
             {next.focus && <p className="mt-3 text-sm text-muted-foreground">{next.focus}</p>}
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <Button asChild>
-                <Link to="/latihan/$id" params={{ id: String(next.id) }}>
-                  {staff ? "Catat kehadiran" : guardian ? "Kehadiran & izin anak" : "Lihat program"}
-                  <ArrowRight />
-                </Link>
+                {practiceCta === "enroll" ? (
+                  <Link to="/perenang">
+                    Daftarkan anak
+                    <ArrowRight />
+                  </Link>
+                ) : (
+                  <Link to="/latihan/$id" params={{ id: String(next.id) }}>
+                    {practiceCta === "staff"
+                      ? "Catat kehadiran"
+                      : practiceCta === "izin"
+                        ? "Kehadiran & izin anak"
+                        : "Lihat program"}
+                    <ArrowRight />
+                  </Link>
+                )}
               </Button>
               <span className="text-sm text-muted-foreground">
                 Rencana {next.totalMeters.toLocaleString("id-ID")} m
@@ -156,6 +170,15 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
               <Link to="/latihan">{staff ? "Jadwalkan latihan" : "Lihat riwayat latihan"}</Link>
             </Button>
           </>
+        )}
+        {!staff && guardian && family.length === 0 && (
+          <p className="mt-4 border-t border-border pt-3 text-sm">
+            Anda sudah bergabung.{" "}
+            <Link to="/perenang" className="text-primary hover:underline">
+              Daftarkan anak
+            </Link>{" "}
+            untuk mulai melihat latihan.
+          </p>
         )}
         {staff && guardian && family.length > 0 && (
           <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
@@ -231,6 +254,15 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
           title={staff ? "Skuad" : guardian ? "Anak saya" : "Profil saya"}
           to="/perenang"
         />
+        {!staff && guardian && family.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Belum ada anak.{" "}
+            <Link to="/perenang" className="text-primary hover:underline">
+              Daftarkan anak
+            </Link>
+            .
+          </p>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {featured.map((s) => (
             <Link

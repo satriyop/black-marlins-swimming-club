@@ -63,7 +63,9 @@ function Page() {
           <p className="text-sm text-muted-foreground">
             {mut.variables?.password
               ? "Masuk dengan email pada undangan dan password yang baru Anda buat."
-              : "Anda sudah dapat membuka klub."}
+              : data?.state === "pending" && data.kind === "guardian"
+                ? "Anda sudah bergabung. Daftarkan anak dari halaman Perenang jika belum terhubung."
+                : "Anda sudah dapat membuka klub."}
           </p>
           <Button asChild>
             <Link to={mut.variables?.password ? "/login" : "/"}>

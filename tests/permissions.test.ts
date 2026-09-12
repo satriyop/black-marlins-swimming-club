@@ -6,6 +6,8 @@ import {
   canEditResult,
   canWriteOfficialResult,
   canWritePractice,
+  canCreateClubSwimmer,
+  canEnrollOwnChild,
   canWriteRoster,
   canWriteTestTime,
 } from "../src/lib/club/permissions";
@@ -28,6 +30,24 @@ test("guardian cannot invite staff", async () => {
   expect(canInviteStaff(hats, "coach")).toBe(false);
   expect(canWriteRoster(hats)).toBe(false);
   expect(canWritePractice(hats)).toBe(false);
+  expect(canCreateClubSwimmer(hats)).toBe(false);
+  expect(canEnrollOwnChild(hats)).toBe(true);
+});
+
+test("coach cannot enroll a child; admin can", async () => {
+  const h = await createClubHarness();
+  const clubId = await seedClub(h.sql);
+  await h.sql`
+    insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+    values ('usr_coach_perm', 'Coach', 'coach-perm@example.com', true, now(), now())
+  `;
+  await h.sql`insert into club_staff (club_id, user_id, role) values (${clubId}, 'usr_coach_perm', 'coach')`;
+  const coach = await hatsFor(h.actor("usr_coach_perm"));
+  expect(canCreateClubSwimmer(coach)).toBe(false);
+  expect(canEnrollOwnChild(coach)).toBe(false);
+  const admin = await hatsFor(h.actor(AZKIYA_ID));
+  expect(canCreateClubSwimmer(admin)).toBe(true);
+  expect(canEnrollOwnChild(admin)).toBe(true);
 });
 
 test("last superadmin cannot be revoked", async () => {

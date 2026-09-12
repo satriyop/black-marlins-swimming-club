@@ -1,5 +1,6 @@
 import { useAccess } from "@/lib/club/use-access";
-import { canWriteRoster } from "@/lib/club/permissions";
+import { canCreateClubSwimmer, canEnrollOwnChild } from "@/lib/club/permissions";
+import { isFamilyMember } from "@/lib/club/hats";
 import { QueryError } from "@/components/ui/query-error";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +21,8 @@ export const Route = createFileRoute("/perenang")({ component: Page });
 
 function Page() {
   const { hats } = useAccess();
-  const canCreate = canWriteRoster(hats);
+  const rosterCreate = canCreateClubSwimmer(hats);
+  const enroll = canEnrollOwnChild(hats);
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["swimmers"],
     queryFn: () => listSwimmers(),
@@ -29,10 +31,17 @@ function Page() {
   return (
     <AppShell>
       <PageHeader
-        kicker="Skuad"
+        kicker={hats.staff ? "Skuad" : "Anak saya"}
         title="Perenang"
         description="Anggota Black Marlins Swimming Club. Kelompok umur mengikuti aturan PRSI (usia per 31 Desember)."
-        action={canCreate ? <SwimmerDialog /> : undefined}
+        action={
+          rosterCreate || enroll ? (
+            <div className="flex flex-wrap gap-2">
+              {rosterCreate ? <SwimmerDialog /> : null}
+              {enroll ? <SwimmerDialog asChild /> : null}
+            </div>
+          ) : undefined
+        }
       />
       {isPending ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -44,13 +53,22 @@ function Page() {
         <QueryError retry={() => refetch()} />
       ) : !data?.length ? (
         <EmptyState
-          title="Belum ada perenang"
+          title={isFamilyMember(hats) && !hats.staff ? "Belum ada anak terdaftar" : "Belum ada perenang"}
           description={
-            canCreate
-              ? "Tambahkan anggota klub untuk mulai mencatat latihan dan prestasi."
-              : "Perenang yang terhubung dengan akun Anda akan tampil di sini."
+            enroll
+              ? "Daftarkan anak Anda untuk mulai melihat latihan dan catatan waktu."
+              : rosterCreate
+                ? "Tambahkan anggota klub untuk mulai mencatat latihan dan prestasi."
+                : "Perenang yang terhubung dengan akun Anda akan tampil di sini."
           }
-          action={canCreate ? <SwimmerDialog /> : undefined}
+          action={
+            rosterCreate || enroll ? (
+              <div className="flex flex-wrap gap-2">
+                {rosterCreate ? <SwimmerDialog /> : null}
+                {enroll ? <SwimmerDialog asChild /> : null}
+              </div>
+            ) : undefined
+          }
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -95,6 +113,7 @@ function Page() {
 
 export function SwimmerDialog({
   initial,
+  asChild = false,
 }: {
   initial?: {
     id: number;
@@ -107,8 +126,10 @@ export function SwimmerDialog({
     joinDate: string | null;
     notes: string | null;
   };
+  asChild?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [confirmSimilar, setConfirmSimilar] = useState(false);
   const qc = useQueryClient();
   const [form, setForm] = useState({
     fullName: initial?.fullName ?? "",
@@ -133,27 +154,45 @@ export function SwimmerDialog({
           status: form.status as "aktif" | "cuti" | "alumni",
           joinDate: form.joinDate,
           notes: form.notes,
+          asChild: !initial && asChild,
+          confirmSimilar,
         },
       }),
     onSuccess: async () => {
-      toast.success(initial ? "Data perenang diperbarui" : "Perenang ditambahkan");
+      toast.success(
+        initial ? "Data perenang diperbarui" : asChild ? "Anak didaftarkan" : "Perenang ditambahkan",
+      );
+      setConfirmSimilar(false);
       setOpen(false);
       await qc.invalidateQueries();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      if (/Simpan lagi/.test(e.message)) setConfirmSimilar(true);
+      toast.error(e.message);
+    },
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setConfirmSimilar(false);
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" />
-          {initial ? "Ubah data" : "Tambah perenang"}
+          {initial ? "Ubah data" : asChild ? "Daftarkan anak" : "Tambah perenang"}
         </Button>
       </DialogTrigger>
       <DialogContent
-        title={initial ? "Ubah perenang" : "Perenang baru"}
-        description="Data anggota untuk kelompok umur PRSI dan laporan prestasi."
+        title={initial ? "Ubah perenang" : asChild ? "Daftarkan anak" : "Perenang baru"}
+        description={
+          asChild
+            ? "Data anak Anda. Setelah disimpan, anak tampil di Anak saya."
+            : "Data anggota untuk kelompok umur PRSI dan laporan prestasi."
+        }
       >
         <form
           className="grid gap-3"
@@ -166,7 +205,10 @@ export function SwimmerDialog({
             <Input
               required
               value={form.fullName}
-              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              onChange={(e) => {
+                setConfirmSimilar(false);
+                setForm({ ...form, fullName: e.target.value });
+              }}
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
@@ -181,7 +223,10 @@ export function SwimmerDialog({
                 required
                 type="date"
                 value={form.dateOfBirth}
-                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                onChange={(e) => {
+                  setConfirmSimilar(false);
+                  setForm({ ...form, dateOfBirth: e.target.value });
+                }}
               />
             </Field>
           </div>
@@ -198,40 +243,53 @@ export function SwimmerDialog({
                 ))}
               </SelectNative>
             </Field>
-            <Field label="Status">
-              <SelectNative
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}
-              >
-                {SWIMMER_STATUSES.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
+            {asChild && !initial ? (
+              <Field label="Kota">
+                <Input
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                />
+              </Field>
+            ) : (
+              <Field label="Status">
+                <SelectNative
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}
+                >
+                  {SWIMMER_STATUSES.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.label}
+                    </option>
+                  ))}
+                </SelectNative>
+              </Field>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Kota">
-              <Input
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-            </Field>
-            <Field label="Bergabung">
-              <Input
-                type="date"
-                value={form.joinDate}
-                onChange={(e) => setForm({ ...form, joinDate: e.target.value })}
-              />
-            </Field>
-          </div>
-          <Field label="Catatan pelatih">
-            <Textarea
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </Field>
+          {asChild && !initial ? null : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Kota">
+                  <Input
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  />
+                </Field>
+                <Field label="Bergabung">
+                  <Input
+                    type="date"
+                    value={form.joinDate}
+                    onChange={(e) => setForm({ ...form, joinDate: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <Field label="Catatan pelatih">
+                <Textarea
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </Field>
+            </>
+          )}
           <Button type="submit" disabled={mut.isPending}>
             {mut.isPending ? "Menyimpan…" : "Simpan"}
           </Button>

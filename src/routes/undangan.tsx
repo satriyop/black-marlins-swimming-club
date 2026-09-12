@@ -54,7 +54,7 @@ function Page() {
     staffOk ? "staff" : "guardian",
   );
   const [role, setRole] = useState<StaffRole>("coach");
-  const [swimmerId, setSwimmerId] = useState<number | "">("");
+  const [swimmerId, setSwimmerId] = useState<number | "new" | "">("");
 
   const mut = useMutation({
     mutationFn: () =>
@@ -64,7 +64,11 @@ function Page() {
           email,
           role: kind === "staff" ? role : undefined,
           swimmerIds:
-            kind === "staff" ? undefined : swimmerId === "" ? undefined : [Number(swimmerId)],
+            kind === "staff"
+              ? undefined
+              : swimmerId === "new" || swimmerId === ""
+                ? []
+                : [Number(swimmerId)],
         },
       }),
     onSuccess: async (res) => {
@@ -132,11 +136,17 @@ function Page() {
           ) : (
             <Field label="Perenang">
               <SelectNative
-                value={swimmerId === "" ? "" : String(swimmerId)}
-                onChange={(e) => setSwimmerId(e.target.value ? Number(e.target.value) : "")}
+                value={swimmerId === "" || swimmerId === "new" ? swimmerId : String(swimmerId)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSwimmerId(v === "" || v === "new" ? v : Number(v));
+                }}
                 required
               >
-                <option value="">Pilih perenang</option>
+                <option value="">{staffOk && kind === "guardian" ? "Pilih…" : "Pilih perenang"}</option>
+                {staffOk && kind === "guardian" ? (
+                  <option value="new">Anak belum di sistem</option>
+                ) : null}
                 {(swimmers.data ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.fullName}
@@ -150,7 +160,9 @@ function Page() {
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>
           <p className="text-sm text-muted-foreground">
-            Undangan dibuat sebagai tautan. Salin dan bagikan sendiri kepada penerima.
+            {kind === "guardian" && staffOk
+              ? "Pilih anak yang sudah di skuad, atau Anak belum di sistem jika orang tua akan mengisi data anak. Tautan berlaku 14 hari; salin dan bagikan sendiri."
+              : "Undangan dibuat sebagai tautan. Salin dan bagikan sendiri kepada penerima."}
           </p>
           {mut.isError && (
             <p role="alert" className="text-sm text-destructive">
@@ -213,9 +225,11 @@ function Page() {
                       {inv.payload.role
                         ? ` · ${inv.payload.role === "coach" ? "Pelatih" : inv.payload.role === "club_admin" ? "Admin klub" : "Superadmin"}`
                         : ""}
-                      {inv.payload.swimmerIds?.length
-                        ? ` · ${swimmerName(inv.payload.swimmerIds)}`
-                        : ""}
+                      {inv.kind === "guardian" && !inv.payload.swimmerIds?.length
+                        ? " · Anak belum di sistem"
+                        : inv.payload.swimmerIds?.length
+                          ? ` · ${swimmerName(inv.payload.swimmerIds)}`
+                          : ""}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {new Date(inv.expiresAt).getTime() <= Date.now()

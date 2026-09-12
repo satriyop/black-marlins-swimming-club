@@ -31,10 +31,7 @@ export const createClubInvite = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: InviteInput) => {
     if (!input.email?.trim()) throw new Error("Email wajib diisi");
-    if (
-      (input.kind === "guardian" || input.kind === "swimmer_account") &&
-      !input.swimmerIds?.length
-    ) {
+    if (input.kind === "swimmer_account" && !input.swimmerIds?.length) {
       throw new Error("Pilih perenang");
     }
     return { ...input, email: input.email.trim() };

@@ -5,6 +5,10 @@ export async function clubIdFor(actor: Actor): Promise<number | null> {
     select club_id from club_staff where user_id = ${actor.userId} limit 1
   `;
   if (staff[0]) return staff[0].club_id;
+  const family = await actor.sql<{ club_id: number }>`
+    select club_id from club_family where user_id = ${actor.userId} limit 1
+  `;
+  if (family[0]) return family[0].club_id;
   const guardian = await actor.sql<{ club_id: number }>`
     select s.club_id
     from guardians g

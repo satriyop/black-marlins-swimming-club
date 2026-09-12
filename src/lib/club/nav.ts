@@ -12,6 +12,13 @@ export function canSeeUndangan(hats: Hats): boolean {
   );
 }
 
+export function homePracticeCta(hats: Hats): "staff" | "izin" | "enroll" | "program" {
+  if (hats.staff != null) return "staff";
+  if (hats.guardianSwimmerIds.length > 0) return "izin";
+  if (hats.family === true) return "enroll";
+  return "program";
+}
+
 export function navItemsFor(hats: Hats): NavItem[] {
   if (!isInvited(hats)) {
     return [{ to: "/", label: "Hari Ini" }];
