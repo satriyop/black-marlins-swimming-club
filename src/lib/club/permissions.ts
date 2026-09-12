@@ -20,6 +20,15 @@ export function canWriteTestTime(hats: Hats, swimmerId: number): boolean {
   return hats.guardianSwimmerIds.includes(swimmerId);
 }
 
+export function canEditResult(
+  hats: Hats,
+  result: { kind: "official" | "test"; swimmerId: number },
+): boolean {
+  return result.kind === "official"
+    ? canWriteOfficialResult(hats, result.swimmerId)
+    : canWriteTestTime(hats, result.swimmerId);
+}
+
 export function canInviteStaff(hats: Hats, role: StaffRole): boolean {
   if (hats.staff === "superadmin") return true;
   if (hats.staff === "club_admin") return role === "club_admin" || role === "coach";

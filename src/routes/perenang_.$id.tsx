@@ -1,13 +1,9 @@
 import { useAccess } from "@/lib/club/use-access";
-import {
-  canWriteRoster,
-  canDeleteSwimmer,
-  canWriteTestTime,
-  canWriteOfficialResult,
-} from "@/lib/club/permissions";
+import { canWriteRoster, canDeleteSwimmer } from "@/lib/club/permissions";
 import { QueryError } from "@/components/ui/query-error";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { ResultList } from "@/components/swim/result-list";
+import { ResultDialog } from "@/components/swim/result-dialog";
 import { progressSeries, progressDescription } from "@/lib/swim/progress";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,25 +18,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowLeft, Plus } from "lucide-react";
-import { deleteResult, deleteSwimmer, getSwimmer, listMeets, saveResult } from "@/lib/server/fns";
+import { ArrowLeft } from "lucide-react";
+import { deleteResult, deleteSwimmer, getSwimmer } from "@/lib/server/fns";
 import { AppShell } from "@/components/layout/app-shell";
 import { SwimmerAvatar } from "@/components/swim/mark";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Field, Input, SelectNative } from "@/components/ui/input";
+import { SelectNative } from "@/components/ui/input";
 import { SwimmerDialog } from "./perenang";
-import {
-  COMPETITION_STROKES,
-  COURSES,
-  DISTANCES,
-  RESULT_ROUNDS,
-  RESULT_STATUSES,
-  eventCode,
-} from "@/lib/swim/constants";
-import { formatTime, parseTimeToMs } from "@/lib/swim/time";
-import { formatDateId, todayIso } from "@/lib/utils";
+import { eventCode } from "@/lib/swim/constants";
+import { formatTime } from "@/lib/swim/time";
+import { formatDateId } from "@/lib/utils";
 
 export const Route = createFileRoute("/perenang_/$id")({ component: Page });
 
@@ -136,7 +123,7 @@ function Page() {
       </div>
       <div className="grid gap-6 lg:grid-cols-5">
         <section className="lg:col-span-2">
-          <h2 className="font-display mb-3 text-2xl">Rekor pribadi (PB)</h2>
+          <h2 className="font-display mb-3 text-2xl">Rekor pribadi (Personal Best)</h2>
           <p className="mb-3 text-sm text-muted-foreground">
             Waktu terbaik dari hasil resmi dan tes latihan. Bandingkan sumber yang sama pada grafik.
           </p>
@@ -333,195 +320,5 @@ function ResultTable({ results }: { results: Awaited<ReturnType<typeof getSwimme
         await qc.invalidateQueries();
       }}
     />
-  );
-}
-
-function ResultDialog({ swimmerId }: { swimmerId: number }) {
-  const { hats } = useAccess();
-  const canTest = canWriteTestTime(hats, swimmerId);
-  const canOfficial = canWriteOfficialResult(hats, swimmerId);
-  const [open, setOpen] = useState(false);
-  const qc = useQueryClient();
-  const meets = useQuery({ queryKey: ["meets"], queryFn: () => listMeets() });
-  const [form, setForm] = useState({
-    meetId: "",
-    resultDate: todayIso(),
-    stroke: "bebas",
-    distanceM: "50",
-    course: "50" as "25" | "50",
-    time: "",
-    place: "",
-    round: "tes",
-    status: "selesai",
-  });
-  const mut = useMutation({
-    mutationFn: () => {
-      const timeMs = form.time ? parseTimeToMs(form.time) : null;
-      if (form.status === "selesai" && (timeMs == null || timeMs <= 0))
-        throw new Error("Format waktu: 32.18 atau 1:05.72");
-      if (!form.meetId && !canTest) throw new Error("Pilih kejuaraan untuk mencatat hasil resmi.");
-      return saveResult({
-        data: {
-          swimmerId,
-          meetId: form.meetId ? Number(form.meetId) : null,
-          resultDate: form.resultDate,
-          stroke: form.stroke,
-          distanceM: Number(form.distanceM),
-          course: form.course,
-          timeMs,
-          place: form.place ? Number(form.place) : null,
-          round: form.round,
-          status: form.status,
-          kind: form.meetId ? "official" : "test",
-        },
-      });
-    },
-    onSuccess: async (res) => {
-      toast.success(res.isPb ? "Tersimpan — rekor pribadi baru" : "Hasil tersimpan");
-      setOpen(false);
-      setForm((f) => ({ ...f, time: "", place: "" }));
-      await qc.invalidateQueries();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  if (!canTest && !canOfficial) return null;
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" /> Catat waktu
-        </Button>
-      </DialogTrigger>
-      <DialogContent title="Catat hasil" description="Waktu resmi, tes klub, atau kejuaraan.">
-        <form
-          className="grid gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            mut.mutate();
-          }}
-        >
-          <Field label="Tanggal">
-            <Input
-              type="date"
-              required
-              value={form.resultDate}
-              onChange={(e) => setForm({ ...form, resultDate: e.target.value })}
-            />
-          </Field>
-          <Field label={canTest ? "Sumber catatan" : "Kejuaraan"}>
-            <SelectNative
-              value={form.meetId}
-              onChange={(e) => setForm({ ...form, meetId: e.target.value })}
-            >
-              {canTest ? (
-                <option value="">Tes latihan</option>
-              ) : (
-                <option value="">Pilih kejuaraan</option>
-              )}
-              {(canOfficial ? (meets.data ?? []) : []).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </SelectNative>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Gaya">
-              <SelectNative
-                value={form.stroke}
-                onChange={(e) => setForm({ ...form, stroke: e.target.value })}
-              >
-                {COMPETITION_STROKES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-            <Field label="Jarak">
-              <SelectNative
-                value={form.distanceM}
-                onChange={(e) => setForm({ ...form, distanceM: e.target.value })}
-              >
-                {DISTANCES.map((d) => (
-                  <option key={d} value={d}>
-                    {d} m
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Panjang kolam">
-              <SelectNative
-                value={form.course}
-                onChange={(e) => setForm({ ...form, course: e.target.value as "25" | "50" })}
-              >
-                {COURSES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-            <Field label="Waktu" hint="Contoh 32.18 atau 1:05.72">
-              <Input
-                required={form.status === "selesai"}
-                inputMode="decimal"
-                className="font-mono"
-                placeholder="1:05.72"
-                value={form.time}
-                onChange={(e) => setForm({ ...form, time: e.target.value })}
-              />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Babak">
-              <SelectNative
-                value={form.round}
-                onChange={(e) => setForm({ ...form, round: e.target.value })}
-              >
-                {RESULT_ROUNDS.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-            <Field label="Status">
-              <SelectNative
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
-                {RESULT_STATUSES.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-            <Field label="Peringkat">
-              <Input
-                type="number"
-                min={1}
-                value={form.place}
-                onChange={(e) => setForm({ ...form, place: e.target.value })}
-              />
-            </Field>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Nomor: {eventCode(Number(form.distanceM), form.stroke, form.course)}
-          </p>
-          {mut.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {mut.error.message}
-            </p>
-          )}
-          <Button type="submit" disabled={mut.isPending}>
-            {mut.isPending ? "Menyimpan…" : "Simpan hasil"}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

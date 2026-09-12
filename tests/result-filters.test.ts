@@ -3,9 +3,14 @@ import {
   activeFilter,
   emptyResultsMessage,
   filterResults,
+  groupResultsByNomor,
+  kindFromSumber,
   meetFilterOptions,
   nomorFilterOptions,
+  previewRows,
+  resultSourceLabel,
   showMeetFilter,
+  sumberValue,
 } from "../src/lib/swim/result-filters";
 
 const smg = {
@@ -111,4 +116,98 @@ test("stale filter values fall back to all", () => {
 test("empty copy distinguishes no times from a filter miss", () => {
   expect(emptyResultsMessage(false)).toBe("Belum ada catatan waktu.");
   expect(emptyResultsMessage(true)).toBe("Belum ada catatan untuk pilihan ini.");
+});
+
+test("groups by nomor and kolam, newest first, PB is fastest selesai", () => {
+  const groups = groupResultsByNomor([
+    {
+      ...smg,
+      id: 1,
+      resultDate: "2026-09-03",
+      timeMs: 30530,
+      meetName: "Popda",
+      course: "50",
+      status: "selesai",
+    },
+    {
+      ...smg,
+      id: 2,
+      resultDate: "2026-07-05",
+      timeMs: 31760,
+      meetName: "Didik Melon",
+      course: "50",
+      status: "selesai",
+    },
+    {
+      ...boyolali,
+      id: 3,
+      resultDate: "2026-09-03",
+      timeMs: 92460,
+      meetName: "Popda",
+      course: "50",
+      status: "selesai",
+    },
+    {
+      ...tes,
+      id: 4,
+      resultDate: "2026-01-10",
+      timeMs: 30000,
+      course: "25",
+      status: "selesai",
+    },
+  ]);
+  expect(groups.map((g) => g.label)).toEqual([
+    "50 Bebas · kolam 50 m",
+    "50 Punggung · kolam 50 m",
+    "50 Bebas · kolam 25 m",
+  ]);
+  expect(groups[0]!.rows.map((r) => r.id)).toEqual([1, 2]);
+  expect(groups[0]!.pbTimeMs).toBe(30530);
+  expect(groups[0]!.pbResultId).toBe(1);
+});
+
+test("preview keeps 8 rows until expanded", () => {
+  const rows = Array.from({ length: 12 }, (_, i) => ({ id: i + 1 }));
+  expect(previewRows(rows, false)).toHaveLength(8);
+  expect(previewRows(rows, true)).toHaveLength(12);
+});
+
+test("PB for a group comes from the unfiltered set", () => {
+  const popda = {
+    ...smg,
+    id: 1,
+    resultDate: "2026-09-03",
+    timeMs: 31760,
+    meetName: "Popda",
+    course: "50",
+    status: "selesai",
+  };
+  const faster = {
+    ...smg,
+    id: 2,
+    resultDate: "2026-07-05",
+    timeMs: 30530,
+    meetName: "Didik Melon",
+    course: "50",
+    status: "selesai",
+  };
+  const groups = groupResultsByNomor([popda], { pbFrom: [popda, faster] });
+  expect(groups[0]!.pbTimeMs).toBe(30530);
+  expect(groups[0]!.pbResultId).toBe(2);
+  expect(groups[0]!.rows.map((r) => r.id)).toEqual([1]);
+});
+
+test("source label uses kind when the meet name is gone", () => {
+  expect(resultSourceLabel({ meetName: "Popda", kind: "official" })).toBe("Popda");
+  expect(resultSourceLabel({ meetName: null, kind: "official" })).toBe("Hasil resmi");
+  expect(resultSourceLabel({ meetName: null, kind: "test" })).toBe("Tes latihan");
+});
+
+test("sumber value keeps official rows without a meet distinct from tes", () => {
+  expect(sumberValue(null, "official")).toBe("official");
+  expect(sumberValue(null, "test")).toBe("");
+  expect(sumberValue(10, "official")).toBe("10");
+  expect(kindFromSumber("")).toEqual({ kind: "test", meetId: null });
+  expect(kindFromSumber("official")).toEqual({ kind: "official", meetId: null });
+  expect(kindFromSumber("10")).toEqual({ kind: "official", meetId: 10 });
 });

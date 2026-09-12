@@ -26,12 +26,15 @@ function row(partial: Partial<Result> & Pick<Result, "id">): Result {
   };
 }
 
-function renderList(results: Result[]) {
+function renderList(
+  results: Result[],
+  props: { variant?: "history" | "meet"; showSwimmer?: boolean } = {},
+) {
   const client = new QueryClient({ defaultOptions: { queries: { enabled: false } } });
   return renderToStaticMarkup(
     createElement(QueryClientProvider, {
       client,
-      children: createElement(ResultList, { results }),
+      children: createElement(ResultList, { results, ...props }),
     }),
   );
 }
@@ -53,6 +56,8 @@ test("riwayat filters by kejuaraan and spoken nomor, not letter codes", () => {
   expect(html).toContain("kolam 50 m");
   expect(html).not.toContain("Sumber catatan");
   expect(html).not.toContain("50 GB");
+  expect(html).not.toContain("Detail catatan");
+  expect(html).toContain("PB");
 });
 
 test("kejuaraan filter is omitted on a single-meet list", () => {
@@ -69,4 +74,42 @@ test("empty list says there are no times yet, not a filter miss", () => {
   const html = renderList([]);
   expect(html).toContain("Belum ada catatan waktu.");
   expect(html).not.toContain("pilihan ini");
+});
+
+test("long nomor group offers lihat semua instead of dumping every card", () => {
+  const rows = Array.from({ length: 12 }, (_, i) =>
+    row({
+      id: i + 1,
+      resultDate: `2026-01-${String(i + 1).padStart(2, "0")}`,
+      timeMs: 40000 + i * 10,
+    }),
+  );
+  const html = renderList(rows);
+  expect(html).toContain("Lihat semua (12)");
+  expect(html).toContain("50 Bebas · kolam 50 m");
+});
+
+test("official times without a meet are not labeled tes latihan", () => {
+  const html = renderList([
+    row({ id: 1, meetId: null, meetName: null, kind: "official", timeMs: 30530 }),
+  ]);
+  expect(html).toContain("Hasil resmi");
+  expect(html).not.toContain("Tes latihan");
+});
+
+test("meet hasil lists every athlete and place, without personal-best chrome", () => {
+  const rows = Array.from({ length: 12 }, (_, i) =>
+    row({
+      id: i + 1,
+      swimmerId: i + 1,
+      swimmerName: `Perenang ${i + 1}`,
+      place: i + 1,
+      timeMs: 40000 + i * 10,
+    }),
+  );
+  const html = renderList(rows, { variant: "meet", showSwimmer: true });
+  expect(html).toContain("Perenang 12");
+  expect(html).toContain("Peringkat 1");
+  expect(html).not.toContain("PB");
+  expect(html).not.toContain("Lihat semua");
 });
