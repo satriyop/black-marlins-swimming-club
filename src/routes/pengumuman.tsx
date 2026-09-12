@@ -140,7 +140,7 @@ function ComposeDialog() {
               checked={form.important}
               onChange={(e) => setForm({ ...form, important: e.target.checked })}
             />
-            Penting — tetap di Hari Ini sampai dibuka
+            Penting — tampil lebih dulu di Hari Ini
           </label>
           <Button type="submit" disabled={mut.isPending}>
             {mut.isPending ? "Mengirim…" : "Kirim"}

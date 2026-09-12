@@ -151,6 +151,7 @@ export type Dashboard = {
     important: boolean;
     createdAt: string;
   }[];
+  unreadCount: number;
   stats: {
     swimmerCount: number;
     practicesThisMonth: number;

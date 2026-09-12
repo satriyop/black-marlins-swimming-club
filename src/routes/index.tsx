@@ -51,8 +51,16 @@ function Dashboard() {
 
 function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>> }) {
   const { hats } = useAccess();
-  const { club, swimmers, upcomingPractices, upcomingMeets, recentPbs, unreadAnnouncements, stats } =
-    data;
+  const {
+    club,
+    swimmers,
+    upcomingPractices,
+    upcomingMeets,
+    recentPbs,
+    unreadAnnouncements,
+    unreadCount,
+    stats,
+  } = data;
   const next = upcomingPractices[0];
   const staff = canWritePractice(hats);
   const guardian = hats.guardianSwimmerIds.length > 0;
@@ -67,12 +75,12 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
         title={greetingId()}
         description={formatDateId(todayIso(), "EEEE, d MMMM yyyy")}
       />
-      {unreadAnnouncements.length > 0 ? (
+      {unreadCount > 0 ? (
         <section aria-labelledby="unread-posts" className="rounded-2xl border border-primary/30 bg-card p-5">
           <p id="unread-posts" className="text-sm font-semibold text-primary">
-            {unreadAnnouncements.length === 1
+            {unreadCount === 1
               ? "1 pengumuman belum dibuka"
-              : `${unreadAnnouncements.length} pengumuman belum dibuka`}
+              : `${unreadCount} pengumuman belum dibuka`}
           </p>
           <ul className="mt-3 grid gap-2">
             {unreadAnnouncements.map((post) => (
@@ -91,6 +99,13 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
               </li>
             ))}
           </ul>
+          {unreadCount > unreadAnnouncements.length ? (
+            <p className="mt-3 text-sm">
+              <Link to="/pengumuman" className="text-primary hover:underline">
+                Lihat semua pengumuman
+              </Link>
+            </p>
+          ) : null}
         </section>
       ) : null}
       <section

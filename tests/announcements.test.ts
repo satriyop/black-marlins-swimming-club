@@ -4,6 +4,7 @@ import {
   getAnnouncement,
   listAnnouncements,
 } from "../src/lib/club/announcements";
+import { getDashboardData } from "../src/lib/club/dashboard";
 import { RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
 import { createClubHarness } from "./harness";
 
@@ -105,6 +106,20 @@ test("uninvited user cannot list or open", async () => {
   `;
   await expect(listAnnouncements(h.actor("usr_asing"))).rejects.toThrow(/belum diundang/i);
   await expect(getAnnouncement(h.actor("usr_asing"), post.id)).rejects.toThrow(/belum diundang/i);
+});
+
+test("Hari Ini unread count is the full total, not the capped list", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  for (let i = 0; i < 9; i += 1) {
+    await createAnnouncement(h.actor(SATRIYO_ID), {
+      title: `Pos ${i}`,
+      body: `Isi ${i}`,
+    });
+  }
+  const dash = await getDashboardData(h.actor(RATIH_ID));
+  expect(dash.unreadCount).toBe(9);
+  expect(dash.unreadAnnouncements).toHaveLength(8);
 });
 
 test("missing announcement looks like not found and does not leak the title", async () => {

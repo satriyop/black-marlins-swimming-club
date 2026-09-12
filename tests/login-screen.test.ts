@@ -32,6 +32,12 @@ test("detail route files are flattened siblings", () => {
   expect(pengumuman).toContain('createFileRoute("/pengumuman_/$id")');
 });
 
+test("pengumuman is only in Lainnya on mobile, not also a primary tab", () => {
+  const src = readFileSync(join(root, "src/components/layout/app-shell.tsx"), "utf8");
+  expect(src).toContain('!["/aktivitas", "/undangan", "/pengumuman"]');
+  expect(src).toContain('["/aktivitas", "/undangan", "/pengumuman"]');
+});
+
 test("undangan route file exists", () => {
   const src = readFileSync(join(root, "src/routes/undangan.tsx"), "utf8");
   expect(src).toContain('createFileRoute("/undangan")');

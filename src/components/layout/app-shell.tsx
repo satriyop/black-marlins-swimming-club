@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = navItemsFor(access.data.hats);
   const invited = access.data.invited;
-  const primaryItems = items.filter((item) => !["/aktivitas", "/undangan"].includes(item.to));
+  const primaryItems = items.filter((item) => !["/aktivitas", "/undangan", "/pengumuman"].includes(item.to));
   const moreItems = items.filter((item) =>
     ["/aktivitas", "/undangan", "/pengumuman"].includes(item.to),
   );
