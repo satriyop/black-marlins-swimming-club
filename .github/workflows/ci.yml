@@ -99,12 +99,9 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          args: --accept-dns=true
-          tailscaled-args: --tun=userspace-networking --socks5-server=localhost:1055
-          targets: 100.104.62.51
+          targets: aidev
       - name: Deploy exact SHA to aidev
         env:
-          BMSC_DEPLOY_HOST: ${{ secrets.BMSC_DEPLOY_HOST }}
           BMSC_DEPLOY_USER: ${{ secrets.BMSC_DEPLOY_USER }}
           BMSC_DEPLOY_SSH_KEY: ${{ secrets.BMSC_DEPLOY_SSH_KEY }}
           SHA: ${{ github.sha }}
@@ -115,14 +112,12 @@ jobs:
             exit 0
           fi
           USER="${BMSC_DEPLOY_USER:-root}"
-          HOST="${BMSC_DEPLOY_HOST:-100.104.62.51}"
+          HOST=aidev
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$BMSC_DEPLOY_SSH_KEY" > ~/.ssh/bmsc_deploy
           chmod 600 ~/.ssh/bmsc_deploy
-          echo "aidev tailnet ip ${HOST}"
-          PROXY=(ssh -i ~/.ssh/bmsc_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20
-            -o ProxyCommand="nc -X 5 -x 127.0.0.1:1055 %h %p")
-          "${PROXY[@]}" "${USER}@${HOST}" \
+          SSH=(ssh -i ~/.ssh/bmsc_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20)
+          "${SSH[@]}" "${USER}@${HOST}" \
             "cat > /tmp/bmsc-release.tgz && cd /var/www/bmsc && git pull --ff-only && sudo bash scripts/bmsc.sh apply-release /tmp/bmsc-release.tgz ${SHA} && rm -f /tmp/bmsc-release.tgz" \
             < bmsc-release.tgz
