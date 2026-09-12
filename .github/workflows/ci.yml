@@ -100,6 +100,8 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
           args: --accept-dns=true
+          tailscaled-args: --tun=userspace-networking --socks5-server=localhost:1055
+          targets: 100.104.62.51
       - name: Deploy exact SHA to aidev
         env:
           BMSC_DEPLOY_HOST: ${{ secrets.BMSC_DEPLOY_HOST }}
@@ -113,20 +115,14 @@ jobs:
             exit 0
           fi
           USER="${BMSC_DEPLOY_USER:-root}"
-          # Tailscale IPv4 for aidev (MagicDNS does not work on GitHub-hosted runners).
           HOST="${BMSC_DEPLOY_HOST:-100.104.62.51}"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$BMSC_DEPLOY_SSH_KEY" > ~/.ssh/bmsc_deploy
           chmod 600 ~/.ssh/bmsc_deploy
           echo "aidev tailnet ip ${HOST}"
-          for i in 1 2 3 4 5 6 7 8; do
-            if tailscale ping -c 1 "$HOST" >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          ssh-keyscan -T 10 -H "$HOST" >> ~/.ssh/known_hosts || true
-          # One SSH session (fail2ban): upload tarball, pull bmsc.sh, apply release.
-          ssh -i ~/.ssh/bmsc_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
-            "${USER}@${HOST}" \
+          PROXY=(ssh -i ~/.ssh/bmsc_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20
+            -o ProxyCommand="nc -X 5 -x 127.0.0.1:1055 %h %p")
+          "${PROXY[@]}" "${USER}@${HOST}" \
             "cat > /tmp/bmsc-release.tgz && cd /var/www/bmsc && git pull --ff-only && sudo bash scripts/bmsc.sh apply-release /tmp/bmsc-release.tgz ${SHA} && rm -f /tmp/bmsc-release.tgz" \
             < bmsc-release.tgz
