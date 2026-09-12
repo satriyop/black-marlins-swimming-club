@@ -78,3 +78,104 @@ export function activeFilter(value: string, options: { value: string }[]): strin
 export function emptyResultsMessage(filterMiss: boolean): string {
   return filterMiss ? "Belum ada catatan untuk pilihan ini." : "Belum ada catatan waktu.";
 }
+
+export const NOMOR_PREVIEW_LIMIT = 8;
+
+type GroupRow = MeetRow &
+  NomorRow & {
+    id: number;
+    resultDate: string;
+    course: string;
+    timeMs: number | null;
+    status: string;
+  };
+
+export type NomorGroup<T extends GroupRow = GroupRow> = {
+  key: string;
+  stroke: string;
+  distanceM: number;
+  course: string;
+  label: string;
+  pbTimeMs: number | null;
+  pbResultId: number | null;
+  rows: T[];
+};
+
+function nomorKey(r: { distanceM: number; stroke: string; course: string }) {
+  return `${r.distanceM}-${r.stroke}-${r.course}`;
+}
+
+function fastestSelesai<T extends GroupRow>(rows: T[]): T | null {
+  const finished = rows.filter((r) => r.status === "selesai" && r.timeMs != null && r.timeMs > 0);
+  return finished.reduce<T | null>((best, r) => {
+    if (!best || r.timeMs! < best.timeMs!) return r;
+    return best;
+  }, null);
+}
+
+export function groupResultsByNomor<T extends GroupRow>(
+  results: T[],
+  opts: { pbFrom?: T[] } = {},
+): NomorGroup<T>[] {
+  const map = new Map<string, T[]>();
+  for (const r of results) {
+    const key = nomorKey(r);
+    const list = map.get(key);
+    if (list) list.push(r);
+    else map.set(key, [r]);
+  }
+  const pbPool = opts.pbFrom ?? results;
+  const groups: NomorGroup<T>[] = [...map.entries()].map(([key, rows]) => {
+    const sorted = [...rows].sort(
+      (a, b) => b.resultDate.localeCompare(a.resultDate) || b.id - a.id,
+    );
+    const pb = fastestSelesai(pbPool.filter((r) => nomorKey(r) === key));
+    const sample = sorted[0]!;
+    return {
+      key,
+      stroke: sample.stroke,
+      distanceM: sample.distanceM,
+      course: sample.course,
+      label: eventCode(sample.distanceM, sample.stroke, sample.course),
+      pbTimeMs: pb?.timeMs ?? null,
+      pbResultId: pb?.id ?? null,
+      rows: sorted,
+    };
+  });
+  return groups.sort((a, b) => {
+    const da = a.rows[0]!.resultDate;
+    const db = b.rows[0]!.resultDate;
+    return (
+      db.localeCompare(da) || a.distanceM - b.distanceM || a.stroke.localeCompare(b.stroke, "id")
+    );
+  });
+}
+
+export function previewRows<T>(rows: T[], expanded: boolean): T[] {
+  if (expanded || rows.length <= NOMOR_PREVIEW_LIMIT) return rows;
+  return rows.slice(0, NOMOR_PREVIEW_LIMIT);
+}
+
+export function resultSourceLabel(r: {
+  meetName: string | null;
+  kind: "official" | "test";
+}): string {
+  if (r.meetName) return r.meetName;
+  return r.kind === "official" ? "Hasil resmi" : "Tes latihan";
+}
+
+export function sumberValue(meetId: number | null | undefined, kind: "official" | "test"): string {
+  if (meetId != null) return String(meetId);
+  return kind === "official" ? "official" : "";
+}
+
+export function kindFromSumber(value: string): {
+  kind: "official" | "test";
+  meetId: number | null;
+} {
+  if (value === "official") return { kind: "official", meetId: null };
+  if (value === "") return { kind: "test", meetId: null };
+  const id = Number(value);
+  if (!Number.isSafeInteger(id) || id < 1) return { kind: "test", meetId: null };
+  return { kind: "official", meetId: id };
+}

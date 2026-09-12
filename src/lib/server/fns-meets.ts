@@ -78,7 +78,7 @@ export const deleteEntry = createServerFn({ method: "POST" }).middleware([authMi
 });
 
 export const saveResult = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
-  swimmerId: number; meetId?: number | null; resultDate: string; stroke: string; distanceM: number;
+  id?: number; swimmerId: number; meetId?: number | null; resultDate: string; stroke: string; distanceM: number;
   course: "25" | "50"; timeMs?: number | null; place?: number | null; round?: string; status: string; notes?: string;
   kind?: "official" | "test";
 }) => {
@@ -88,6 +88,7 @@ export const saveResult = createServerFn({ method: "POST" }).middleware([authMid
   const actor = await requireClub(context.userId);
   const kind = data.kind ?? (data.meetId ? "official" : "test");
   const saved = await saveClubResult(actor, {
+    id: data.id,
     swimmerId: data.swimmerId,
     meetId: data.meetId,
     resultDate: data.resultDate,

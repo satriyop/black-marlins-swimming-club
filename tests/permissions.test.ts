@@ -3,6 +3,7 @@ import { hatsFor } from "../src/lib/club/hats";
 import {
   canInviteStaff,
   canRevokeStaff,
+  canEditResult,
   canWriteOfficialResult,
   canWritePractice,
   canWriteRoster,
@@ -46,4 +47,6 @@ test("guardian can write test times but not official results", async () => {
   const kid = hats.guardianSwimmerIds[0]!;
   expect(canWriteTestTime(hats, kid)).toBe(true);
   expect(canWriteOfficialResult(hats, kid)).toBe(false);
+  expect(canEditResult(hats, { kind: "test", swimmerId: kid })).toBe(true);
+  expect(canEditResult(hats, { kind: "official", swimmerId: kid })).toBe(false);
 });

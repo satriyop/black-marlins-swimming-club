@@ -164,7 +164,7 @@ function Page() {
       </section>
       <section>
         <h2 className="font-display mb-3 text-2xl">Hasil</h2>
-        <ResultList results={results} showSwimmer />
+        <ResultList results={results} showSwimmer variant="meet" />
       </section>
     </AppShell>
   );
