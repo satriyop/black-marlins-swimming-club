@@ -68,5 +68,12 @@ export async function seedClub(sql: Sql): Promise<number> {
     }
   }
 
+  await sql`
+    insert into club_family (club_id, user_id) values
+      (${clubId}, ${satriyoId}),
+      (${clubId}, ${ratihId})
+    on conflict do nothing
+  `;
+
   return clubId;
 }

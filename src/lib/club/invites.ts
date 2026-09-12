@@ -65,6 +65,11 @@ function sameAthleteSet(a: number[], b: number[]): boolean {
   return b.some((id) => left.has(id));
 }
 
+function sameGuardianTarget(a: number[], b: number[]): boolean {
+  if (a.length === 0 && b.length === 0) return true;
+  return sameAthleteSet(a, b);
+}
+
 export async function listInvites(actor: Actor): Promise<InviteRow[]> {
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
@@ -118,12 +123,26 @@ export async function createInvite(
     const role = input.role;
     if (!role || !canInviteStaff(hats, role)) throw new Error("Tidak diizinkan");
   } else if (input.kind === "guardian" || input.kind === "swimmer_account") {
-    if (swimmerIds.length === 0) throw new Error("Pilih perenang");
     const staffOk = hats.staff === "superadmin" || hats.staff === "club_admin";
     const familyOk = hats.guardianSwimmerIds.length > 0;
-    if (!staffOk && !familyOk) throw new Error("Tidak diizinkan");
-    if (!staffOk && swimmerIds.some((id) => !hats.guardianSwimmerIds.includes(id))) {
+    if (input.kind === "swimmer_account" || swimmerIds.length > 0) {
+      if (swimmerIds.length === 0) throw new Error("Pilih perenang");
+      if (!staffOk && !familyOk) throw new Error("Tidak diizinkan");
+      if (!staffOk && swimmerIds.some((id) => !hats.guardianSwimmerIds.includes(id))) {
+        throw new Error("Tidak diizinkan");
+      }
+    } else if (!staffOk) {
       throw new Error("Tidak diizinkan");
+    } else {
+      const alreadyFamily = await actor.sql<{ n: number }>`
+        select count(*)::int as n
+        from club_family f
+        join "user" u on u.id = f.user_id
+        where f.club_id = ${clubId} and lower(u.email) = ${email}
+      `;
+      if ((alreadyFamily[0]?.n ?? 0) > 0) {
+        throw new Error("Email ini sudah wali klub.");
+      }
     }
   }
 
@@ -176,7 +195,7 @@ export async function createInvite(
     if (
       (input.kind === "guardian" || input.kind === "swimmer_account") &&
       row.kind === input.kind &&
-      sameAthleteSet(swimmerIds, payload.swimmerIds ?? [])
+      sameGuardianTarget(swimmerIds, payload.swimmerIds ?? [])
     ) {
       throw new Error("Undangan untuk wali dan perenang ini sudah ada.");
     }
@@ -238,13 +257,31 @@ export async function acceptInvite(
       `;
     }
   } else if (invite.kind === "guardian") {
-    for (const swimmerId of payload.swimmerIds ?? []) {
+    await sql.query("begin");
+    try {
       await sql`
-        insert into guardians (user_id, swimmer_id)
-        values (${input.userId}, ${swimmerId})
-        on conflict (user_id, swimmer_id) do nothing
+        insert into club_family (club_id, user_id)
+        values (${invite.club_id}, ${input.userId})
+        on conflict (club_id, user_id) do nothing
       `;
+      for (const swimmerId of payload.swimmerIds ?? []) {
+        await sql`
+          insert into guardians (user_id, swimmer_id)
+          values (${input.userId}, ${swimmerId})
+          on conflict (user_id, swimmer_id) do nothing
+        `;
+      }
+      await sql`update invites set accepted_at = now() where id = ${invite.id}`;
+      await sql.query("commit");
+    } catch (err) {
+      try {
+        await sql.query("rollback");
+      } catch {
+        /* keep */
+      }
+      throw err;
     }
+    return;
   } else if (invite.kind === "swimmer_account") {
     const swimmerId = payload.swimmerIds?.[0];
     if (swimmerId) {

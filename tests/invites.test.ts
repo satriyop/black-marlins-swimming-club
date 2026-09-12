@@ -110,13 +110,83 @@ test("rejects guardian invite when that email is already wali of the perenang", 
   ).rejects.toThrow(/sudah wali/);
 });
 
-test("guardian invite requires a perenang", async () => {
+test("admin can invite a wali before any perenang exists", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  const invite = await createInvite(h.actor(SATRIYO_ID), {
+    kind: "guardian",
+    email: "ibu-baru@example.com",
+    swimmerIds: [],
+  });
+  expect(invite.token).toBeTruthy();
+  expect(invite.acceptPath).toContain("/terima?token=");
+});
+
+test("coach cannot invite a wali with no perenang", async () => {
+  const h = await createClubHarness();
+  const clubId = await seedClub(h.sql);
+  await h.sql`
+    insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+    values ('usr_coach_invite', 'Coach', 'coach-invite@example.com', true, now(), now())
+  `;
+  await h.sql`insert into club_staff (club_id, user_id, role) values (${clubId}, 'usr_coach_invite', 'coach')`;
+  await expect(
+    createInvite(h.actor("usr_coach_invite"), {
+      kind: "guardian",
+      email: "ibu@example.com",
+      swimmerIds: [],
+    }),
+  ).rejects.toThrow(/Tidak diizinkan/);
+});
+
+test("existing wali cannot invite with no perenang", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  await expect(
+    createInvite(h.actor(RATIH_ID), {
+      kind: "guardian",
+      email: "ibu-lain@example.com",
+      swimmerIds: [],
+    }),
+  ).rejects.toThrow(/Tidak diizinkan/);
+});
+
+test("rejects an empty wali invite when that email is already family", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   await expect(
     createInvite(h.actor(SATRIYO_ID), {
       kind: "guardian",
-      email: "baru@example.com",
+      email: "ratihsasminta@gmail.com",
+      swimmerIds: [],
+    }),
+  ).rejects.toThrow(/sudah wali/);
+});
+
+test("rejects a second pending empty wali invite for the same email", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  await createInvite(h.actor(SATRIYO_ID), {
+    kind: "guardian",
+    email: "ibu-baru@example.com",
+    swimmerIds: [],
+  });
+  await expect(
+    createInvite(h.actor(SATRIYO_ID), {
+      kind: "guardian",
+      email: "ibu-baru@example.com",
+      swimmerIds: [],
+    }),
+  ).rejects.toThrow(/sudah ada/);
+});
+
+test("swimmer account invite still requires a perenang", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  await expect(
+    createInvite(h.actor(SATRIYO_ID), {
+      kind: "swimmer_account",
+      email: "anak@example.com",
       swimmerIds: [],
     }),
   ).rejects.toThrow(/Pilih perenang/);

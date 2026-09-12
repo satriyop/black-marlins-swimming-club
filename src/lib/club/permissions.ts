@@ -6,6 +6,14 @@ export function canWriteRoster(hats: Hats, swimmerId?: number): boolean {
   return false;
 }
 
+export function canCreateClubSwimmer(hats: Hats): boolean {
+  return hats.staff === "superadmin" || hats.staff === "club_admin";
+}
+
+export function canEnrollOwnChild(hats: Hats): boolean {
+  return hats.family === true || hats.guardianSwimmerIds.length > 0 || canCreateClubSwimmer(hats);
+}
+
 export function canWritePractice(hats: Hats): boolean {
   return hats.staff != null;
 }

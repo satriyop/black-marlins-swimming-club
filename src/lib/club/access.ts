@@ -10,7 +10,12 @@ export type Access = {
 };
 
 export function isInvited(hats: Hats): boolean {
-  return hats.staff != null || hats.guardianSwimmerIds.length > 0 || hats.selfSwimmerId != null;
+  return (
+    hats.staff != null ||
+    hats.family === true ||
+    hats.guardianSwimmerIds.length > 0 ||
+    hats.selfSwimmerId != null
+  );
 }
 
 export async function accessFor(actor: Actor): Promise<Access> {

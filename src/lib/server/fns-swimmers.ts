@@ -3,9 +3,8 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { accessFor } from "@/lib/club/access";
 import { loadClub, requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
-import { canWriteRoster } from "@/lib/club/permissions";
+import { listSwimmers as listSwimmersFor, saveSwimmer as saveSwimmerFor } from "@/lib/club/swimmers";
 import { getDashboardData } from "@/lib/club/dashboard";
-import { listSwimmers as listSwimmersFor } from "@/lib/club/swimmers";
 import { deleteSwimmer as deleteSwimmerFor } from "@/lib/club/writes";
 import { clubOf, mapSwimmer, type SwimmerRow } from "./fns-shared";
 import type { Dashboard, PersonalBest, Result } from "@/lib/swim/types";
@@ -72,22 +71,15 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
 
 export const saveSwimmer = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
   id?: number; fullName: string; nickname?: string; dateOfBirth: string; gender: "putra" | "putri";
-  city?: string; status: "aktif" | "cuti" | "alumni"; joinDate?: string; notes?: string;
+  city?: string; status: "aktif" | "cuti" | "alumni"; joinDate?: string; notes?: string; asChild?: boolean; confirmSimilar?: boolean;
 }) => {
   const fullName = input.fullName.trim();
   if (!fullName) throw new Error("Nama wajib diisi");
   if (!input.dateOfBirth) throw new Error("Tanggal lahir wajib diisi");
   return { ...input, fullName };
 }).handler(async ({ context, data }) => {
-  const { sql, clubId, userId } = await requireClub(context.userId);
-  const hats = await hatsFor({ sql, userId });
-  if (!canWriteRoster(hats, data.id)) throw new Error("Tidak diizinkan");
-  if (data.id) {
-    await sql`update swimmers set full_name = ${data.fullName}, nickname = ${data.nickname?.trim() || null}, date_of_birth = ${data.dateOfBirth}, gender = ${data.gender}, city = ${data.city?.trim() || null}, status = ${data.status}, join_date = ${data.joinDate || null}, notes = ${data.notes?.trim() || null} where id = ${data.id} and club_id = ${clubId}`;
-    return { id: data.id };
-  }
-  const rows = await sql<{ id: number }>`insert into swimmers (club_id, full_name, nickname, date_of_birth, gender, nationality, city, status, join_date, notes) values (${clubId}, ${data.fullName}, ${data.nickname?.trim() || null}, ${data.dateOfBirth}, ${data.gender}, 'Indonesia', ${data.city?.trim() || null}, ${data.status}, ${data.joinDate || null}, ${data.notes?.trim() || null}) returning id`;
-  return { id: rows[0]!.id };
+  const actor = await requireClub(context.userId);
+  return saveSwimmerFor(actor, data);
 });
 
 export const deleteSwimmer = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
