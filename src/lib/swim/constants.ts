@@ -1,10 +1,10 @@
 export const STROKES = [
-  { id: "bebas", label: "Gaya Bebas", short: "GB", en: "Freestyle" },
-  { id: "punggung", label: "Gaya Punggung", short: "GP", en: "Backstroke" },
-  { id: "dada", label: "Gaya Dada", short: "GD", en: "Breaststroke" },
-  { id: "kupu", label: "Gaya Kupu-kupu", short: "GK", en: "Butterfly" },
-  { id: "ganti", label: "Gaya Ganti", short: "GG", en: "Individual Medley" },
-  { id: "campuran", label: "Campuran", short: "Mix", en: "Mixed" },
+  { id: "bebas", label: "Gaya Bebas", short: "Bebas", en: "Freestyle" },
+  { id: "punggung", label: "Gaya Punggung", short: "Punggung", en: "Backstroke" },
+  { id: "dada", label: "Gaya Dada", short: "Dada", en: "Breaststroke" },
+  { id: "kupu", label: "Gaya Kupu-kupu", short: "Kupu", en: "Butterfly" },
+  { id: "ganti", label: "Gaya Ganti", short: "Ganti", en: "Individual Medley" },
+  { id: "campuran", label: "Campuran", short: "Campuran", en: "Mixed" },
 ] as const;
 
 export type StrokeId = (typeof STROKES)[number]["id"];
@@ -132,6 +132,6 @@ export function strokeShort(id: string) {
 
 export function eventCode(distance: number, stroke: string, course?: string) {
   const s = strokeShort(stroke);
-  const c = course === "25" ? " SC" : course === "50" ? " LP" : "";
+  const c = course === "25" || course === "50" ? ` · kolam ${course} m` : "";
   return `${distance} ${s}${c}`;
 }

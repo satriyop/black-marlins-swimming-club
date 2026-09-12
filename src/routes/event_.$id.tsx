@@ -153,9 +153,7 @@ function Page() {
           {entries.map((e) => (
             <li key={e.id} className="rounded-2xl bg-card p-4 shadow-border">
               <p className="font-semibold">{e.swimmerName}</p>
-              <p className="mt-1 text-sm">
-                {eventCode(e.distanceM, e.stroke)} · kolam {meet.course} m
-              </p>
+              <p className="mt-1 text-sm">{eventCode(e.distanceM, e.stroke, meet.course)}</p>
               <p className="my-3 text-sm text-muted-foreground">
                 {e.ageGroup} · Waktu pendaftaran {formatTime(e.seedTimeMs)}
               </p>
@@ -221,9 +219,7 @@ function EntryActions({
       {canWriteOfficialResult(hats, entry.swimmerId) && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button variant="secondary">
-              Catat hasil
-            </Button>
+            <Button variant="secondary">Catat hasil</Button>
           </DialogTrigger>
           <DialogContent
             title={`Hasil ${entry.swimmerName}`}
