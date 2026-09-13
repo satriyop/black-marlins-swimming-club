@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/ui/page-header";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDays,
@@ -62,7 +63,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = navItemsFor(access.data.hats);
   const invited = access.data.invited;
-  const primaryItems = items.filter((item) => !["/aktivitas", "/undangan", "/pengumuman"].includes(item.to));
+  const primaryItems = items.filter(
+    (item) => !["/aktivitas", "/undangan", "/pengumuman"].includes(item.to),
+  );
   const moreItems = items.filter((item) =>
     ["/aktivitas", "/undangan", "/pengumuman"].includes(item.to),
   );
@@ -212,49 +215,4 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function PageHeader({
-  kicker,
-  title,
-  description,
-  action,
-}: {
-  kicker?: string;
-  title: string;
-  description?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        {kicker ? (
-          <p className="mb-1 text-xs font-semibold tracking-[0.18em] text-primary uppercase">
-            {kicker}
-          </p>
-        ) : null}
-        <h1 className="font-display text-4xl text-foreground md:text-5xl">{title}</h1>
-        {description ? (
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
-      {action}
-    </div>
-  );
-}
-
-export function EmptyState({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="grid place-items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
-      <p className="font-display text-2xl">{title}</p>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action ? <div className="mt-5">{action}</div> : null}
-    </div>
-  );
-}
+export { PageHeader, EmptyState } from "@/components/ui/page-header";

@@ -6,18 +6,25 @@ export function Badge({
   children,
 }: {
   className?: string;
-  tone?: "muted" | "pool" | "ok" | "warn" | "danger";
+  tone?: "muted" | "pool" | "ok" | "warn" | "danger" | "info";
   children: React.ReactNode;
 }) {
   const tones = {
     muted: "bg-muted text-muted-foreground",
     pool: "bg-primary/15 text-primary",
-    ok: "bg-primary/15 text-primary",
-    warn: "bg-secondary text-secondary-foreground",
-    danger: "bg-destructive/15 text-destructive",
+    ok: "bg-success-surface text-success",
+    warn: "bg-warning-surface text-warning",
+    danger: "bg-danger-surface text-destructive",
+    info: "bg-info-surface text-info",
   };
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide", tones[tone], className)}>
+    <span
+      className={cn(
+        "inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-sm leading-5 font-semibold",
+        tones[tone],
+        className,
+      )}
+    >
       {children}
     </span>
   );

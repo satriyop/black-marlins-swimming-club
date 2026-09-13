@@ -8,20 +8,28 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   use: { baseURL, trace: "off" },
-  webServer: {
-    command: `node .output/server/index.mjs`,
-    url: `${baseURL}/login`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 20_000,
-    env: {
-      NODE_ENV: "production",
-      HOST: "127.0.0.1",
-      PORT: port,
-      BETTER_AUTH_SECRET: "ci-smoke-secret-not-for-prod",
-      BETTER_AUTH_URL: baseURL,
-      VITE_AUTH_ENABLED: "true",
-      GOOGLE_CLIENT_ID: "ci.apps.googleusercontent.com",
-      GOOGLE_CLIENT_SECRET: "ci-not-real",
+  webServer: [
+    {
+      command: `node .output/server/index.mjs`,
+      url: `${baseURL}/login`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 20_000,
+      env: {
+        NODE_ENV: "production",
+        HOST: "127.0.0.1",
+        PORT: port,
+        BETTER_AUTH_SECRET: "ci-smoke-secret-not-for-prod",
+        BETTER_AUTH_URL: baseURL,
+        VITE_AUTH_ENABLED: "true",
+        GOOGLE_CLIENT_ID: "ci.apps.googleusercontent.com",
+        GOOGLE_CLIENT_SECRET: "ci-not-real",
+      },
     },
-  },
+    {
+      command: "node scripts/visual-fixture.mjs",
+      url: "http://127.0.0.1:3012/tests/fixtures/visual.html",
+      timeout: 30_000,
+      reuseExistingServer: false,
+    },
+  ],
 });

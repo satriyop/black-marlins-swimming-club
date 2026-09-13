@@ -8,7 +8,7 @@ import { cloneElement, isValidElement, useId } from "react";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
-  "h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-[box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-ring/70";
+  "min-h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground outline-none transition-[box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-ring";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(fieldClass, className)} {...props} />;
@@ -47,7 +47,7 @@ export function Field({
   const hintId = `${id}-hint`;
   return (
     <div className="grid gap-1.5 text-sm">
-      <label htmlFor={id} className="font-medium text-muted-foreground">
+      <label htmlFor={id} className="font-semibold text-foreground">
         {label}
       </label>
       {control
