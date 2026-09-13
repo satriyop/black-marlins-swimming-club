@@ -20,20 +20,28 @@ import { formatDateId, todayIso } from "@/lib/utils";
 export const Route = createFileRoute("/perenang")({ component: Page });
 
 function Page() {
-  const { hats } = useAccess();
-  const rosterCreate = canCreateClubSwimmer(hats);
+  const { hats, taskView } = useAccess();
+  const familyView = taskView === "family";
+  const rosterCreate = canCreateClubSwimmer(hats) && !familyView;
   const enroll = canEnrollOwnChild(hats);
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["swimmers"],
     queryFn: () => listSwimmers(),
   });
+  const visible = (data ?? []).filter((s) =>
+    familyView ? hats.guardianSwimmerIds.includes(s.id) || s.id === hats.selfSwimmerId : true,
+  );
 
   return (
     <AppShell>
       <PageHeader
-        kicker={hats.staff ? "Skuad" : "Anak saya"}
-        title="Perenang"
-        description="Anggota Black Marlins Swimming Club. Kelompok umur mengikuti aturan PRSI (usia per 31 Desember)."
+        kicker={familyView ? "Anak saya" : hats.staff ? "Skuad" : "Anak saya"}
+        title={familyView ? "Anak saya" : "Perenang"}
+        description={
+          familyView
+            ? "Anak yang terhubung dengan akun Anda."
+            : "Anggota Black Marlins Swimming Club. Kelompok umur mengikuti aturan PRSI (usia per 31 Desember)."
+        }
         action={
           rosterCreate || enroll ? (
             <div className="flex flex-wrap gap-2">
@@ -51,7 +59,7 @@ function Page() {
         </div>
       ) : isError ? (
         <QueryError retry={() => refetch()} />
-      ) : !data?.length ? (
+      ) : !visible.length ? (
         <EmptyState
           title={isFamilyMember(hats) && !hats.staff ? "Belum ada anak terdaftar" : "Belum ada perenang"}
           description={
@@ -59,7 +67,9 @@ function Page() {
               ? "Daftarkan anak Anda untuk mulai melihat latihan dan catatan waktu."
               : rosterCreate
                 ? "Tambahkan anggota klub untuk mulai mencatat latihan dan prestasi."
-                : "Perenang yang terhubung dengan akun Anda akan tampil di sini."
+                : hats.staff === "coach"
+                  ? "Admin klub mendaftarkan perenang. Pelatih merencanakan sesi dan mencatat kehadiran."
+                  : "Perenang yang terhubung dengan akun Anda akan tampil di sini."
           }
           action={
             rosterCreate || enroll ? (
@@ -72,7 +82,7 @@ function Page() {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((s) => (
+          {visible.map((s) => (
             <Link
               key={s.id}
               to="/perenang/$id"
