@@ -13,9 +13,13 @@ import {
   listSwimmers,
   removeClubPracticeParticipant,
   reopenClubPractice,
+  requestClubAttendanceCorrection,
+  resolveClubAttendanceCorrection,
+  saveClubAbsenceNotice,
   updateAttendance,
+  withdrawClubAbsenceNotice,
 } from "@/lib/server/fns";
-import { canMarkAttendance, canWritePractice } from "@/lib/club/permissions";
+import { canMarkAttendance, canSubmitAbsenceNotice, canWritePractice } from "@/lib/club/permissions";
 import { useAccess } from "@/lib/club/use-access";
 import type { Hats } from "@/lib/club/hats";
 import type { Attendance, PracticeDetail } from "@/lib/swim/types";
@@ -192,9 +196,9 @@ function Page() {
                 ? "Sesi dibatalkan. Kehadiran tidak diubah."
                 : "Sesi selesai. Buka kembali untuk mengkoreksi kehadiran."
               : staff
-                ? "Catat status setiap perenang. Jarak selesai dapat diisi setelah latihan."
+                ? "Catat kehadiran akhir. Izin wali tampil terpisah dan tidak mengganti status ini."
                 : hats.guardianSwimmerIds.length
-                  ? "Anda dapat mencatat izin atau sakit untuk anak Anda. Kehadiran dikonfirmasi pelatih."
+                  ? "Laporkan izin atau sakit. Ini bukan kehadiran akhir; pelatih yang mencatat Hadir/Alfa."
                   : "Kehadiran dicatat oleh pelatih."}
           </p>
           {staff && !closed ? <ParticipantBar practice={data} /> : null}
@@ -245,6 +249,7 @@ function Page() {
                     {" · "}
                     {labelOf(ATTENDANCE, a.status)}
                     {a.metersCompleted != null ? ` · ${a.metersCompleted} m` : ""}
+                    {a.notice?.status === "active" ? ` · izin wali ${a.notice.kind}` : ""}
                   </li>
                 ))}
               </ul>
@@ -485,17 +490,49 @@ function AttendanceCard({
 }) {
   const qc = useQueryClient();
   const [meters, setMeters] = useState(a.metersCompleted == null ? "" : String(a.metersCompleted));
+  const [reason, setReason] = useState(a.notice?.reason ?? "");
+  const [correctionMsg, setCorrectionMsg] = useState("");
+  const [resolution, setResolution] = useState("");
+  const family = canSubmitAbsenceNotice(hats, a.swimmerId);
+  const refresh = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["practice", a.practiceId] }),
+      qc.invalidateQueries({ queryKey: ["practices"] }),
+      qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      qc.invalidateQueries({ queryKey: ["swimmer", a.swimmerId] }),
+    ]);
+  };
   const update = useMutation({
     mutationFn: (input: { status: Attendance["status"]; metersCompleted?: number | null }) =>
       updateAttendance({ data: { id: a.id, ...input } }),
-    onSuccess: async () => {
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["practice", a.practiceId] }),
-        qc.invalidateQueries({ queryKey: ["practices"] }),
-        qc.invalidateQueries({ queryKey: ["dashboard"] }),
-        qc.invalidateQueries({ queryKey: ["swimmer", a.swimmerId] }),
-      ]);
+    onSuccess: refresh,
+  });
+  const notice = useMutation({
+    mutationFn: (kind: "izin" | "sakit") =>
+      saveClubAbsenceNotice({ data: { practiceId: a.practiceId, swimmerId: a.swimmerId, kind, reason } }),
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const withdraw = useMutation({
+    mutationFn: () =>
+      withdrawClubAbsenceNotice({ data: { practiceId: a.practiceId, swimmerId: a.swimmerId } }),
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const correct = useMutation({
+    mutationFn: () =>
+      requestClubAttendanceCorrection({ data: { attendanceId: a.id, message: correctionMsg } }),
+    onSuccess: () => {
+      setCorrectionMsg("");
+      return refresh();
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const resolve = useMutation({
+    mutationFn: (status: "resolved" | "rejected") =>
+      resolveClubAttendanceCorrection({ data: { id: a.correctionId!, status, resolution } }),
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
   });
   return (
     <article className="rounded-2xl bg-card p-4 shadow-border">
@@ -505,6 +542,9 @@ function AttendanceCard({
           <Badge tone={a.status === "hadir" ? "pool" : "muted"}>
             {labelOf(ATTENDANCE, a.status)}
           </Badge>
+          {a.notice?.status === "active" ? (
+            <Badge tone="warn">Izin wali: {a.notice.kind}</Badge>
+          ) : null}
           {canRemove ? (
             <Button
               variant="ghost"
@@ -524,35 +564,104 @@ function AttendanceCard({
           ) : null}
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {ATTENDANCE.filter((status) => canMarkAttendance(hats, a.swimmerId, status.id)).map(
-          (status) => (
-            <Button
-              key={status.id}
-              variant={a.status === status.id ? "secondary" : "outline"}
-              aria-label={`${status.label}: ${a.swimmerName}`}
-              aria-pressed={a.status === status.id}
-              disabled={locked || update.isPending}
-              onClick={() =>
-                update.mutate({
-                  status: status.id,
-                  metersCompleted: status.id === "hadir" ? a.metersCompleted : null,
-                })
-              }
+      {a.notice?.status === "active" && a.notice.reason ? (
+        <p className="mb-3 text-sm text-muted-foreground">Catatan wali: {a.notice.reason}</p>
+      ) : null}
+      {hats.staff ? (
+        <div className="flex flex-wrap gap-2">
+          {ATTENDANCE.filter((status) => canMarkAttendance(hats, a.swimmerId, status.id)).map(
+            (status) => (
+              <Button
+                key={status.id}
+                variant={a.status === status.id ? "secondary" : "outline"}
+                aria-label={`${status.label}: ${a.swimmerName}`}
+                aria-pressed={a.status === status.id}
+                disabled={locked || update.isPending}
+                onClick={() => update.mutate({ status: status.id })}
+              >
+                {status.label}
+              </Button>
+            ),
+          )}
+        </div>
+      ) : null}
+      {family ? (
+        <div className="mt-3 grid gap-2">
+          <p className="text-xs text-muted-foreground">{a.cutoffLabel}</p>
+          {a.noticeEditable ? (
+            <>
+              <Field label="Alasan (opsional, hanya staf dan keluarga)">
+                <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+              </Field>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={a.notice?.status === "active" && a.notice.kind === "izin" ? "secondary" : "outline"}
+                  disabled={notice.isPending}
+                  onClick={() => notice.mutate("izin")}
+                >
+                  Izin
+                </Button>
+                <Button
+                  variant={a.notice?.status === "active" && a.notice.kind === "sakit" ? "secondary" : "outline"}
+                  disabled={notice.isPending}
+                  onClick={() => notice.mutate("sakit")}
+                >
+                  Sakit
+                </Button>
+                {a.notice?.status === "active" ? (
+                  <Button variant="ghost" disabled={withdraw.isPending} onClick={() => withdraw.mutate()}>
+                    Batalkan izin
+                  </Button>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Menyimpan izin tidak mengganti kehadiran akhir pelatih.
+              </p>
+            </>
+          ) : a.canRequestCorrection ? (
+            <form
+              className="grid gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                correct.mutate();
+              }}
             >
-              {status.label}
-            </Button>
-          ),
-        )}
-      </div>
+              <Field label="Ajukan koreksi">
+                <Input
+                  required
+                  value={correctionMsg}
+                  onChange={(e) => setCorrectionMsg(e.target.value)}
+                  placeholder="Jelaskan ke pelatih"
+                />
+              </Field>
+              <Button type="submit" variant="outline" disabled={correct.isPending || a.correctionStatus === "pending"}>
+                {a.correctionStatus === "pending" ? "Koreksi menunggu" : "Kirim koreksi"}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {a.notice?.status === "active"
+                ? `Izin tercatat (${a.notice.kind}). Sesi dibatalkan, izin tidak dapat diubah.`
+                : "Sesi dibatalkan. Izin tidak dapat diubah."}
+            </p>
+          )}
+          {a.correctionStatus && a.correctionStatus !== "pending" ? (
+            <p className="text-sm">
+              Koreksi {a.correctionStatus === "resolved" ? "diterima" : "ditolak"}
+              {a.correctionResolution ? `: ${a.correctionResolution}` : ""}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {hats.staff && a.status === "hadir" && !locked && (
         <form
-          className="mt-4 flex items-end gap-2"
+          className="mt-4 flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            if (meters === "") return;
             update.mutate({
               status: "hadir",
-              metersCompleted: meters === "" ? null : Number(meters),
+              metersCompleted: Number(meters),
             });
           }}
         >
@@ -566,19 +675,48 @@ function AttendanceCard({
               onChange={(e) => setMeters(e.target.value)}
             />
           </Field>
-          <Button variant="outline" disabled={locked || update.isPending}>
-            Simpan
+          <Button variant="outline" disabled={locked || update.isPending || meters === ""}>
+            Simpan jarak
           </Button>
+          {a.metersCompleted != null ? (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={update.isPending}
+              onClick={() => update.mutate({ status: "hadir", metersCompleted: null })}
+            >
+              Hapus jarak
+            </Button>
+          ) : null}
         </form>
       )}
+      {hats.staff && a.correctionStatus === "pending" && a.correctionId ? (
+        <form
+          className="mt-3 grid gap-2"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <p className="text-sm">Koreksi wali: {a.correctionMessage}</p>
+          <Field label="Penjelasan">
+            <Input value={resolution} onChange={(e) => setResolution(e.target.value)} />
+          </Field>
+          <div className="flex gap-2">
+            <Button type="button" disabled={resolve.isPending} onClick={() => resolve.mutate("resolved")}>
+              Terima
+            </Button>
+            <Button type="button" variant="outline" disabled={resolve.isPending} onClick={() => resolve.mutate("rejected")}>
+              Tolak
+            </Button>
+          </div>
+        </form>
+      ) : null}
       <div aria-live="polite" className="mt-2 text-sm">
-        {update.isPending ? (
+        {update.isPending || notice.isPending ? (
           <p>Menyimpan…</p>
         ) : update.isError ? (
           <p role="alert" className="text-destructive">
             {update.error.message} Silakan coba lagi.
           </p>
-        ) : update.isSuccess ? (
+        ) : update.isSuccess || notice.isSuccess ? (
           <p className="text-muted-foreground">Tersimpan.</p>
         ) : null}
       </div>

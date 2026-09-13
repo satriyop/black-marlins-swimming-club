@@ -93,10 +93,16 @@ export function staffRoleAtLeast(existing: StaffRole, incoming: StaffRole): Staf
 
 export function canMarkAttendance(
   hats: Hats,
-  swimmerId: number,
-  status: "belum" | "hadir" | "izin" | "sakit" | "alfa",
+  _swimmerId: number,
+  _status?: "belum" | "hadir" | "izin" | "sakit" | "alfa",
 ): boolean {
-  if (hats.staff != null) return true;
-  if (!hats.guardianSwimmerIds.includes(swimmerId)) return false;
-  return status === "izin" || status === "sakit";
+  return hats.staff != null;
+}
+
+export function canSubmitAbsenceNotice(hats: Hats, swimmerId: number): boolean {
+  return hats.guardianSwimmerIds.includes(swimmerId);
+}
+
+export function canRequestAttendanceCorrection(hats: Hats, swimmerId: number): boolean {
+  return hats.guardianSwimmerIds.includes(swimmerId);
 }

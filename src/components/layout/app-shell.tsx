@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/ui/page-header";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDays,
   LayoutDashboard,
@@ -10,12 +10,13 @@ import {
   Waves,
   MoreHorizontal,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { RedirectToSignIn, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Splash } from "@/components/auth/login-screen";
-import { getAccess } from "@/lib/server/fns";
-import { navItemsFor, type NavItem } from "@/lib/club/nav";
+import { getAccess, reopenClubOnboarding, saveClubTaskView } from "@/lib/server/fns";
+import { isDualRole, navItemsFor, roleLabels, type NavItem } from "@/lib/club/nav";
 import { UNINVITED_MESSAGE } from "@/lib/club/access";
 import { cn } from "@/lib/utils";
 import { MarlinMark } from "@/components/swim/mark";
@@ -61,8 +62,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   if (access.isPending || !access.data) return <Splash label="Memuat akses…" />;
 
-  const items = navItemsFor(access.data.hats);
+  const items = navItemsFor(access.data.hats, access.data.taskView);
   const invited = access.data.invited;
+  const roles = roleLabels(access.data.hats);
+  const dual = isDualRole(access.data.hats);
   const primaryItems = items.filter(
     (item) => !["/aktivitas", "/undangan", "/pengumuman"].includes(item.to),
   );
@@ -122,19 +125,31 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
         <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">
           <header className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 md:px-8">
-            <div className="flex items-center gap-2 md:hidden">
+            <div className="flex min-w-0 items-center gap-2 md:hidden">
               <img
                 src="/images/crest.jpg"
                 alt=""
                 className="size-9 rounded-full object-cover outline outline-1 -outline-offset-1 outline-white/10"
               />
-              <span className="font-display text-lg leading-none">BMSC</span>
+              <div className="min-w-0">
+                <span className="font-display text-lg leading-none">BMSC</span>
+                {roles.length ? (
+                  <p className="truncate text-[11px] text-muted-foreground">{roles.join(" · ")}</p>
+                ) : null}
+              </div>
             </div>
-            <p className="hidden text-sm text-muted-foreground md:block">
-              Black Marlins Swimming Club
-            </p>
-            <div className="[&_button]:text-muted-foreground [&_span]:max-w-32 [&_span]:truncate">
-              <UserButton />
+            <div className="hidden min-w-0 md:block">
+              <p className="text-sm text-muted-foreground">Black Marlins Swimming Club</p>
+              {roles.length ? (
+                <p className="text-xs text-muted-foreground">{roles.join(" · ")}</p>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              {dual ? <TaskViewSwitch current={access.data.taskView} /> : null}
+              <OnboardingHelp />
+              <div className="[&_button]:text-muted-foreground [&_span]:max-w-32 [&_span]:truncate">
+                <UserButton />
+              </div>
             </div>
           </header>
           <main id="main-content" className="flex-1 px-4 py-6 md:px-8 md:py-8">
@@ -212,6 +227,67 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </nav>
     </div>
+  );
+}
+
+function TaskViewSwitch({ current }: { current: "club" | "family" | "self" }) {
+  const qc = useQueryClient();
+  const mut = useMutation({
+    mutationFn: (view: "club" | "family") => saveClubTaskView({ data: { view } }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["access"] }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]),
+  });
+  return (
+    <div className="flex rounded-lg border border-border p-0.5 text-xs">
+      <button
+        type="button"
+        className={cn(
+          "min-h-8 rounded-md px-2 font-medium",
+          current === "club" ? "bg-primary/12 text-primary" : "text-muted-foreground",
+        )}
+        disabled={mut.isPending}
+        onClick={() => mut.mutate("club")}
+      >
+        Urus klub
+      </button>
+      <button
+        type="button"
+        className={cn(
+          "min-h-8 rounded-md px-2 font-medium",
+          current === "family" ? "bg-primary/12 text-primary" : "text-muted-foreground",
+        )}
+        disabled={mut.isPending}
+        onClick={() => mut.mutate("family")}
+      >
+        Anak saya
+      </button>
+    </div>
+  );
+}
+
+function OnboardingHelp() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const mut = useMutation({
+    mutationFn: () => reopenClubOnboarding(),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["access"] });
+      await navigate({ to: "/" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <button
+      type="button"
+      className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+      disabled={mut.isPending}
+      onClick={() => mut.mutate()}
+    >
+      Pengantar
+    </button>
   );
 }
 
