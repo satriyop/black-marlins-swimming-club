@@ -28,9 +28,9 @@ export function QueryError({
   return (
     <div
       role="alert"
-      className="grid justify-items-start gap-3 rounded-2xl border border-destructive/40 bg-card p-5"
+      className="grid justify-items-start gap-3 rounded-2xl border border-destructive bg-card p-5"
     >
-      <p className="text-sm">{message}</p>
+      <p className="text-base">{message}</p>
       <div className="flex flex-wrap gap-2">
         {denied || missing || !retry ? (
           <Button asChild variant="outline">
