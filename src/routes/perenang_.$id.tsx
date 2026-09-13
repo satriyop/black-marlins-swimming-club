@@ -1,6 +1,6 @@
 import { useAccess } from "@/lib/club/use-access";
 import { canWriteRoster, canDeleteSwimmer } from "@/lib/club/permissions";
-import { QueryError } from "@/components/ui/query-error";
+import { ResourceQueryError } from "@/components/ui/query-error";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { ResultList } from "@/components/swim/result-list";
 import { ResultDialog } from "@/components/swim/result-dialog";
@@ -65,7 +65,7 @@ function Page() {
   if (error || !data)
     return (
       <AppShell>
-        <QueryError retry={() => refetch()} />
+        <ResourceQueryError error={error} retry={() => refetch()} />
       </AppShell>
     );
   const { swimmer, results, pbs, attendance, attendanceHistory, totalMeters, upcomingEntries } = data;

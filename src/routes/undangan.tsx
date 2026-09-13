@@ -2,17 +2,20 @@ import { QueryError } from "@/components/ui/query-error";
 import { formatDateId } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   createClubInvite,
   getAccess,
+  getPublicClubContact,
   linkClubGuardian,
   listClubAccessHelp,
   listClubAdminHandoff,
   listClubInvites,
   listClubMembers,
+  listMyClubAccessHelp,
   listSwimmers,
+  saveClubSupportContact,
   recreateClubInvite,
   revokeClubInvite,
   revokeClubStaffRole,
@@ -21,6 +24,7 @@ import {
   submitClubAccessHelp,
   unlinkClubGuardian,
 } from "@/lib/server/fns";
+import { accessHelpKindLabel } from "@/lib/club/members";
 import { canSeeUndangan } from "@/lib/club/nav";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -501,18 +505,71 @@ function MembersDirectory() {
           Hubungkan
         </Button>
       </form>
+      <SupportContactForm />
     </section>
+  );
+}
+
+function SupportContactForm() {
+  const contact = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    if (!contact.data) return;
+    setEmail(contact.data.supportEmail ?? "");
+    setPhone(contact.data.supportPhone ?? "");
+    setUrl(contact.data.supportUrl ?? "");
+  }, [contact.data]);
+  const qc = useQueryClient();
+  const mut = useMutation({
+    mutationFn: () => saveClubSupportContact({ data: { email, phone, url } }),
+    onSuccess: async () => {
+      toast.success("Kontak bantuan disimpan");
+      await qc.invalidateQueries({ queryKey: ["public-contact"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <form
+      className="mt-6 grid gap-2 rounded-2xl bg-muted/50 p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        mut.mutate();
+      }}
+    >
+      <h3 className="font-medium">Kontak bantuan publik</h3>
+      <p className="text-xs text-muted-foreground">
+        Tampil di undangan gagal dan akun belum diundang. Tidak menampilkan nama anggota.
+      </p>
+      <Field label="Email">
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
+      <Field label="Telepon">
+        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </Field>
+      <Field label="Tautan https">
+        <Input value={url} onChange={(e) => setUrl(e.target.value)} />
+      </Field>
+      <Button type="submit" variant="outline" disabled={mut.isPending}>
+        Simpan kontak
+      </Button>
+    </form>
   );
 }
 
 function FamilyHelp() {
   const [message, setMessage] = useState("");
   const [kind, setKind] = useState<"missing_child" | "wrong_link">("missing_child");
+  const qc = useQueryClient();
+  const mine = useQuery({ queryKey: ["my-access-help"], queryFn: () => listMyClubAccessHelp() });
+  const latest = mine.data?.[0];
   const mut = useMutation({
     mutationFn: () => submitClubAccessHelp({ data: { kind, message } }),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Permintaan terkirim ke admin klub");
       setMessage("");
+      await qc.invalidateQueries({ queryKey: ["my-access-help"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -528,6 +585,12 @@ function FamilyHelp() {
       <p className="text-sm text-muted-foreground">
         Jangan cari anak lain di skuad. Kirim permintaan ke admin klub.
       </p>
+      {latest ? (
+        <p className="text-sm">
+          Permintaan terakhir: {accessHelpKindLabel(latest.kind)} ·{" "}
+          {latest.resolved_at ? "selesai" : "menunggu"}
+        </p>
+      ) : null}
       <Field label="Jenis">
         <SelectNative value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
           <option value="missing_child">Anak belum terhubung</option>
@@ -552,7 +615,7 @@ function HelpInbox() {
   if (!q.data?.length) return null;
   return (
     <section className="mb-6 rounded-2xl border border-primary/30 p-5">
-      <h2 className="font-display text-2xl">Permintaan wali</h2>
+      <h2 className="font-display text-2xl">Permintaan akses</h2>
       <ul className="mt-3 grid gap-2 text-sm">
         {q.data.map((r) => (
           <li key={r.id} className="flex flex-wrap items-start justify-between gap-2">
@@ -560,7 +623,7 @@ function HelpInbox() {
               <span className="font-medium">{r.name}</span>
               {r.email ? ` · ${r.email}` : ""}
               {` · ${formatDateId(r.created_at)} · `}
-              {r.kind === "missing_child" ? "Anak belum terhubung" : "Tautan salah"}: {r.message}
+              {accessHelpKindLabel(r.kind)}: {r.message}
             </p>
             <Button
               type="button"

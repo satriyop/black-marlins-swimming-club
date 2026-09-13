@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { QueryError } from "@/components/ui/query-error";
+import { ResourceQueryError } from "@/components/ui/query-error";
 import { Field, Input, SelectNative, Textarea } from "@/components/ui/input";
 import {
   ATTENDANCE,
@@ -70,7 +70,7 @@ function Page() {
   if (query.isError || !query.data)
     return (
       <AppShell>
-        <QueryError retry={() => query.refetch()} />
+        <ResourceQueryError error={query.error} retry={() => query.refetch()} />
       </AppShell>
     );
   const data = query.data;
