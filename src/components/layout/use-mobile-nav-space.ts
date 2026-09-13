@@ -25,12 +25,25 @@ export function useMobileNavSpace() {
           nav.getBoundingClientRect().height === 0
         )
           return;
+        input.scrollIntoView({ block: "center", inline: "nearest" });
         const gap = 16;
         const overflow =
           input.getBoundingClientRect().bottom - (nav.getBoundingClientRect().top - gap);
         if (overflow <= 0) return;
-        const scroller = document.scrollingElement ?? document.documentElement;
-        scroller.scrollTop += overflow;
+        let node: HTMLElement | null = input.parentElement;
+        while (node) {
+          const overflowY = getComputedStyle(node).overflowY as string;
+          if (
+            (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+            node.scrollHeight > node.clientHeight + 1
+          ) {
+            node.scrollTop += overflow;
+          }
+          node = node.parentElement;
+        }
+        const root = (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+        root.scrollTop += overflow;
+        window.scrollBy(0, overflow);
       };
       frame = requestAnimationFrame(() => {
         frame = requestAnimationFrame(apply);

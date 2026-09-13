@@ -225,7 +225,10 @@ test("navigation and account reflow with enlarged text and reserve bottom space"
     const nav = page.getByRole("navigation", { name: "Navigasi seluler", exact: true });
     await page.setViewportSize({ width: 390, height: 390 });
     await nav.evaluate((el) => ((el as HTMLElement).style.paddingBottom = "34px"));
-    await field.focus();
+    await field.evaluate((el) => {
+      (el as HTMLElement).focus();
+      el.scrollIntoView({ block: "center", inline: "nearest" });
+    });
     await expect
       .poll(async () => {
         const inputBox = await field.boundingBox();
