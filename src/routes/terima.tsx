@@ -9,6 +9,8 @@ import { Field, Input } from "@/components/ui/input";
 import { QueryError } from "@/components/ui/query-error";
 import { formatDateId } from "@/lib/utils";
 
+import { AppearanceSelect } from "@/components/settings/appearance-select";
+
 export const Route = createFileRoute("/terima")({
   validateSearch: (search: Record<string, unknown>) => ({
     token: typeof search.token === "string" ? search.token : "",
@@ -47,6 +49,9 @@ function Page() {
       : "";
   return (
     <main className="mx-auto grid max-w-md gap-4 px-4 py-12">
+      <div className="justify-self-end">
+        <AppearanceSelect />
+      </div>
       <img
         src="/images/crest.jpg"
         alt="Black Marlins Swimming Club"

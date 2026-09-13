@@ -21,6 +21,8 @@
   --color-accent: #163038;
   --color-accent-foreground: #e8f1f4;
   --color-destructive: #e86b6b;
+  --color-destructive-foreground: #061018;
+  --color-selected: #133d40;
   --color-border: #1c333e;
   --color-input: #718996;
   --color-ring: #2ec4b6;
@@ -54,33 +56,147 @@
 }
 
 @layer base {
-  html { color-scheme: dark; scroll-padding-bottom: 10rem; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-  body { background: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); font-size: 1rem; line-height: 1.5; min-height: 100dvh; }
-  h1, h2, h3 { text-wrap: balance; }
-  :where(a, button, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--color-ring); outline-offset: 3px; }
-  :where(input, select, textarea) { min-width: 0; }
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-delay: 0ms !important; } }
-  p { text-wrap: pretty; }
-  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
-  * { border-color: var(--color-border); }
-  input, select, textarea { background: var(--color-background); color: var(--color-foreground); }
-  ::selection { background: color-mix(in oklab, var(--color-primary) 35%, transparent); color: var(--color-foreground); }
+  html {
+    color-scheme: dark;
+    scroll-padding-bottom: 10rem;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 3px;
+  }
+  :where(input, select, textarea) {
+    min-width: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+    }
+  }
+  p {
+    text-wrap: pretty;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  * {
+    border-color: var(--color-border);
+  }
+  input,
+  select,
+  textarea {
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+  ::selection {
+    background: var(--color-selected);
+    color: var(--color-foreground);
+  }
 }
 
-@utility font-display { font-family: var(--font-display); letter-spacing: 0.04em; }
-@utility shadow-border { box-shadow: var(--shadow-border); }
-@utility shadow-elevated { box-shadow: var(--shadow-elevated); }
+@utility font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+@utility shadow-border {
+  box-shadow: var(--shadow-border);
+}
+@utility shadow-elevated {
+  box-shadow: var(--shadow-elevated);
+}
 
 @keyframes rise-in {
-  from { opacity: 0; transform: translateY(8px); filter: blur(2px); }
-  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .rise-in { animation: rise-in 400ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-  .rise-in-2 { animation-delay: 60ms; }
-  .rise-in-3 { animation-delay: 120ms; }
-  .rise-in-4 { animation-delay: 180ms; }
+  .rise-in {
+    animation: rise-in 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .rise-in-2 {
+    animation-delay: 60ms;
+  }
+  .rise-in-3 {
+    animation-delay: 120ms;
+  }
+  .rise-in-4 {
+    animation-delay: 180ms;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rise-in { animation: none; }
+  .rise-in {
+    animation: none;
+  }
+}
+
+/* Explicit appearance overrides keep native controls and every semantic surface coordinated. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-background: #f4f7f6;
+  --color-foreground: #102a36;
+  --color-card: #ffffff;
+  --color-card-foreground: #102a36;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #102a36;
+  --color-primary: #076f67;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #e1eeeb;
+  --color-secondary-foreground: #183d47;
+  --color-muted: #e7eeec;
+  --color-muted-foreground: #48606a;
+  --color-accent: #ddf2ed;
+  --color-accent-foreground: #102a36;
+  --color-selected: #ddf2ed;
+  --color-destructive: #af3039;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #c5d5d1;
+  --color-input: #6a807d;
+  --color-ring: #076f67;
+  --color-success: #21633f;
+  --color-success-surface: #e1f3e8;
+  --color-warning: #785009;
+  --color-warning-surface: #fff1cd;
+  --color-danger-surface: #ffe9eb;
+  --color-info: #245b8d;
+  --color-info-surface: #e5f0ff;
+  --color-overlay: rgb(6 16 24 / 0.55);
+  --color-pool: #076f67;
+  --color-foam: #28675f;
+  --color-lane: #176b77;
+  --shadow-border: 0 0 0 1px rgb(16 42 54 / 0.15);
+  --shadow-elevated: 0 0 0 1px rgb(16 42 54 / 0.15), 0 18px 40px -24px rgb(16 42 54 / 0.3);
+}
+.login-overlay {
+  background: linear-gradient(180deg, #061018, rgb(6 16 24 / 0.55) 40%, #061018);
+}
+:root[data-theme="light"] .login-overlay {
+  background: linear-gradient(180deg, #f4f7f6, rgb(244 247 246 / 0.88) 40%, #f4f7f6);
 }

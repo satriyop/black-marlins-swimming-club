@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { MarlinMark } from "@/components/swim/mark";
 
+import { AppearanceSelect } from "@/components/settings/appearance-select";
+
 function GoogleGlyph() {
   return (
     <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
@@ -69,8 +71,11 @@ export function LoginScreen() {
         alt=""
         className="absolute inset-0 size-full object-cover opacity-40"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,#061018_0%,rgb(6_16_24/0.55)_40%,#061018_100%)]" />
+      <div className="absolute inset-0 login-overlay" />
       <div className="relative mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12">
+        <div className="mb-6 w-full max-w-48 self-end">
+          <AppearanceSelect />
+        </div>
         <div className="rise-in mb-8 flex flex-col items-center text-center">
           <img
             src="/images/crest.jpg"

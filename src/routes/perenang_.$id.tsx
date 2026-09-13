@@ -277,17 +277,17 @@ function ProgressChart({
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="rgba(232,241,244,0.06)" vertical={false} />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fill: "#8aa0aa", fontSize: 11 }}
+                tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 reversed
                 domain={["dataMin - 1", "dataMax + 1"]}
-                tick={{ fill: "#8aa0aa", fontSize: 11 }}
+                tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
                 width={40}
@@ -295,13 +295,20 @@ function ProgressChart({
               />
               <Tooltip
                 contentStyle={{
-                  background: "#0c1c26",
-                  border: "1px solid #1c333e",
+                  background: "var(--color-popover)",
+                  color: "var(--color-popover-foreground)",
+                  border: "1px solid var(--color-input)",
                   borderRadius: 12,
                 }}
                 formatter={(v: number) => [formatTime(Math.round(v * 1000)), "Waktu"]}
               />
-              <Line type="monotone" dataKey="sec" stroke="#2ec4b6" strokeWidth={2} dot={{ r: 3 }} />
+              <Line
+                type="monotone"
+                dataKey="sec"
+                stroke="var(--color-primary)"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>

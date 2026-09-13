@@ -1,3 +1,7 @@
+import { toast } from "sonner";
+import { AppToaster } from "../../src/components/ui/app-toaster";
+import { AppearanceSelect } from "../../src/components/settings/appearance-select";
+import { bootstrapAppearance } from "../../src/lib/appearance";
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { Button } from "../../src/components/ui/button";
@@ -13,6 +17,11 @@ export function Showcase() {
   const [retried, setRetried] = useState(false);
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-4 md:p-8">
+      <AppToaster />
+      <AppearanceSelect />
+      <Button variant="outline" onClick={() => toast.success("Contoh notifikasi tersimpan.")}>
+        Tampilkan notifikasi
+      </Button>
       <PageHeader
         kicker="Black Marlins"
         title="Komponen antarmuka"
@@ -90,4 +99,5 @@ export function Showcase() {
     </main>
   );
 }
+bootstrapAppearance();
 createRoot(document.getElementById("root")!).render(<Showcase />);

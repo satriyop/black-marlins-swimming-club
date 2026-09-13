@@ -23,6 +23,8 @@ import { useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { QueryError } from "@/components/ui/query-error";
 
+import { AppearanceSelect } from "@/components/settings/appearance-select";
+
 const ICONS: Record<NavItem["to"], typeof LayoutDashboard> = {
   "/": LayoutDashboard,
   "/perenang": Users,
@@ -121,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">
-          <header className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 md:px-8">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3 md:px-8">
             <div className="flex items-center gap-2 md:hidden">
               <img
                 src="/images/crest.jpg"
@@ -133,6 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="hidden text-sm text-muted-foreground md:block">
               Black Marlins Swimming Club
             </p>
+            <AppearanceSelect />
             <div className="[&_button]:text-muted-foreground [&_span]:max-w-32 [&_span]:truncate">
               <UserButton />
             </div>
