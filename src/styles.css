@@ -58,7 +58,7 @@
 @layer base {
   html {
     color-scheme: dark;
-    scroll-padding-bottom: 10rem;
+    scroll-padding-bottom: calc(var(--mobile-nav-height, 4rem) + 1rem);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -74,6 +74,9 @@
   h2,
   h3 {
     text-wrap: balance;
+  }
+  :where(input, textarea, select) {
+    scroll-margin-bottom: calc(var(--mobile-nav-height, 4rem) + 1rem);
   }
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
     outline: 2px solid var(--color-ring);
@@ -199,4 +202,16 @@
 }
 :root[data-theme="light"] .login-overlay {
   background: linear-gradient(180deg, #f4f7f6, rgb(244 247 246 / 0.88) 40%, #f4f7f6);
+}
+
+.app-shell {
+  --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom));
+}
+.app-shell-content {
+  padding-bottom: calc(var(--mobile-nav-height) + 1rem);
+}
+@media (min-width: 48rem) {
+  .app-shell-content {
+    padding-bottom: 0;
+  }
 }

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/browser-test";
 
 const fixture = "http://127.0.0.1:3012/tests/fixtures/visual.html";
 test("shared controls keep usable actions, labels and dialog focus", async ({ page }) => {

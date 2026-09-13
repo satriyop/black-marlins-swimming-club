@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { hashPassword } from "better-auth/crypto";
 import type { BrowserContext } from "@playwright/test";
 
 /** Only synthetic rows in a local test database; cleanup never touches pre-existing records. */
@@ -13,7 +12,6 @@ export async function createClubFixture(role: "guardian" | "coach" | "combined" 
   const userId = `visual-${randomUUID()}`;
   const email = `${userId}@example.test`;
   const name = "Pengguna Contoh Dengan Nama Panjang Untuk Pemeriksaan Antarmuka";
-  const password = randomUUID();
   let clubId: number | undefined;
   try {
     const club = await pool.query(
@@ -22,11 +20,7 @@ export async function createClubFixture(role: "guardian" | "coach" | "combined" 
     clubId = club.rows[0].id;
     await pool.query(
       'insert into "user" (id,name,email,"emailVerified",image) values ($1,$2,$3,true,$4)',
-      [userId, name, email, "/missing-visual-avatar.jpg"],
-    );
-    await pool.query(
-      'insert into account (id,"accountId","providerId","userId",password,"updatedAt") values ($1,$1,\'credential\',$1,$2,now())',
-      [userId, await hashPassword(password)],
+      [userId, name, email, role === "guardian" ? null : "/missing-visual-avatar.jpg"],
     );
     if (role !== "guardian")
       await pool.query("insert into club_staff (club_id,user_id,role) values ($1,$2,$3)", [
@@ -76,15 +70,14 @@ export async function createClubFixture(role: "guardian" | "coach" | "combined" 
       email,
       swimmerId,
       practiceId,
-      async signIn(context: BrowserContext, baseURL: string) {
-        const response = await context.request.post(`${baseURL}/api/auth/sign-in/email`, {
-          data: { email, password },
-          headers: { Origin: baseURL },
-        });
-        if (!response.ok())
-          throw new Error(`Fixture sign-in failed: ${response.status()} ${await response.text()}`);
-        const token = response.headers()["set-auth-token"];
-        if (!token) throw new Error("Fixture sign-in did not return a bearer session");
+      async signIn(context: BrowserContext, _baseURL: string) {
+        // Authenticate through the real bearer/session reader without flooding the password
+        // endpoint shared by parallel UI tests. This code is never included in the app build.
+        const token = randomUUID();
+        await pool.query(
+          'insert into session (id,token,"userId","expiresAt","updatedAt") values ($1,$2,$3,now()+interval \'1 hour\',now())',
+          [randomUUID(), token, userId],
+        );
         await context.addInitScript(
           (value) => sessionStorage.setItem("bmsc.auth.bearer-token", value),
           token,

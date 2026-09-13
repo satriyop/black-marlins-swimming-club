@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/browser-test";
 
 test("login page loads", async ({ page }) => {
   const res = await page.goto("/login");

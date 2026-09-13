@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/browser-test";
 
 for (const path of ["/login", "/terima"]) {
   test(`appearance persists on ${path} without hydration errors`, async ({ page }) => {
