@@ -89,6 +89,8 @@ export type Practice = {
   originalLocation: string | null;
   revision: number;
   incompleteAck: boolean;
+  seriesId: number | null;
+  occurrenceDate: string | null;
   presentCount?: number;
   rosterCount?: number;
 };

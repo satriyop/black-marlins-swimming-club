@@ -303,6 +303,7 @@ function SessionLifecycle({ data }: { data: PracticeDetail }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [cancelScope, setCancelScope] = useState<"this" | "future">("this");
   const unmarkedRows = data.attendance.filter((a) => a.onRoll && a.status === "belum");
   const refresh = async () => {
     await Promise.all([
@@ -313,7 +314,14 @@ function SessionLifecycle({ data }: { data: PracticeDetail }) {
   };
   const cancel = useMutation({
     mutationFn: () =>
-      cancelClubPractice({ data: { id: data.id, reason: cancelReason, expectedRevision: data.revision } }),
+      cancelClubPractice({
+        data: {
+          id: data.id,
+          reason: cancelReason,
+          expectedRevision: data.revision,
+          scope: data.seriesId ? cancelScope : "this",
+        },
+      }),
     onSuccess: async () => {
       toast.success("Sesi dibatalkan");
       setCancelOpen(false);
@@ -423,6 +431,17 @@ function SessionLifecycle({ data }: { data: PracticeDetail }) {
             <Field label="Alasan">
               <Textarea required value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
             </Field>
+            {data.seriesId ? (
+              <Field label="Cakupan">
+                <SelectNative
+                  value={cancelScope}
+                  onChange={(e) => setCancelScope(e.target.value as "this" | "future")}
+                >
+                  <option value="this">Hanya sesi ini</option>
+                  <option value="future">Sesi ini dan berikutnya</option>
+                </SelectNative>
+              </Field>
+            ) : null}
             <Button type="submit" disabled={cancel.isPending}>
               Batalkan sesi
             </Button>

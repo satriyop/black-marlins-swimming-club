@@ -19,6 +19,13 @@ import {
   savePracticeRecord,
   type PracticeRow,
 } from "@/lib/club/practice";
+import {
+  createPracticeSeries,
+  listPracticeIcs,
+  listPracticeSeries,
+  materializePracticeSeries,
+  skipSeriesRange,
+} from "@/lib/club/series";
 import { deletePractice as deletePracticeFor } from "@/lib/club/writes";
 import type { Practice } from "@/lib/swim/types";
 
@@ -32,7 +39,7 @@ export const listPractices = createServerFn({ method: "GET" }).middleware([authM
     select p.id, p.session_date::text as session_date, p.start_time, p.duration_min, p.location, p.kind, p.title, p.focus,
            p.total_meters, p.notes, p.status, p.cancel_reason, p.reopen_reason,
            p.original_session_date::text as original_session_date, p.original_start_time, p.original_location,
-           p.revision, p.incomplete_ack,
+           p.revision, p.incomplete_ack, p.series_id, p.occurrence_date::text as occurrence_date,
            coalesce(sum(case when a.on_roll and a.status = 'hadir' then 1 else 0 end), 0)::int as present_count,
            coalesce(sum(case when a.on_roll then 1 else 0 end), 0)::int as roster_count
     from practices p
@@ -55,7 +62,7 @@ export const getPractice = createServerFn({ method: "GET" }).middleware([authMid
 
 export const savePractice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
   id?: number; sessionDate: string; startTime?: string; durationMin?: number; location?: string;
-  kind: string; title: string; focus?: string; notes?: string; sets: SetInput[]; expectedRevision?: number;
+  kind: string; title: string; focus?: string; notes?: string; sets: SetInput[]; expectedRevision?: number; scope?: "this" | "future";
 }) => {
   if (!input.title.trim()) throw new Error("Judul wajib diisi");
   if (!input.sessionDate) throw new Error("Tanggal wajib diisi");
@@ -75,7 +82,7 @@ export const updateAttendance = createServerFn({ method: "POST" }).middleware([a
   return updateAttendanceStatus(actor, data);
 });
 
-export const cancelClubPractice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; reason: string; expectedRevision: number }) => input).handler(async ({ context, data }) => {
+export const cancelClubPractice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; reason: string; expectedRevision: number; scope?: "this" | "future" }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return cancelPractice(actor, data);
 });
@@ -93,6 +100,36 @@ export const reopenClubPractice = createServerFn({ method: "POST" }).middleware(
 export const addClubPracticeParticipant = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { practiceId: number; swimmerId: number }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return addPracticeParticipant(actor, data);
+});
+
+export const createClubPracticeSeries = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  title: string; weekday: number; startTime?: string; durationMin?: number; location?: string;
+  kind: string; focus?: string; notes?: string; weeks?: number; fromDate?: string; sets: SetInput[];
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return createPracticeSeries(actor, data);
+});
+
+export const listClubPracticeSeries = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await requireClub(context.userId);
+  return listPracticeSeries(actor);
+});
+
+export const skipClubSeriesRange = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  id: number; fromDate: string; toDate: string; reason: string;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return skipSeriesRange(actor, data);
+});
+
+export const refreshClubPracticeSeries = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return materializePracticeSeries(actor, data);
+});
+
+export const getPracticeIcs = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await requireClub(context.userId);
+  return listPracticeIcs(actor);
 });
 
 export const removeClubPracticeParticipant = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { practiceId: number; swimmerId: number }) => input).handler(async ({ context, data }) => {

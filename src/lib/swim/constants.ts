@@ -55,6 +55,16 @@ export const PRACTICE_STATUSES = [
   { id: "cancelled", label: "Dibatalkan" },
 ] as const;
 
+export const WEEKDAYS = [
+  { id: 1, label: "Senin" },
+  { id: 2, label: "Selasa" },
+  { id: 3, label: "Rabu" },
+  { id: 4, label: "Kamis" },
+  { id: 5, label: "Jumat" },
+  { id: 6, label: "Sabtu" },
+  { id: 7, label: "Minggu" },
+] as const;
+
 export const PRACTICE_KINDS = [
   { id: "teknik", label: "Teknik" },
   { id: "daya_tahan", label: "Daya tahan" },
