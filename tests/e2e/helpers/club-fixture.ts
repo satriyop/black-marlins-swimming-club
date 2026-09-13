@@ -10,6 +10,10 @@ export type ClubFixtureOptions = {
   results?: boolean;
 };
 
+function jakartaToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+}
+
 /** Only synthetic rows in a local test database; cleanup never touches pre-existing records. */
 export async function createClubFixture(
   role: "guardian" | "coach" | "combined" = "combined",
@@ -84,8 +88,13 @@ export async function createClubFixture(
             ? "completed"
             : "in_progress";
       const practice = await pool.query(
-        "insert into practices (club_id, session_date, start_time, location, kind, title, status, cancel_reason) values ($1,current_date,'16:00','Kolam contoh dengan nama lokasi yang panjang untuk pemeriksaan antarmuka','renang','Latihan Contoh Visual',$2,$3) returning id",
-        [clubId, status, practiceKind === "cancelled" ? "Hujan petir di kolam" : null],
+        "insert into practices (club_id, session_date, start_time, location, kind, title, status, cancel_reason) values ($1,$2::date,'16:00','Kolam contoh dengan nama lokasi yang panjang untuk pemeriksaan antarmuka','renang','Latihan Contoh Visual',$3,$4) returning id",
+        [
+          clubId,
+          jakartaToday(),
+          status,
+          practiceKind === "cancelled" ? "Hujan petir di kolam" : null,
+        ],
       );
       practiceId = practice.rows[0].id as number;
       if (swimmerId)
