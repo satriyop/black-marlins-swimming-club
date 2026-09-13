@@ -232,10 +232,10 @@ export interface RootRouteChildren {
   EventIdRoute: typeof EventIdRoute
   LatihanIdRoute: typeof LatihanIdRoute
   LatihanBaruRoute: typeof LatihanBaruRoute
-  LatihanIdUbahRoute: typeof LatihanIdUbahRoute
   PengumumanIdRoute: typeof PengumumanIdRoute
   PerenangIdRoute: typeof PerenangIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  LatihanIdUbahRoute: typeof LatihanIdUbahRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -368,11 +368,20 @@ const rootRouteChildren: RootRouteChildren = {
   EventIdRoute: EventIdRoute,
   LatihanIdRoute: LatihanIdRoute,
   LatihanBaruRoute: LatihanBaruRoute,
-  LatihanIdUbahRoute: LatihanIdUbahRoute,
   PengumumanIdRoute: PengumumanIdRoute,
   PerenangIdRoute: PerenangIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  LatihanIdUbahRoute: LatihanIdUbahRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

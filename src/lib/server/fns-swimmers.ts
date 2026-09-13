@@ -1,3 +1,4 @@
+import type { RegistrationStatus } from "@/lib/swim/registration";
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { accessFor } from "@/lib/club/access";
@@ -76,12 +77,12 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
   const attendanceHistory = await listAttendanceHistory({ sql, userId }, data.id);
   const entries = await sql<{
     id: number; meet_id: number; swimmer_id: number; swimmer_name: string; stroke: string; distance_m: number;
-    age_group: string | null; seed_time_ms: number | null; status: string; lane: number | null; heat: string | null;
+    age_group: string | null; seed_time_ms: number | null; registration_status: RegistrationStatus; registration_reason: string | null; status: string; lane: number | null; heat: string | null;
     meet_name: string; start_date: string;
   }>`
     select e.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name, m.start_date
     from meet_entries e join meets m on m.id = e.meet_id
-    where e.club_id = ${clubId} and e.swimmer_id = ${data.id} and m.start_date >= current_date
+    where e.club_id = ${clubId} and e.swimmer_id = ${data.id} and coalesce(m.end_date,m.start_date) >= current_date
     order by m.start_date, e.distance_m`;
   return {
     swimmer, results: results.map(mapResult),
@@ -89,7 +90,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
     attendance: { present: att[0]?.hadir ?? 0, total: att[0]?.total ?? 0, rate: (att[0]?.total ?? 0) === 0 ? 0 : Math.round(((att[0]?.hadir ?? 0) / (att[0]?.total ?? 1)) * 100) },
     attendanceHistory,
     totalMeters: volume[0]?.n ?? 0,
-    upcomingEntries: entries.map((e) => ({ id: e.id, meetId: e.meet_id, swimmerId: e.swimmer_id, swimmerName: e.swimmer_name, stroke: e.stroke, distanceM: e.distance_m, ageGroup: e.age_group, seedTimeMs: e.seed_time_ms, status: e.status, lane: e.lane, heat: e.heat, meetName: e.meet_name, startDate: e.start_date })),
+    upcomingEntries: entries.map((e) => ({ id: e.id, meetId: e.meet_id, swimmerId: e.swimmer_id, swimmerName: e.swimmer_name, stroke: e.stroke, distanceM: e.distance_m, ageGroup: e.age_group, seedTimeMs: e.seed_time_ms, status: e.status, registrationStatus: e.registration_status, registrationReason: e.registration_reason, lane: e.lane, heat: e.heat, meetName: e.meet_name, startDate: e.start_date })),
   };
 });
 

@@ -104,7 +104,7 @@ function Page() {
               Ganti akun
             </Button>
           ) : (
-            <Link to="/login" className="inline-flex min-h-11 items-center underline">
+            <Link to="/login" search={{ next: undefined, error: undefined }} className="inline-flex min-h-11 items-center underline">
               Ke halaman masuk
             </Link>
           )}
