@@ -12,7 +12,11 @@ export type NavItem = {
 
 export function canSeeUndangan(hats: Hats): boolean {
   return (
-    hats.staff === "superadmin" || hats.staff === "club_admin" || hats.guardianSwimmerIds.length > 0
+    hats.staff === "superadmin" ||
+    hats.staff === "club_admin" ||
+    hats.staff === "coach" ||
+    hats.family === true ||
+    hats.guardianSwimmerIds.length > 0
   );
 }
 
@@ -40,7 +44,11 @@ export function navItemsFor(hats: Hats, view: TaskView = defaultTaskView(hats, n
     { to: "/aktivitas", label: "Aktivitas" },
   ];
   if (canSeeUndangan(hats)) {
-    items.push({ to: "/undangan", label: "Undangan" });
+    const admin = hats.staff === "superadmin" || hats.staff === "club_admin";
+    items.push({
+      to: "/undangan",
+      label: admin && view === "club" ? "Anggota" : hats.staff === "coach" ? "Akses" : "Undangan",
+    });
   }
   return items;
 }

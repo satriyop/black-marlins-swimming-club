@@ -28,7 +28,7 @@ test("wali nav includes Undangan", async () => {
   expect(navItemsFor(hats).map((i) => i.to)).toContain("/undangan");
 });
 
-test("coach-only nav omits Undangan", async () => {
+test("coach-only nav shows Akses handoff, not Undangan", async () => {
   const h = await createClubHarness();
   const clubId = await seedClub(h.sql);
   await h.sql`
@@ -38,7 +38,8 @@ test("coach-only nav omits Undangan", async () => {
   await h.sql`insert into club_staff (club_id, user_id, role) values (${clubId}, 'usr_coach_nav', 'coach')`;
   const hats = await hatsFor(h.actor("usr_coach_nav"));
   expect(hats.staff).toBe("coach");
-  expect(navItemsFor(hats).map((i) => i.to)).not.toContain("/undangan");
+  const item = navItemsFor(hats, "club").find((i) => i.to === "/undangan");
+  expect(item?.label).toBe("Akses");
 });
 
 test("swimmer-only nav omits Undangan", () => {
@@ -56,7 +57,7 @@ test("zero-child wali home CTA is Daftarkan anak, not izin", () => {
   ).toBe("izin");
 });
 
-test("admitted wali with no children sees Perenang but not Undangan", () => {
+test("admitted wali with no children sees Perenang and Undangan for help", () => {
   const items = navItemsFor({
     staff: null,
     family: true,
@@ -64,5 +65,5 @@ test("admitted wali with no children sees Perenang but not Undangan", () => {
     selfSwimmerId: null,
   });
   expect(items.map((i) => i.to)).toContain("/perenang");
-  expect(items.map((i) => i.to)).not.toContain("/undangan");
+  expect(items.map((i) => i.to)).toContain("/undangan");
 });
