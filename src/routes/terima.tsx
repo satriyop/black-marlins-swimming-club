@@ -64,8 +64,10 @@ function Page() {
             {mut.variables?.password
               ? "Masuk dengan email pada undangan dan password yang baru Anda buat."
               : data?.state === "pending" && data.kind === "guardian"
-                ? "Anda sudah bergabung. Daftarkan anak dari halaman Perenang jika belum terhubung."
-                : "Anda sudah dapat membuka klub."}
+                ? "Anda sudah bergabung sebagai wali. Hari Ini menampilkan anak terhubung, atau Daftarkan anak jika belum ada di skuad."
+                : data?.state === "pending" && data.kind === "staff"
+                  ? "Anda sudah bergabung sebagai staf. Buka klub untuk melihat peran dan latihan berikutnya."
+                  : "Anda sudah dapat membuka klub. Peran dan anak terhubung tampil di Hari Ini."}
           </p>
           <Button asChild>
             <Link to={mut.variables?.password ? "/login" : "/"}>

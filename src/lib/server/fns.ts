@@ -1,5 +1,8 @@
 export {
   getAccess,
+  saveClubTaskView,
+  dismissClubOnboarding,
+  reopenClubOnboarding,
   getDashboard,
   getClub,
   listSwimmers,

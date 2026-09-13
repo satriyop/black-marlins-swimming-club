@@ -6,5 +6,11 @@ const NO_ACCESS: Hats = { staff: null, guardianSwimmerIds: [], selfSwimmerId: nu
 
 export function useAccess() {
   const query = useQuery({ queryKey: ["access"], queryFn: () => getAccess() });
-  return { ...query, hats: query.data?.hats ?? NO_ACCESS };
+  return {
+    ...query,
+    hats: query.data?.hats ?? NO_ACCESS,
+    taskView: query.data?.taskView ?? "family",
+    welcomeDismissed: query.data?.welcomeDismissed ?? true,
+    newGrants: query.data?.newGrants ?? [],
+  };
 }

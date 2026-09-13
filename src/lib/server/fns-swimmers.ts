@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { accessFor } from "@/lib/club/access";
+import { dismissOnboarding, saveTaskView } from "@/lib/club/prefs";
+import type { TaskView } from "@/lib/club/home-view";
 import { loadClub, requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
 import { listAttendanceHistory } from "@/lib/club/attendance";
@@ -20,6 +22,25 @@ export const getDashboard = createServerFn({ method: "GET" })
 export const getAccess = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
   const { sql, userId } = await loadClub(context.userId);
   return accessFor({ sql, userId });
+});
+
+export const saveClubTaskView = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { view: TaskView }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return saveTaskView(actor, data.view);
+});
+
+export const dismissClubOnboarding = createServerFn({ method: "POST" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await requireClub(context.userId);
+  return dismissOnboarding(actor);
+});
+
+export const reopenClubOnboarding = createServerFn({ method: "POST" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await requireClub(context.userId);
+  await actor.sql`
+    insert into user_club_prefs (user_id) values (${actor.userId})
+    on conflict (user_id) do update set welcome_dismissed_at = null
+  `;
+  return { ok: true as const };
 });
 
 export const getClub = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
