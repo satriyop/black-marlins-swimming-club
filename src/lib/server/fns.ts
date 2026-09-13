@@ -18,6 +18,10 @@ export {
   reopenClubPractice,
   addClubPracticeParticipant,
   removeClubPracticeParticipant,
+  saveClubAbsenceNotice,
+  withdrawClubAbsenceNotice,
+  requestClubAttendanceCorrection,
+  resolveClubAttendanceCorrection,
   type SetInput,
 } from "./fns-practice";
 export {

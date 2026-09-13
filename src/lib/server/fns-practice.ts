@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { requireClub } from "@/lib/club/context";
-import { updateAttendanceStatus } from "@/lib/club/attendance";
+import {
+  requestAttendanceCorrection,
+  resolveAttendanceCorrection,
+  saveAbsenceNotice,
+  updateAttendanceStatus,
+  withdrawAbsenceNotice,
+} from "@/lib/club/attendance";
 import {
   addPracticeParticipant,
   cancelPractice,
@@ -92,4 +98,32 @@ export const addClubPracticeParticipant = createServerFn({ method: "POST" }).mid
 export const removeClubPracticeParticipant = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { practiceId: number; swimmerId: number }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return removePracticeParticipant(actor, data);
+});
+
+export const saveClubAbsenceNotice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  practiceId: number; swimmerId: number; kind: "izin" | "sakit"; reason?: string;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return saveAbsenceNotice(actor, data);
+});
+
+export const withdrawClubAbsenceNotice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  practiceId: number; swimmerId: number;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return withdrawAbsenceNotice(actor, data);
+});
+
+export const requestClubAttendanceCorrection = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  attendanceId: number; message: string;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return requestAttendanceCorrection(actor, data);
+});
+
+export const resolveClubAttendanceCorrection = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  id: number; status: "resolved" | "rejected"; resolution: string;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return resolveAttendanceCorrection(actor, data);
 });
