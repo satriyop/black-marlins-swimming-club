@@ -16,21 +16,37 @@ export function useMobileNavSpace() {
     };
     const revealInput = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(() => {
-          const input = document.activeElement;
+      const apply = () => {
+        const input = document.activeElement;
+        if (
+          !(input instanceof HTMLElement) ||
+          !input.matches("input,textarea,select") ||
+          input.closest('[role="dialog"]') ||
+          nav.getBoundingClientRect().height === 0
+        )
+          return;
+        input.scrollIntoView({ block: "center", inline: "nearest" });
+        const gap = 16;
+        const overflow =
+          input.getBoundingClientRect().bottom - (nav.getBoundingClientRect().top - gap);
+        if (overflow <= 0) return;
+        let node: HTMLElement | null = input.parentElement;
+        while (node) {
+          const overflowY = getComputedStyle(node).overflowY as string;
           if (
-            !(input instanceof HTMLElement) ||
-            !input.matches("input,textarea,select") ||
-            input.closest('[role="dialog"]') ||
-            nav.getBoundingClientRect().height === 0
-          )
-            return;
-          const gap = 16;
-          const overflow =
-            input.getBoundingClientRect().bottom - (nav.getBoundingClientRect().top - gap);
-          if (overflow > 0) window.scrollBy(0, overflow);
-        });
+            (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+            node.scrollHeight > node.clientHeight + 1
+          ) {
+            node.scrollTop += overflow;
+          }
+          node = node.parentElement;
+        }
+        const root = (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+        root.scrollTop += overflow;
+        window.scrollBy(0, overflow);
+      };
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(apply);
       });
     };
     const onChange = () => {
