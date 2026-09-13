@@ -16,21 +16,24 @@ export function useMobileNavSpace() {
     };
     const revealInput = () => {
       cancelAnimationFrame(frame);
+      const apply = () => {
+        const input = document.activeElement;
+        if (
+          !(input instanceof HTMLElement) ||
+          !input.matches("input,textarea,select") ||
+          input.closest('[role="dialog"]') ||
+          nav.getBoundingClientRect().height === 0
+        )
+          return;
+        const gap = 16;
+        const overflow =
+          input.getBoundingClientRect().bottom - (nav.getBoundingClientRect().top - gap);
+        if (overflow <= 0) return;
+        const scroller = document.scrollingElement ?? document.documentElement;
+        scroller.scrollTop += overflow;
+      };
       frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(() => {
-          const input = document.activeElement;
-          if (
-            !(input instanceof HTMLElement) ||
-            !input.matches("input,textarea,select") ||
-            input.closest('[role="dialog"]') ||
-            nav.getBoundingClientRect().height === 0
-          )
-            return;
-          const gap = 16;
-          const overflow =
-            input.getBoundingClientRect().bottom - (nav.getBoundingClientRect().top - gap);
-          if (overflow > 0) window.scrollBy(0, overflow);
-        });
+        frame = requestAnimationFrame(apply);
       });
     };
     const onChange = () => {

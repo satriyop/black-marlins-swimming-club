@@ -222,18 +222,16 @@ test("navigation and account reflow with enlarged text and reserve bottom space"
     await page.goto(`/latihan/${fixture.practiceId}`);
     const field = page.getByLabel("Jarak selesai (m)");
     await field.fill("1250");
-    await field.focus();
-    await page.setViewportSize({ width: 390, height: 390 });
-    await page
-      .getByRole("navigation", { name: "Navigasi seluler", exact: true })
-      .evaluate((el) => ((el as HTMLElement).style.paddingBottom = "34px"));
     const nav = page.getByRole("navigation", { name: "Navigasi seluler", exact: true });
+    await page.setViewportSize({ width: 390, height: 390 });
+    await nav.evaluate((el) => ((el as HTMLElement).style.paddingBottom = "34px"));
+    await field.focus();
     await expect
       .poll(async () => {
         const inputBox = await field.boundingBox();
         const navBox = await nav.boundingBox();
-        return inputBox!.y + inputBox!.height <= navBox!.y;
-      })
+        return Boolean(inputBox && navBox && inputBox.y + inputBox.height <= navBox.y);
+      }, { timeout: 10_000 })
       .toBe(true);
     const save = page.getByRole("button", { name: "Simpan jarak", exact: true }).last();
     await save.scrollIntoViewIfNeeded();
