@@ -126,8 +126,8 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     select count(*)::int as n
     from announcements a
     left join announcement_reads r
-      on r.announcement_id = a.id and r.user_id = ${actor.userId}
-    where a.club_id = ${clubId} and r.user_id is null
+      on r.announcement_id = a.id and r.revision = a.revision and r.user_id = ${actor.userId}
+    where a.club_id = ${clubId} and a.archived_at is null and r.user_id is null
   `;
   const unreadAnnouncements = await sql<{
     id: number; title: string; important: boolean; created_at: string;
@@ -135,12 +135,21 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     select a.id, a.title, a.important, a.created_at::text as created_at
     from announcements a
     left join announcement_reads r
-      on r.announcement_id = a.id and r.user_id = ${actor.userId}
-    where a.club_id = ${clubId} and r.user_id is null
+      on r.announcement_id = a.id and r.revision = a.revision and r.user_id = ${actor.userId}
+    where a.club_id = ${clubId} and a.archived_at is null and r.user_id is null
     order by a.important desc, a.created_at desc
     limit 8
   `;
+  const pendingAcks = await sql<{ id: number; title: string }>`
+    select a.id,a.title from announcements a
+    join announcement_audience aud on aud.announcement_id=a.id and aud.user_id=${actor.userId}
+    join announcement_current_members member on member.club_id=a.club_id and member.user_id=aud.user_id
+    left join announcement_acknowledgements k on k.announcement_id=a.id and k.revision=a.revision and k.user_id=aud.user_id
+    where a.club_id=${clubId} and a.important and a.archived_at is null and k.user_id is null
+    order by a.updated_at desc,a.id desc`;
   return {
+    pendingAcknowledgements: pendingAcks.slice(0,8),
+    pendingAcknowledgementCount: pendingAcks.length,
     club, swimmers,
     upcomingPractices: upcomingPractices.map(mapPractice),
     noticePractices: noticePractices.map(mapPractice),

@@ -1,3 +1,4 @@
+import { AnnouncementComposer } from "@/components/announcements/composer";
 import { RegistrationPanel } from "@/components/swim/registration-panel";
 import { useAccess } from "@/lib/club/use-access";
 import { canWriteMeet, canWriteOfficialResult } from "@/lib/club/permissions";
@@ -9,23 +10,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
-import {
-  deleteMeet,
-  getMeet,
-  saveResult,
-} from "@/lib/server/fns";
+import { deleteMeet, getMeet, saveResult } from "@/lib/server/fns";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
 import { MeetDialog } from "./event";
-import {
-  MEET_LEVELS,
-  MEET_STATUSES,
-  eventCode,
-  labelOf,
-} from "@/lib/swim/constants";
+import { MEET_LEVELS, MEET_STATUSES, eventCode, labelOf } from "@/lib/swim/constants";
 import { parseTimeToMs } from "@/lib/swim/time";
 import { formatDateId } from "@/lib/utils";
 
@@ -98,6 +90,16 @@ function Page() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge>{labelOf(MEET_STATUSES, meet.status)}</Badge>
+          {canWriteMeet(hats) && (
+            <AnnouncementComposer
+              label="Tulis pengumuman kejuaraan"
+              prefill={{
+                meetId: meet.id,
+                title: `Informasi kejuaraan: ${meet.name}`,
+                body: `${meet.name}\nMulai: ${meet.startDate}${meet.endDate ? ` sampai ${meet.endDate}` : ""}\nLokasi: ${meet.venue ?? "Belum ditentukan"}`,
+              }}
+            />
+          )}
           {canWriteMeet(hats) && <MeetDialog initial={meet} />}
           {canWriteMeet(hats) && (
             <DeleteButton
@@ -108,7 +110,12 @@ function Page() {
           )}
         </div>
       </div>
-      <RegistrationPanel meet={meet} view={data.registration} entries={entries} resultAction={entry => <EntryActions entry={entry} meet={meet} />} />
+      <RegistrationPanel
+        meet={meet}
+        view={data.registration}
+        entries={entries}
+        resultAction={(entry) => <EntryActions entry={entry} meet={meet} />}
+      />
       <section>
         <h2 className="font-display mb-3 text-2xl">Hasil</h2>
         <ResultList results={results} showSwimmer variant="meet" />
