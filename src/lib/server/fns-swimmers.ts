@@ -3,6 +3,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { accessFor } from "@/lib/club/access";
 import { loadClub, requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
+import { listAttendanceHistory } from "@/lib/club/attendance";
 import { listSwimmers as listSwimmersFor, saveSwimmer as saveSwimmerFor } from "@/lib/club/swimmers";
 import { getDashboardData } from "@/lib/club/dashboard";
 import { deleteSwimmer as deleteSwimmerFor } from "@/lib/club/writes";
@@ -51,6 +52,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
     select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*) filter (where status <> 'belum')::int as total
     from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id}`;
   const volume = await sql<{ n: number }>`select coalesce(sum(meters_completed), 0)::int as n from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id} and status = 'hadir'`;
+  const attendanceHistory = await listAttendanceHistory({ sql, userId }, data.id);
   const entries = await sql<{
     id: number; meet_id: number; swimmer_id: number; swimmer_name: string; stroke: string; distance_m: number;
     age_group: string | null; seed_time_ms: number | null; status: string; lane: number | null; heat: string | null;
@@ -64,6 +66,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
     swimmer, results: results.map(mapResult),
     pbs: pbs.map((p): PersonalBest => ({ stroke: p.stroke, distanceM: p.distance_m, course: p.course, timeMs: p.time_ms, resultDate: p.result_date, meetName: p.meet_name })),
     attendance: { present: att[0]?.hadir ?? 0, total: att[0]?.total ?? 0, rate: (att[0]?.total ?? 0) === 0 ? 0 : Math.round(((att[0]?.hadir ?? 0) / (att[0]?.total ?? 1)) * 100) },
+    attendanceHistory,
     totalMeters: volume[0]?.n ?? 0,
     upcomingEntries: entries.map((e) => ({ id: e.id, meetId: e.meet_id, swimmerId: e.swimmer_id, swimmerName: e.swimmer_name, stroke: e.stroke, distanceM: e.distance_m, ageGroup: e.age_group, seedTimeMs: e.seed_time_ms, status: e.status, lane: e.lane, heat: e.heat, meetName: e.meet_name, startDate: e.start_date })),
   };

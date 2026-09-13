@@ -1,4 +1,5 @@
 import type { Actor } from "./actor";
+import { absenceCutoffLabel, isBeforeAbsenceCutoff } from "./absence-window";
 import { canSeeSwimmer, hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
 import { canWritePractice } from "./permissions";
@@ -213,9 +214,27 @@ export async function loadPractice(actor: Actor, id: number): Promise<PracticeDe
     meters_completed: number | null;
     notes: string | null;
     on_roll: boolean;
+    notice_kind: "izin" | "sakit" | null;
+    notice_status: "active" | "withdrawn" | null;
+    notice_reason: string | null;
+    notice_revision: number | null;
+    correction_status: "pending" | "resolved" | "rejected" | null;
+    correction_id: number | null;
+    correction_message: string | null;
+    correction_resolution: string | null;
   }>`
-    select a.id, a.practice_id, a.swimmer_id, s.full_name as swimmer_name, a.status, a.meters_completed, a.notes, a.on_roll
-    from practice_attendance a join swimmers s on s.id = a.swimmer_id
+    select a.id, a.practice_id, a.swimmer_id, s.full_name as swimmer_name, a.status, a.meters_completed, a.notes, a.on_roll,
+           n.kind as notice_kind, n.status as notice_status, n.reason as notice_reason, n.revision as notice_revision,
+           c.status as correction_status, c.id as correction_id, c.message as correction_message, c.resolution as correction_resolution
+    from practice_attendance a
+    join swimmers s on s.id = a.swimmer_id
+    left join absence_notices n on n.practice_id = a.practice_id and n.swimmer_id = a.swimmer_id
+    left join lateral (
+      select id, status, message, resolution from attendance_corrections
+      where attendance_id = a.id
+      order by requested_at desc
+      limit 1
+    ) c on true
     where a.practice_id = ${id} and a.club_id = ${clubId}
     order by a.on_roll desc, s.full_name
   `;
@@ -244,6 +263,26 @@ export async function loadPractice(actor: Actor, id: number): Promise<PracticeDe
           metersCompleted: a.meters_completed,
           notes: a.notes,
           onRoll: a.on_roll,
+          notice: a.notice_kind
+            ? {
+                kind: a.notice_kind,
+                status: a.notice_status ?? "active",
+                reason: a.notice_reason,
+                revision: a.notice_revision ?? 1,
+              }
+            : null,
+          correctionStatus: a.correction_status,
+          correctionId: a.correction_id,
+          correctionMessage: a.correction_message,
+          correctionResolution: a.correction_resolution,
+          cutoffLabel: absenceCutoffLabel(asDate(row.session_date) ?? "", row.start_time),
+          noticeEditable:
+            row.status !== "completed" &&
+            row.status !== "cancelled" &&
+            isBeforeAbsenceCutoff(asDate(row.session_date) ?? "", row.start_time),
+          canRequestCorrection:
+            row.status === "completed" ||
+            !isBeforeAbsenceCutoff(asDate(row.session_date) ?? "", row.start_time),
         }),
       ),
   };
@@ -371,7 +410,11 @@ export async function removePracticeParticipant(
   `;
   const found = att[0];
   if (!found) throw new Error("Perenang tidak ada di sesi ini");
-  if (found.status === "belum" && found.meters_completed == null) {
+  const notice = await actor.sql<{ n: number }>`
+    select count(*)::int as n from absence_notices
+    where practice_id = ${input.practiceId} and swimmer_id = ${input.swimmerId} and club_id = ${clubId}
+  `;
+  if (found.status === "belum" && found.meters_completed == null && (notice[0]?.n ?? 0) === 0) {
     await actor.sql`delete from practice_attendance where id = ${found.id} and club_id = ${clubId}`;
   } else {
     await actor.sql`update practice_attendance set on_roll = false where id = ${found.id} and club_id = ${clubId}`;

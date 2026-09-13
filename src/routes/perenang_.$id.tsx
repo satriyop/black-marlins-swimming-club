@@ -68,7 +68,7 @@ function Page() {
         <QueryError retry={() => refetch()} />
       </AppShell>
     );
-  const { swimmer, results, pbs, attendance, totalMeters, upcomingEntries } = data;
+  const { swimmer, results, pbs, attendance, attendanceHistory, totalMeters, upcomingEntries } = data;
   return (
     <AppShell>
       <Link
@@ -108,7 +108,7 @@ function Page() {
         <MiniStat
           label="Kehadiran"
           value={attendance.total ? `${attendance.rate}%` : "—"}
-          hint={`${attendance.present}/${attendance.total} sesi`}
+          hint={`${attendance.present}/${attendance.total} sesi (kehadiran akhir pelatih)`}
         />
         <MiniStat
           label="Volume"
@@ -121,6 +121,58 @@ function Page() {
           hint="Semua nomor & panjang kolam"
         />
       </div>
+      <section className="mb-6">
+        <h2 className="font-display mb-2 text-2xl">Riwayat kehadiran</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Izin wali tidak mengubah persentase kehadiran. Angka di atas hanya dari catatan akhir pelatih.
+        </p>
+        {!attendanceHistory?.length ? (
+          <p className="rounded-2xl bg-card px-4 py-6 text-sm text-muted-foreground shadow-border">
+            Belum ada sesi.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-2xl bg-card shadow-border">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Tanggal</th>
+                  <th className="px-4 py-2 font-medium">Sesi</th>
+                  <th className="px-4 py-2 font-medium">Izin wali</th>
+                  <th className="px-4 py-2 font-medium">Kehadiran akhir</th>
+                  <th className="px-4 py-2 font-medium">Jarak</th>
+                  <th className="px-4 py-2 font-medium">Koreksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceHistory.map((row) => (
+                  <tr key={row.attendanceId} className="border-t border-border">
+                    <td className="px-4 py-2">{formatDateId(row.sessionDate, "d MMM yyyy")}</td>
+                    <td className="px-4 py-2">
+                      <Link to="/latihan/$id" params={{ id: String(row.practiceId) }} className="text-primary hover:underline">
+                        {row.title}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2">
+                      {row.noticeKind
+                        ? `${row.noticeKind}${row.noticeStatus === "withdrawn" ? " (dibatalkan)" : ""}`
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-2">{row.status}</td>
+                    <td className="px-4 py-2">
+                      {row.metersCompleted != null ? `${row.metersCompleted} m` : "—"}
+                    </td>
+                    <td className="px-4 py-2">
+                      {row.correctionStatus
+                        ? `${row.correctionStatus}${row.correctionResolution ? ` — ${row.correctionResolution}` : ""}`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
       <div className="grid gap-6 lg:grid-cols-5">
         <section className="lg:col-span-2">
           <h2 className="font-display mb-3 text-2xl">Rekor pribadi (Personal Best)</h2>
