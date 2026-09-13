@@ -46,7 +46,7 @@ export function Field({
   const id = control?.props.id ?? generatedId;
   const hintId = `${id}-hint`;
   return (
-    <div className="grid gap-1.5 text-sm">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5 text-sm [overflow-wrap:anywhere]">
       <label htmlFor={id} className="font-semibold text-foreground">
         {label}
       </label>

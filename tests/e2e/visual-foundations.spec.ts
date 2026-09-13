@@ -27,9 +27,20 @@ for (const width of [320, 390, 1440]) {
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: info.outputPath("default.png"), fullPage: true });
     await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
+    const overflowing = await page.evaluate(() =>
+      [...document.querySelectorAll("main *")]
+        .filter((el) => el.getBoundingClientRect().right > innerWidth)
+        .map((el) => ({
+          tag: el.tagName,
+          text: el.textContent?.slice(0, 60),
+          right: el.getBoundingClientRect().right,
+        })),
     );
+    await page.screenshot({ path: info.outputPath("enlarged.png"), fullPage: true });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      JSON.stringify(overflowing),
+    ).toBe(true);
     for (const control of await page.locator("button,input,select").all()) {
       if (!(await control.isVisible())) continue;
       const box = await control.boundingBox();
