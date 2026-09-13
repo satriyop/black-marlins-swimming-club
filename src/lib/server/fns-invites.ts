@@ -9,8 +9,22 @@ import {
   createInvite,
   listInvites,
   previewInvite,
+  recreateInvite,
+  revokeInvite,
   type InviteInput,
 } from "@/lib/club/invites";
+import {
+  linkGuardian,
+  listAccessHelp,
+  listAdminHandoff,
+  listMembers,
+  resolveAccessHelp,
+  revokeStaffRole,
+  setStaffRole,
+  submitAccessHelp,
+  unlinkGuardian,
+} from "@/lib/club/members";
+import type { StaffRole } from "@/lib/club/hats";
 
 export const getInvitePreview = createServerFn({ method: "GET" })
   .validator((input: { token: string }) => {
@@ -56,3 +70,58 @@ export const acceptClubInvite = createServerFn({ method: "POST" })
     await acceptInvite(sql, { token: data.token, userId: session.id, email: session.email });
     return { ok: true as const };
   });
+
+export const listClubMembers = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await requireClub(context.userId);
+  return listMembers(actor);
+});
+
+export const setClubStaffRole = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { userId: string; role: StaffRole }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return setStaffRole(actor, data);
+});
+
+export const revokeClubStaffRole = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { userId: string }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return revokeStaffRole(actor, data);
+});
+
+export const unlinkClubGuardian = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { userId: string; swimmerId: number }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return unlinkGuardian(actor, data);
+});
+
+export const linkClubGuardian = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { userId: string; swimmerId: number }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return linkGuardian(actor, data);
+});
+
+export const revokeClubInvite = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return revokeInvite(actor, data);
+});
+
+export const recreateClubInvite = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return recreateInvite(actor, data);
+});
+
+export const listClubAdminHandoff = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await requireClub(context.userId);
+  return listAdminHandoff(actor);
+});
+
+export const submitClubAccessHelp = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { kind: "missing_child" | "wrong_link"; message: string }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return submitAccessHelp(actor, data);
+});
+
+export const listClubAccessHelp = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await requireClub(context.userId);
+  return listAccessHelp(actor);
+});
+
+export const resolveClubAccessHelp = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return resolveAccessHelp(actor, data);
+});

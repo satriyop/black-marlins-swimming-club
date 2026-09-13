@@ -39,6 +39,10 @@ export async function createClubFixture(role: "guardian" | "coach" | "combined" 
         clubId,
         userId,
       ]);
+    await pool.query(
+      "insert into user_club_prefs (user_id,task_view,welcome_dismissed_at,grants_acked_at) values ($1,$2,now(),now())",
+      [userId, role === "guardian" ? "family" : "club"],
+    );
     const swimmer = await pool.query(
       "insert into swimmers (club_id, full_name, date_of_birth, gender) values ($1,'Perenang Contoh','2014-06-01','putra') returning id",
       [clubId],

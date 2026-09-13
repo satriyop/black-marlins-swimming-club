@@ -4,6 +4,7 @@ import { jakartaNowParts } from "@/lib/utils";
 import type { Actor } from "./actor";
 import { canSeeSwimmer, hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
+import { loadPrefs } from "./prefs";
 import { mapPractice, type PracticeRow } from "./practice";
 import { listSwimmers } from "./swimmers";
 
@@ -29,7 +30,14 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
   const sql = actor.sql;
   const club = await clubOf(sql, clubId);
   const swimmers = await listSwimmers(actor);
-  const visibleIds = swimmers.map((s) => s.id);
+  const hats = await hatsFor(actor);
+  const prefs = await loadPrefs(actor);
+  const familyOnly = prefs.taskView !== "club";
+  const visibleIds = familyOnly
+    ? swimmers
+        .filter((s) => hats.guardianSwimmerIds.includes(s.id) || s.id === hats.selfSwimmerId)
+        .map((s) => s.id)
+    : swimmers.map((s) => s.id);
   const { date: jakartaDate } = jakartaNowParts();
   const upcomingPractices = await sql<PracticeRow>`
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,

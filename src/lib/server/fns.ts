@@ -1,5 +1,8 @@
 export {
   getAccess,
+  saveClubTaskView,
+  dismissClubOnboarding,
+  reopenClubOnboarding,
   getDashboard,
   getClub,
   listSwimmers,
@@ -18,6 +21,10 @@ export {
   reopenClubPractice,
   addClubPracticeParticipant,
   removeClubPracticeParticipant,
+  saveClubAbsenceNotice,
+  withdrawClubAbsenceNotice,
+  requestClubAttendanceCorrection,
+  resolveClubAttendanceCorrection,
   type SetInput,
 } from "./fns-practice";
 export {
@@ -37,4 +44,15 @@ export {
   createClubInvite,
   acceptClubInvite,
   getInvitePreview,
+  listClubMembers,
+  setClubStaffRole,
+  revokeClubStaffRole,
+  unlinkClubGuardian,
+  linkClubGuardian,
+  revokeClubInvite,
+  recreateClubInvite,
+  listClubAdminHandoff,
+  submitClubAccessHelp,
+  listClubAccessHelp,
+  resolveClubAccessHelp,
 } from "./fns-invites";

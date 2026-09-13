@@ -42,6 +42,13 @@ export type PracticeSet = {
 
 export type AttendanceStatus = "belum" | "hadir" | "izin" | "sakit" | "alfa";
 
+export type AbsenceNotice = {
+  kind: "izin" | "sakit";
+  status: "active" | "withdrawn";
+  reason: string | null;
+  revision: number;
+};
+
 export type Attendance = {
   id: number;
   practiceId: number;
@@ -51,6 +58,14 @@ export type Attendance = {
   metersCompleted: number | null;
   notes: string | null;
   onRoll: boolean;
+  notice: AbsenceNotice | null;
+  correctionStatus: "pending" | "resolved" | "rejected" | null;
+  correctionId: number | null;
+  correctionMessage: string | null;
+  correctionResolution: string | null;
+  cutoffLabel: string;
+  noticeEditable: boolean;
+  canRequestCorrection: boolean;
 };
 
 export type PracticeStatus = "scheduled" | "in_progress" | "completed" | "cancelled";

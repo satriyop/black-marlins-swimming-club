@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+
 import { ArrowRight, CalendarDays, MapPin, Waves } from "lucide-react";
-import { getDashboard } from "@/lib/server/fns";
+import { dismissClubOnboarding, getDashboard } from "@/lib/server/fns";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { LoginScreen, Splash } from "@/components/auth/login-screen";
 import { AppShell, PageHeader } from "@/components/layout/app-shell";
@@ -10,9 +10,10 @@ import { SwimmerAvatar } from "@/components/swim/mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccess } from "@/lib/club/use-access";
 import { isFamilyMember } from "@/lib/club/hats";
-import { homePracticeCta } from "@/lib/club/nav";
+import { homePracticeCta, roleLabels } from "@/lib/club/nav";
 import { canWritePractice } from "@/lib/club/permissions";
 import { eventCode } from "@/lib/swim/constants";
 import { formatTime } from "@/lib/swim/time";
@@ -52,7 +53,7 @@ function Dashboard() {
 }
 
 function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>> }) {
-  const { hats } = useAccess();
+  const { hats, taskView, welcomeDismissed, newGrants } = useAccess();
   const {
     club,
     swimmers,
@@ -65,20 +66,36 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
     stats,
   } = data;
   const next = upcomingPractices[0];
-  const staff = canWritePractice(hats);
+  const clubView = taskView === "club";
+  const staff = canWritePractice(hats) && clubView;
   const guardian = isFamilyMember(hats);
-  const practiceCta = homePracticeCta(hats);
+  const practiceCta = homePracticeCta(hats, taskView);
   const family = swimmers.filter(
     (s) => hats.guardianSwimmerIds.includes(s.id) || s.id === hats.selfSwimmerId,
   );
-  const featured = staff ? swimmers.slice(0, 6) : family;
+  const featured = clubView ? swimmers.slice(0, 6) : family;
+  const pbs = recentPbs;
+  const showWelcome = !welcomeDismissed || newGrants.length > 0;
   return (
     <div className="space-y-7">
       <PageHeader
         kicker={`${club.shortName} · ${club.city}`}
         title={greetingId()}
-        description={formatDateId(todayIso(), "EEEE, d MMMM yyyy")}
+        description={`${formatDateId(todayIso(), "EEEE, d MMMM yyyy")}${
+          roleLabels(hats).length ? ` · ${roleLabels(hats).join(", ")}` : ""
+        }`}
       />
+      {showWelcome ? (
+        <WelcomeCard
+          clubName={club.name}
+          family={family}
+          nextTitle={next?.title ?? null}
+          nextId={next?.id ?? null}
+          practiceCta={practiceCta}
+          grants={newGrants}
+          staffRole={guardian ? null : hats.staff}
+        />
+      ) : null}
       {unreadCount > 0 ? (
         <section aria-labelledby="unread-posts" className="rounded-2xl border border-primary/30 bg-card p-5">
           <p id="unread-posts" className="text-sm font-semibold text-primary">
@@ -183,28 +200,22 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
           <>
             <h2 className="font-display text-3xl">Belum ada latihan terjadwal</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {staff
+              {clubView
                 ? "Siapkan sesi berikutnya untuk skuad."
                 : "Jadwal berikutnya akan tampil setelah dibuat oleh pelatih."}
             </p>
             <Button asChild variant="outline" className="mt-4">
-              <Link to="/latihan">{staff ? "Jadwalkan latihan" : "Lihat riwayat latihan"}</Link>
+              <Link to="/latihan">{clubView ? "Jadwalkan latihan" : "Lihat riwayat latihan"}</Link>
             </Button>
           </>
         )}
-        {!staff && guardian && family.length === 0 && (
+        {!clubView && guardian && family.length === 0 && (
           <p className="mt-4 border-t border-border pt-3 text-sm">
             Anda sudah bergabung.{" "}
             <Link to="/perenang" className="text-primary hover:underline">
               Daftarkan anak
             </Link>{" "}
             untuk mulai melihat latihan.
-          </p>
-        )}
-        {staff && guardian && family.length > 0 && (
-          <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
-            Anda juga wali {family.map((s) => s.nickname || s.fullName).join(", ")}. Akses keluarga
-            tersedia di profil perenang.
           </p>
         )}
       </section>
@@ -239,13 +250,13 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
         <p className="mb-3 text-sm text-muted-foreground">
           PB adalah rekor pribadi terbaik untuk gaya, jarak, dan panjang kolam yang sama.
         </p>
-        {!recentPbs.length ? (
+        {!pbs.length ? (
           <p className="rounded-2xl bg-card p-5 text-sm text-muted-foreground">
             Belum ada rekor pribadi tercatat. Catatan waktu akan muncul di profil perenang.
           </p>
         ) : (
           <ul className="divide-y divide-border rounded-2xl bg-card shadow-border">
-            {recentPbs.map((result) => (
+            {pbs.map((result) => (
               <li key={result.id}>
                 <Link
                   to="/perenang/$id"
@@ -303,7 +314,7 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
           ))}
         </div>
       </section>
-      {staff && (
+      {clubView && (
         <section aria-label="Ringkasan klub" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Perenang aktif klub" value={String(stats.swimmerCount)} />
           <Stat label="Sesi dijadwalkan bulan ini" value={String(stats.practicesThisMonth)} />
@@ -318,6 +329,113 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
         </section>
       )}
     </div>
+  );
+}
+
+function WelcomeCard({
+  clubName,
+  family,
+  nextTitle,
+  nextId,
+  practiceCta,
+  grants,
+  staffRole,
+}: {
+  clubName: string;
+  family: { id: number; fullName: string; nickname: string | null }[];
+  nextTitle: string | null;
+  nextId: number | null;
+  practiceCta: ReturnType<typeof homePracticeCta>;
+  grants: { kind: "staff" | "guardian"; role: string | null; swimmerIds: number[] }[];
+  staffRole: "superadmin" | "club_admin" | "coach" | null;
+}) {
+  const qc = useQueryClient();
+  const mut = useMutation({
+    mutationFn: () => dismissClubOnboarding(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["access"] }),
+  });
+  const cta =
+    practiceCta === "enroll"
+      ? { to: "/perenang" as const, label: "Daftarkan anak" }
+      : practiceCta === "staff"
+        ? staffRole === "coach"
+          ? nextId
+            ? { to: "/latihan/$id" as const, label: "Catat kehadiran", id: nextId }
+            : { to: "/latihan" as const, label: "Jadwalkan latihan" }
+          : { to: "/perenang" as const, label: "Kelola skuad" }
+        : practiceCta === "izin"
+          ? nextId
+            ? { to: "/latihan/$id" as const, label: "Kehadiran & izin anak", id: nextId }
+            : { to: "/latihan" as const, label: "Lihat latihan" }
+          : nextId
+            ? { to: "/latihan/$id" as const, label: "Lihat program", id: nextId }
+            : { to: "/latihan" as const, label: "Lihat latihan" };
+  return (
+    <section className="rounded-2xl border border-primary/30 bg-card p-5">
+      <p className="text-sm font-semibold text-primary">Pengantar</p>
+      <h2 className="font-display mt-1 text-2xl">{clubName}</h2>
+      {grants.length ? (
+        <p className="mt-2 text-sm">
+          Akses baru:{" "}
+          {grants
+            .map((g) => (g.kind === "guardian" ? "wali perenang" : g.role === "coach" ? "pelatih" : "staf klub"))
+            .join(", ")}
+          .
+        </p>
+      ) : null}
+      {family.length ? (
+        <p className="mt-2 text-sm">
+          Anak terhubung:{" "}
+          {family.map((s, i) => (
+            <span key={s.id}>
+              {i ? ", " : ""}
+              <Link to="/perenang/$id" params={{ id: String(s.id) }} className="text-primary hover:underline">
+                {s.nickname || s.fullName}
+              </Link>
+            </span>
+          ))}
+          .
+        </p>
+      ) : staffRole === "coach" ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Pendaftaran perenang baru lewat admin klub. Pelatih mencatat latihan dan kehadiran.
+        </p>
+      ) : staffRole ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Kelola skuad dan undangan. Pelatih mencatat latihan; admin mengurus akses.
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Belum ada anak terhubung. Daftarkan anak atau hubungi admin jika anak sudah di skuad.
+        </p>
+      )}
+      {staffRole == null || family.length ? (
+        <p className="mt-2 text-sm">
+          <Link to="/perenang" className="text-primary hover:underline">
+            Anak belum terhubung?
+          </Link>
+        </p>
+      ) : null}
+      {nextTitle ? <p className="mt-2 text-sm text-muted-foreground">Latihan berikutnya: {nextTitle}.</p> : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button asChild>
+          {"id" in cta && cta.id ? (
+            <Link to="/latihan/$id" params={{ id: String(cta.id) }}>
+              {cta.label}
+              <ArrowRight />
+            </Link>
+          ) : (
+            <Link to={cta.to === "/latihan/$id" ? "/latihan" : cta.to}>
+              {cta.label}
+              <ArrowRight />
+            </Link>
+          )}
+        </Button>
+        <Button variant="outline" disabled={mut.isPending} onClick={() => mut.mutate()}>
+          Tutup
+        </Button>
+      </div>
+    </section>
   );
 }
 

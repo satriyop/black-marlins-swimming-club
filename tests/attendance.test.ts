@@ -21,21 +21,17 @@ async function seedAttendance(h: Awaited<ReturnType<typeof createClubHarness>>) 
   return { clubId, luigiId: luigi.id, attendanceId: att[0]!.id };
 }
 
-test("wali can set izin or sakit on a linked child", async () => {
+test("wali cannot write final attendance including izin", async () => {
   const h = await createClubHarness();
   const { attendanceId } = await seedAttendance(h);
-  await updateAttendanceStatus(h.actor(RATIH_ID), { id: attendanceId, status: "izin", metersCompleted: 0 });
-  const rows = await h.sql<{ status: string }>`select status from practice_attendance where id = ${attendanceId}`;
-  expect(rows[0]?.status).toBe("izin");
-  await updateAttendanceStatus(h.actor(RATIH_ID), { id: attendanceId, status: "sakit", metersCompleted: 0 });
-  const again = await h.sql<{ status: string }>`select status from practice_attendance where id = ${attendanceId}`;
-  expect(again[0]?.status).toBe("sakit");
+  await expect(
+    updateAttendanceStatus(h.actor(RATIH_ID), { id: attendanceId, status: "izin", metersCompleted: 0 }),
+  ).rejects.toThrow(/Tidak diizinkan/);
 });
 
 test("wali cannot mark hadir on attendance", async () => {
   const h = await createClubHarness();
   const { attendanceId } = await seedAttendance(h);
-  await updateAttendanceStatus(h.actor(RATIH_ID), { id: attendanceId, status: "izin", metersCompleted: 0 });
   await expect(
     updateAttendanceStatus(h.actor(RATIH_ID), { id: attendanceId, status: "hadir", metersCompleted: 1000 }),
   ).rejects.toThrow(/Tidak diizinkan/);
