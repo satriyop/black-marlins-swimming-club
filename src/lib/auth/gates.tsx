@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
-import { Navigate } from "@tanstack/react-router";
+import { Navigate, useRouterState } from "@tanstack/react-router";
+import { returnPathForLocation } from "./return-path";
 import { ADULT_PROVIDERS, authEnabled, signIn, signOut } from "./client";
 import { hasGateSessionMarker } from "./gate-session-marker";
 import { resolveSignInGateState } from "./sign-in-gate";
@@ -22,7 +23,11 @@ export function SignedOut({ children }: { children: ReactNode }) {
 }
 
 export function RedirectToSignIn({ to = SIGN_IN_PATH }: { to?: string }) {
-  return <Navigate to={to} />;
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const searchStr = useRouterState({ select: (s) => s.location.searchStr });
+  const next = returnPathForLocation(pathname, searchStr);
+  if (to !== SIGN_IN_PATH) return <Navigate to={to} />;
+  return <Navigate to="/login" search={next ? { next } : {}} />;
 }
 
 export function SignInGate({
@@ -43,7 +48,7 @@ export function SignInButtons() {
     <div className="flex w-full max-w-sm flex-col gap-2">
       {ADULT_PROVIDERS.map((p) => (
         <button key={p.providerId} type="button" onClick={() => signIn(p.providerId, { callbackURL: "/" })} className="w-full cursor-pointer rounded-md border border-neutral-300 px-4 py-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900">
-          Continue with {p.label}
+          Lanjutkan dengan {p.label}
         </button>
       ))}
     </div>
@@ -68,7 +73,7 @@ export function UserButton() {
       <span className="text-sm font-medium">{label}</span>
       {authEnabled && !gateSession && (
         <button type="button" disabled={signingOut} onClick={() => { setSigningOut(true); void signOut().catch(() => setSigningOut(false)); }} className="cursor-pointer text-sm underline-offset-4 opacity-70 hover:underline disabled:cursor-wait disabled:no-underline">
-          {signingOut ? "Signing out…" : "Sign out"}
+          {signingOut ? "Keluar…" : "Keluar"}
         </button>
       )}
     </div>

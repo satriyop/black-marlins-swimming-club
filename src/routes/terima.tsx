@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { acceptClubInvite, getInvitePreview } from "@/lib/server/fns";
+import { acceptClubInvite, getInvitePreview, getPublicClubContact } from "@/lib/server/fns";
 import { ADULT_PROVIDERS, signIn, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
@@ -87,10 +87,22 @@ function Page() {
                 ? "Undangan ini sudah dicabut."
                 : "Tautan undangan tidak berlaku."}
           </p>
-          <p className="text-sm text-muted-foreground">Minta pengundang membuat tautan baru.</p>
-          <Link to="/login" className="inline-flex min-h-11 items-center underline">
-            Ke halaman masuk
-          </Link>
+          <p className="text-sm text-muted-foreground">
+            Minta pengundang membuat tautan baru, atau hubungi admin klub.
+          </p>
+          <InviteContact />
+          {user ? (
+            <Button
+              variant="outline"
+              onClick={() => void signOut("/login").catch((err) => setSignInError(err.message))}
+            >
+              Ganti akun
+            </Button>
+          ) : (
+            <Link to="/login" className="inline-flex min-h-11 items-center underline">
+              Ke halaman masuk
+            </Link>
+          )}
         </>
       ) : preview.isError ? (
         <QueryError retry={() => preview.refetch()} />
@@ -176,6 +188,7 @@ function Page() {
                   onClick={() =>
                     void signIn(google.providerId, {
                       callbackURL: `/terima?token=${encodeURIComponent(token)}`,
+                      errorCallbackURL: `/terima?token=${encodeURIComponent(token)}`,
                     }).catch((err) => setSignInError(err.message))
                   }
                 >
@@ -188,7 +201,9 @@ function Page() {
       ) : null}
       {mut.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {mut.error.message}
+          {mut.error.message.includes("tidak berlaku") && user
+            ? "Akun ini tidak cocok dengan undangan. Keluar, lalu masuk dengan akun Google yang diundang."
+            : mut.error.message}
         </p>
       )}
       {signInError && (
@@ -197,5 +212,26 @@ function Page() {
         </p>
       )}
     </main>
+  );
+}
+
+function InviteContact() {
+  const q = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
+  const info = q.data;
+  if (!info?.supportEmail && !info?.supportPhone && !info?.supportUrl) return null;
+  return (
+    <p className="text-sm text-muted-foreground">
+      Kontak klub
+      {info.supportEmail ? ` · ${info.supportEmail}` : ""}
+      {info.supportPhone ? ` · ${info.supportPhone}` : ""}
+      {info.supportUrl ? (
+        <>
+          {" · "}
+          <a href={info.supportUrl} className="text-primary hover:underline">
+            {info.supportUrl}
+          </a>
+        </>
+      ) : null}
+    </p>
   );
 }

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { PracticeEditor } from "@/components/swim/practice-editor";
-import { QueryError } from "@/components/ui/query-error";
+import { ResourceQueryError } from "@/components/ui/query-error";
 import { useAccess } from "@/lib/club/use-access";
 import { canWritePractice } from "@/lib/club/permissions";
 import { getPractice } from "@/lib/server/fns";
@@ -32,7 +32,7 @@ function Page() {
       ) : !canWritePractice(hats) ? (
         <EmptyState title="Khusus staf klub" description="Pelatih dan admin mengelola program latihan." />
       ) : query.isError || !query.data ? (
-        <QueryError retry={() => query.refetch()} />
+        <ResourceQueryError error={query.error} retry={() => query.refetch()} />
       ) : closed ? (
         <EmptyState
           title={query.data.status === "cancelled" ? "Sesi dibatalkan" : "Sesi sudah selesai"}

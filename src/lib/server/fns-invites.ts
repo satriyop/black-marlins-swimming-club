@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSessionUser } from "@/lib/auth/verify.server";
-import { requireClub } from "@/lib/club/context";
+import { loadClub, requireClub } from "@/lib/club/context";
 import { getSql } from "@/lib/db";
 import {
   acceptInvite,
@@ -16,9 +16,12 @@ import {
 import {
   linkGuardian,
   listAccessHelp,
+  listMyAccessHelp,
   listAdminHandoff,
+  getPublicClubContact as loadPublicClubContact,
   listMembers,
   resolveAccessHelp,
+  saveClubSupport,
   revokeStaffRole,
   setStaffRole,
   submitAccessHelp,
@@ -111,9 +114,23 @@ export const listClubAdminHandoff = createServerFn({ method: "GET" }).middleware
   return listAdminHandoff(actor);
 });
 
-export const submitClubAccessHelp = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { kind: "missing_child" | "wrong_link"; message: string }) => input).handler(async ({ context, data }) => {
+export const getPublicClubContact = createServerFn({ method: "GET" }).handler(async () => {
+  return loadPublicClubContact(await getSql());
+});
+
+export const saveClubSupportContact = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { email?: string; phone?: string; url?: string }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
+  return saveClubSupport(actor, data);
+});
+
+export const submitClubAccessHelp = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { kind: "missing_child" | "wrong_link" | "access"; message: string }) => input).handler(async ({ context, data }) => {
+  const actor = data.kind === "access" ? await loadClub(context.userId) : await requireClub(context.userId);
   return submitAccessHelp(actor, data);
+});
+
+export const listMyClubAccessHelp = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+  const actor = await loadClub(context.userId);
+  return listMyAccessHelp(actor);
 });
 
 export const listClubAccessHelp = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {

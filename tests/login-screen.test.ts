@@ -17,6 +17,8 @@ test("Masuk source has Google and password sign-in and no public register", () =
   expect(src.toLowerCase()).not.toContain("sign up");
   expect(client).toContain("signInWithPassword");
   expect(client).toContain("authClient.signIn.email");
+  expect(src).toContain("callbackURL: dest");
+  expect(src).toContain("errorCallbackURL");
   expect(auth).toContain("disableSignUp: true");
   expect(emailAndPasswordEnabled).toBe(true);
 });
