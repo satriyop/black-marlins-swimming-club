@@ -207,12 +207,18 @@ export async function listAdminHandoff(actor: Actor): Promise<{ name: string; em
 
 export async function submitAccessHelp(
   actor: Actor,
-  input: { kind: "missing_child" | "wrong_link"; message: string },
+  input: { kind: "missing_child" | "wrong_link" | "access"; message: string },
 ): Promise<{ ok: true }> {
-  const clubId = await clubIdFor(actor);
+  let clubId = await clubIdFor(actor);
+  if (clubId == null) {
+    const only = await actor.sql<{ id: number }>`select id from clubs order by id limit 1`;
+    clubId = only[0]?.id ?? null;
+  }
   if (clubId == null) throw new Error("Tidak diizinkan");
   const hats = await hatsFor(actor);
-  if (!hats.family && hats.guardianSwimmerIds.length === 0) throw new Error("Tidak diizinkan");
+  if (input.kind !== "access" && !hats.family && hats.guardianSwimmerIds.length === 0) {
+    throw new Error("Tidak diizinkan");
+  }
   const message = input.message.trim();
   if (!message) throw new Error("Pesan wajib diisi");
   await actor.sql`
@@ -220,6 +226,83 @@ export async function submitAccessHelp(
     values (${clubId}, ${actor.userId}, ${input.kind}, ${message})
   `;
   return { ok: true };
+}
+
+export type PublicClubContact = {
+  name: string;
+  city: string;
+  supportEmail: string | null;
+  supportPhone: string | null;
+  supportUrl: string | null;
+};
+
+export async function getPublicClubContact(sql: Actor["sql"]): Promise<PublicClubContact | null> {
+  const rows = await sql<{
+    name: string;
+    city: string;
+    support_email: string | null;
+    support_phone: string | null;
+    support_url: string | null;
+  }>`
+    select name, city, support_email, support_phone, support_url from clubs order by id limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    name: row.name,
+    city: row.city,
+    supportEmail: row.support_email,
+    supportPhone: row.support_phone,
+    supportUrl: row.support_url,
+  };
+}
+
+function validSupport(input: { email?: string; phone?: string; url?: string }) {
+  const email = input.email?.trim() || null;
+  const phone = input.phone?.trim() || null;
+  const url = input.url?.trim() || null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email kontak tidak valid");
+  if (phone && !/^[0-9+\s().-]{6,32}$/.test(phone)) throw new Error("Nomor telepon tidak valid");
+  if (url && !/^https:\/\/[^\s]+$/i.test(url)) throw new Error("Tautan harus diawali https://");
+  return { email, phone, url };
+}
+
+export async function saveClubSupport(
+  actor: Actor,
+  input: { email?: string; phone?: string; url?: string },
+): Promise<{ ok: true }> {
+  const { clubId, hats } = await requireAdmin(actor);
+  if (hats.staff !== "superadmin" && hats.staff !== "club_admin") throw new Error("Tidak diizinkan");
+  const { email, phone, url } = validSupport(input);
+  await actor.sql`
+    update clubs
+    set support_email = ${email}, support_phone = ${phone}, support_url = ${url}
+    where id = ${clubId}
+  `;
+  return { ok: true };
+}
+
+export function accessHelpKindLabel(kind: string): string {
+  if (kind === "missing_child") return "Anak belum terhubung";
+  if (kind === "access") return "Minta diundang";
+  if (kind === "wrong_link") return "Tautan wali salah";
+  return kind;
+}
+
+export async function listMyAccessHelp(actor: Actor) {
+  return actor.sql<{
+    id: number;
+    kind: string;
+    message: string;
+    created_at: string;
+    resolved_at: string | null;
+  }>`
+    select id, kind, message, created_at::text, resolved_at::text
+    from access_help_requests
+    where user_id = ${actor.userId}
+    order by created_at desc
+    limit 8
+  `;
 }
 
 export async function listAccessHelp(actor: Actor) {

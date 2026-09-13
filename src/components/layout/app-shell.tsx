@@ -15,12 +15,23 @@ import { toast } from "sonner";
 import { RedirectToSignIn, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Splash } from "@/components/auth/login-screen";
-import { getAccess, reopenClubOnboarding, saveClubTaskView } from "@/lib/server/fns";
+import { signOut } from "@/lib/auth/client";
+import { returnPathForLocation } from "@/lib/auth/return-path";
+import {
+  getAccess,
+  getPublicClubContact,
+  listMyClubAccessHelp,
+  reopenClubOnboarding,
+  saveClubTaskView,
+  submitClubAccessHelp,
+} from "@/lib/server/fns";
+import { accessHelpKindLabel } from "@/lib/club/members";
 import { isDualRole, navItemsFor, roleLabels, type NavItem } from "@/lib/club/nav";
 import { UNINVITED_MESSAGE } from "@/lib/club/access";
 import { cn } from "@/lib/utils";
 import { MarlinMark } from "@/components/swim/mark";
 import { useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { QueryError } from "@/components/ui/query-error";
 
@@ -153,14 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
           <main id="main-content" className="flex-1 px-4 py-6 md:px-8 md:py-8">
-            {invited ? (
-              children
-            ) : (
-              <EmptyState
-                title={UNINVITED_MESSAGE}
-                description="Skuad klub tidak ditampilkan sampai admin mengundang akun ini."
-              />
-            )}
+            {invited ? children : <UninvitedHelp />}
           </main>
         </div>
       </div>
@@ -265,6 +269,100 @@ function TaskViewSwitch({ current }: { current: "club" | "family" | "self" }) {
         Anak saya
       </button>
     </div>
+  );
+}
+
+function UninvitedHelp() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const searchStr = useRouterState({ select: (s) => s.location.searchStr });
+  const next = returnPathForLocation(pathname, searchStr);
+  const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
+  const contact = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
+  const mine = useQuery({ queryKey: ["my-access-help"], queryFn: () => listMyClubAccessHelp() });
+  const [message, setMessage] = useState("");
+  const qc = useQueryClient();
+  const help = useMutation({
+    mutationFn: () =>
+      submitClubAccessHelp({
+        data: {
+          kind: "access",
+          message: [message || "Mohon undang akun ini.", next ? `Halaman: ${next}` : ""]
+            .filter(Boolean)
+            .join(" "),
+        },
+      }),
+    onSuccess: async () => {
+      toast.success("Permintaan terkirim ke admin klub");
+      setMessage("");
+      await qc.invalidateQueries({ queryKey: ["my-access-help"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const info = contact.data;
+  const latest = mine.data?.[0];
+  return (
+    <div className="mx-auto max-w-lg">
+      <EmptyState
+        title={UNINVITED_MESSAGE}
+        description="Skuad klub tidak ditampilkan sampai admin mengundang akun ini. Staf dan wali masuk dengan Google. Akun perenang memakai email dan password."
+      />
+      <div className="mt-4 grid gap-3 rounded-2xl bg-card p-5 text-sm shadow-border">
+        <PublicContactLines info={info} />
+        {latest ? (
+          <p>
+            Permintaan terakhir: {accessHelpKindLabel(latest.kind)} ·{" "}
+            {latest.resolved_at ? "selesai" : "menunggu"}
+          </p>
+        ) : null}
+        <form
+          className="grid gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            help.mutate();
+          }}
+        >
+          <textarea
+            className="min-h-20 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Pesan untuk admin (opsional)"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={help.isPending || Boolean(latest && !latest.resolved_at)}>
+              {latest && !latest.resolved_at ? "Menunggu admin" : "Minta diundang"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void signOut(loginHref)}>
+              Ganti akun
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function PublicContactLines({
+  info,
+}: {
+  info: { supportEmail: string | null; supportPhone: string | null; supportUrl: string | null } | null | undefined;
+}) {
+  if (!info?.supportEmail && !info?.supportPhone && !info?.supportUrl) {
+    return <p className="text-muted-foreground">Minta pengundang membuat tautan undangan baru.</p>;
+  }
+  return (
+    <p>
+      Kontak klub
+      {info.supportEmail ? ` · ${info.supportEmail}` : ""}
+      {info.supportPhone ? ` · ${info.supportPhone}` : ""}
+      {info.supportUrl ? (
+        <>
+          {" · "}
+          <a href={info.supportUrl} className="text-primary hover:underline">
+            {info.supportUrl}
+          </a>
+        </>
+      ) : null}
+    </p>
   );
 }
 
