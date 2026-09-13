@@ -317,7 +317,7 @@ export function PracticeEditor({
           {mut.error.message} Isian Anda tetap tersimpan di halaman ini.
         </p>
       )}
-      <div className="sticky bottom-16 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 md:bottom-2">
+      <div className="sticky bottom-[calc(var(--mobile-nav-height,4rem)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 md:bottom-2">
         <p className="text-sm">
           Total rencana <strong>{volume.toLocaleString("id-ID")} m</strong>
         </p>

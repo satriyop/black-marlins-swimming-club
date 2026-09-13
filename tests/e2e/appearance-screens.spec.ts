@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/browser-test";
+import { changeAppAppearance } from "./helpers/appearance-control";
 import { createClubFixture } from "./helpers/club-fixture";
 
 for (const width of [390, 1440]) {
@@ -17,10 +18,10 @@ for (const width of [390, 1440]) {
         ["profile", `/perenang/${fixture.swimmerId}`],
       ]) {
         await page.goto(path);
-        await expect(page.getByLabel("Tampilan")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Buka menu akun" })).toBeVisible();
         await expect(page.locator("#main-content")).not.toContainText("Memuat");
         for (const theme of ["dark", "light"]) {
-          await page.getByLabel("Tampilan").selectOption(theme);
+          await changeAppAppearance(page, theme);
           await page.evaluate(() => document.fonts.ready);
           await page.screenshot({
             path: info.outputPath(`${name}-${theme}.png`),
@@ -33,7 +34,7 @@ for (const width of [390, 1440]) {
       const meters = page.getByRole("spinbutton").first();
       await expect(meters).toBeVisible();
       await meters.fill("1250");
-      await page.getByLabel("Tampilan").selectOption("dark");
+      await changeAppAppearance(page, "dark");
       await expect(meters).toHaveValue("1250");
     } finally {
       await fixture.cleanup();

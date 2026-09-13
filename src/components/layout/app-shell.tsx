@@ -1,4 +1,4 @@
-import { AppearanceSelect } from "@/components/settings/appearance-select";
+import { useMobileNavSpace } from "@/components/layout/use-mobile-nav-space";
 import { EmptyState } from "@/components/ui/page-header";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
@@ -52,6 +52,7 @@ function navActive(pathname: string, to: string) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const navRef = useMobileNavSpace();
   const { user, isPending } = useCurrentUserState();
   const [moreOpen, setMoreOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -86,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="app-shell min-h-dvh bg-background text-foreground">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:p-3 focus:text-primary-foreground"
@@ -95,7 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(80%_50%_at_10%_-10%,rgb(46_196_182/0.08),transparent_55%)]" />
       <div className="relative mx-auto flex min-h-dvh max-w-7xl">
-        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border/80 px-4 py-6 md:flex">
+        <aside className="sticky top-0 hidden h-dvh w-60 max-w-[30vw] shrink-0 flex-col overflow-y-auto [overflow-wrap:anywhere] border-r border-border/80 px-4 py-6 md:flex">
           <Link to="/" className="mb-8 flex items-center gap-3 px-2">
             <img
               src="/images/crest.jpg"
@@ -115,14 +116,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   key={item.to}
                   to={item.to}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-150",
+                    "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-150",
                     active
-                      ? "bg-primary/12 text-primary"
+                      ? "bg-selected font-semibold text-primary"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <Icon className="size-4" />
+                  <Icon className="size-4 shrink-0" />
                   {item.label}
                 </Link>
               );
@@ -135,35 +137,27 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </aside>
-        <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3 md:px-8">
-            <div className="flex min-w-0 items-center gap-2 md:hidden">
+        <div className="app-shell-content flex min-w-0 flex-1 flex-col">
+          <header className="flex min-h-16 items-center justify-between gap-3 border-b border-border/70 px-4 py-2 md:px-8">
+            <Link
+              to="/"
+              aria-label="BMSC — Hari Ini"
+              className="flex min-h-11 min-w-0 items-center gap-2 md:hidden"
+            >
               <img
                 src="/images/crest.jpg"
                 alt=""
-                className="size-9 rounded-full object-cover outline outline-1 -outline-offset-1 outline-white/10"
+                className="size-9 shrink-0 rounded-full object-cover"
               />
-              <div className="min-w-0">
-                <span className="font-display text-lg leading-none">BMSC</span>
-                {roles.length ? (
-                  <p className="truncate text-[11px] text-muted-foreground">{roles.join(" · ")}</p>
-                ) : null}
-              </div>
-            </div>
-            <div className="hidden min-w-0 md:block">
-              <p className="text-sm text-muted-foreground">Black Marlins Swimming Club</p>
-              {roles.length ? (
-                <p className="text-xs text-muted-foreground">{roles.join(" · ")}</p>
-              ) : null}
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <AppearanceSelect />
+              <span className="font-display text-lg leading-none">BMSC</span>
+            </Link>
+            <p className="hidden min-w-0 text-sm text-muted-foreground [overflow-wrap:anywhere] md:block">
+              Black Marlins Swimming Club
+            </p>
+            <UserButton roles={roles}>
               {dual ? <TaskViewSwitch current={access.data.taskView} /> : null}
               <OnboardingHelp />
-              <div className="[&_button]:text-muted-foreground [&_span]:max-w-32 [&_span]:truncate">
-                <UserButton />
-              </div>
-            </div>
+            </UserButton>
           </header>
           <main id="main-content" className="flex-1 px-4 py-6 md:px-8 md:py-8">
             {invited ? children : <UninvitedHelp />}
@@ -171,8 +165,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
       <nav
+        ref={navRef}
         aria-label="Navigasi seluler"
-        className="fixed inset-x-0 bottom-0 z-40 grid border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
         style={{
           gridTemplateColumns: `repeat(${primaryItems.length + (moreItems.length ? 1 : 0)}, minmax(0, 1fr))`,
         }}
@@ -186,12 +181,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               to={item.to}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium",
-                active ? "text-primary" : "text-muted-foreground",
+                "flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs leading-4 [overflow-wrap:anywhere]",
+                active ? "font-semibold text-primary" : "font-medium text-muted-foreground",
               )}
             >
-              <Icon className="size-5" />
-              {item.label}
+              <span
+                className={cn(
+                  "grid h-8 w-full max-w-14 place-items-center rounded-full",
+                  active && "bg-selected",
+                )}
+              >
+                <Icon className="size-5" />
+              </span>
+              <span>{item.label}</span>
             </Link>
           );
         })}
@@ -200,15 +202,23 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DialogTrigger asChild>
               <button
                 type="button"
+                aria-current={moreItems.some((i) => navActive(pathname, i.to)) ? "true" : undefined}
                 className={cn(
-                  "flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium",
+                  "flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs leading-4 [overflow-wrap:anywhere]",
                   moreItems.some((i) => navActive(pathname, i.to))
-                    ? "text-primary"
-                    : "text-muted-foreground",
+                    ? "font-semibold text-primary"
+                    : "font-medium text-muted-foreground",
                 )}
               >
-                <MoreHorizontal className="size-5" />
-                Lainnya
+                <span
+                  className={cn(
+                    "grid h-8 w-full max-w-14 place-items-center rounded-full",
+                    moreItems.some((i) => navActive(pathname, i.to)) && "bg-selected",
+                  )}
+                >
+                  <MoreHorizontal className="size-5" />
+                </span>
+                <span>Lainnya</span>
               </button>
             </DialogTrigger>
             <DialogContent title="Lainnya" description="Kegiatan dan akses klub.">
@@ -220,7 +230,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                       key={item.to}
                       to={item.to}
                       onClick={() => setMoreOpen(false)}
-                      className="flex min-h-12 items-center gap-3 rounded-xl bg-muted px-4"
+                      aria-current={navActive(pathname, item.to) ? "page" : undefined}
+                      className={cn(
+                        "flex min-h-12 items-center gap-3 rounded-xl px-4 py-2",
+                        navActive(pathname, item.to)
+                          ? "bg-selected font-semibold text-primary"
+                          : "bg-muted",
+                      )}
                     >
                       <Icon className="size-5" />
                       {item.label}
@@ -247,29 +263,45 @@ function TaskViewSwitch({ current }: { current: "club" | "family" | "self" }) {
       ]),
   });
   return (
-    <div className="flex rounded-lg border border-border p-0.5 text-xs">
-      <button
-        type="button"
-        className={cn(
-          "min-h-8 rounded-md px-2 font-medium",
-          current === "club" ? "bg-primary/12 text-primary" : "text-muted-foreground",
-        )}
-        disabled={mut.isPending}
-        onClick={() => mut.mutate("club")}
+    <div className="grid gap-2">
+      <p className="text-sm font-semibold">Tugas saat ini</p>
+      <div
+        role="group"
+        aria-label="Tampilan tugas"
+        className="grid grid-cols-2 rounded-lg border border-input p-1 text-sm"
       >
-        Urus klub
-      </button>
-      <button
-        type="button"
-        className={cn(
-          "min-h-8 rounded-md px-2 font-medium",
-          current === "family" ? "bg-primary/12 text-primary" : "text-muted-foreground",
-        )}
-        disabled={mut.isPending}
-        onClick={() => mut.mutate("family")}
-      >
-        Anak saya
-      </button>
+        <button
+          type="button"
+          className={cn(
+            "min-h-11 rounded-md px-2 py-2 font-medium",
+            current === "club" ? "bg-selected font-semibold text-primary" : "text-muted-foreground",
+          )}
+          disabled={mut.isPending}
+          aria-pressed={current === "club"}
+          onClick={() => mut.mutate("club")}
+        >
+          Urus klub
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "min-h-11 rounded-md px-2 py-2 font-medium",
+            current === "family"
+              ? "bg-selected font-semibold text-primary"
+              : "text-muted-foreground",
+          )}
+          disabled={mut.isPending}
+          aria-pressed={current === "family"}
+          onClick={() => mut.mutate("family")}
+        >
+          Anak saya
+        </button>
+      </div>
+      {mut.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          Tampilan tugas belum tersimpan. Coba lagi.
+        </p>
+      )}
     </div>
   );
 }
@@ -382,7 +414,7 @@ function OnboardingHelp() {
   return (
     <button
       type="button"
-      className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+      className="min-h-11 rounded-lg border border-input px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted"
       disabled={mut.isPending}
       onClick={() => mut.mutate()}
     >
