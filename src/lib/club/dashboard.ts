@@ -1,8 +1,10 @@
-import type { Dashboard, Meet, Practice, Result } from "@/lib/swim/types";
+import type { Dashboard, Meet, Result } from "@/lib/swim/types";
 import { clubOf } from "@/lib/server/fns-shared";
+import { jakartaNowParts } from "@/lib/utils";
 import type { Actor } from "./actor";
 import { canSeeSwimmer, hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
+import { mapPractice, type PracticeRow } from "./practice";
 import { listSwimmers } from "./swimmers";
 
 type ResultRow = {
@@ -28,10 +30,30 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
   const club = await clubOf(sql, clubId);
   const swimmers = await listSwimmers(actor);
   const visibleIds = swimmers.map((s) => s.id);
-  const upcomingPractices = await sql<{
-    id: number; session_date: string; start_time: string | null; duration_min: number | null;
-    location: string | null; kind: string; title: string; focus: string | null; total_meters: number; notes: string | null;
-  }>`select * from practices where club_id = ${clubId} and session_date >= current_date order by session_date, start_time limit 4`;
+  const { date: jakartaDate } = jakartaNowParts();
+  const upcomingPractices = await sql<PracticeRow>`
+    select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
+           total_meters, notes, status, cancel_reason, reopen_reason,
+           original_session_date::text as original_session_date, original_start_time, original_location,
+           revision, incomplete_ack
+    from practices
+    where club_id = ${clubId}
+      and status in ('scheduled', 'in_progress')
+    order by session_date, start_time
+    limit 4
+  `;
+  const noticePractices = await sql<PracticeRow>`
+    select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
+           total_meters, notes, status, cancel_reason, reopen_reason,
+           original_session_date::text as original_session_date, original_start_time, original_location,
+           revision, incomplete_ack
+    from practices
+    where club_id = ${clubId}
+      and status in ('completed', 'cancelled')
+      and session_date = ${jakartaDate}::date
+    order by start_time
+    limit 4
+  `;
   const upcomingMeets = await sql<{
     id: number; name: string; level: string; course: string; venue: string | null; city: string | null;
     start_date: string; end_date: string | null; organizer: string | null; status: string; notes: string | null;
@@ -83,8 +105,8 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     select count(*)::int as n from practices where club_id = ${clubId}
       and date_trunc('month', session_date::timestamp) = date_trunc('month', current_date::timestamp)`;
   const att = await sql<{ hadir: number; total: number }>`
-    select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir,
-           count(*) filter (where status <> 'belum')::int as total
+    select coalesce(sum(case when a.status = 'hadir' then 1 else 0 end), 0)::int as hadir,
+           count(*) filter (where a.status <> 'belum')::int as total
     from practice_attendance a join practices p on p.id = a.practice_id
     where a.club_id = ${clubId} and p.session_date >= (current_date - interval '30 days') and p.session_date <= current_date`;
   const volume = await sql<{ n: number }>`
@@ -112,10 +134,8 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
   `;
   return {
     club, swimmers,
-    upcomingPractices: upcomingPractices.map((p): Practice => ({
-      id: p.id, sessionDate: p.session_date, startTime: p.start_time, durationMin: p.duration_min,
-      location: p.location, kind: p.kind, title: p.title, focus: p.focus, totalMeters: p.total_meters, notes: p.notes,
-    })),
+    upcomingPractices: upcomingPractices.map(mapPractice),
+    noticePractices: noticePractices.map(mapPractice),
     upcomingMeets: upcomingMeets.map((m): Meet => ({
       id: m.id, name: m.name, level: m.level, course: m.course, venue: m.venue, city: m.city,
       startDate: m.start_date, endDate: m.end_date, organizer: m.organizer, status: m.status, notes: m.notes,

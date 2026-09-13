@@ -31,12 +31,19 @@ const templates: Record<string, SetInput[]> = {
   ],
 };
 
-export function PracticeEditor({ source }: { source?: PracticeDetail }) {
+export function PracticeEditor({
+  source,
+  mode = "create",
+}: {
+  source?: PracticeDetail;
+  mode?: "create" | "edit";
+}) {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const editing = mode === "edit" && source;
   const [form, setForm] = useState({
-    title: source ? `${source.title} (salinan)` : "",
-    sessionDate: todayIso(),
+    title: editing ? source.title : source ? `${source.title} (salinan)` : "",
+    sessionDate: editing ? source.sessionDate : todayIso(),
     startTime: source?.startTime ?? "15:30",
     durationMin: String(source?.durationMin ?? 90),
     location: source?.location ?? "",
@@ -62,6 +69,8 @@ export function PracticeEditor({ source }: { source?: PracticeDetail }) {
       savePractice({
         data: {
           ...form,
+          id: editing ? source.id : undefined,
+          expectedRevision: editing ? source.revision : undefined,
           durationMin: form.durationMin ? Number(form.durationMin) : undefined,
           sets,
         },
@@ -328,7 +337,7 @@ export function PracticeEditor({ source }: { source?: PracticeDetail }) {
             </Link>
           </Button>
           <Button type="submit" disabled={mut.isPending}>
-            {mut.isPending ? "Menyimpan…" : "Simpan sesi"}
+            {mut.isPending ? "Menyimpan…" : editing ? "Simpan perubahan" : "Simpan sesi"}
           </Button>
         </div>
       </div>

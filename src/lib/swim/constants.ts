@@ -48,6 +48,13 @@ export const MEET_STATUSES = [
   { id: "batal", label: "Batal" },
 ] as const;
 
+export const PRACTICE_STATUSES = [
+  { id: "scheduled", label: "Terjadwal" },
+  { id: "in_progress", label: "Berlangsung" },
+  { id: "completed", label: "Selesai" },
+  { id: "cancelled", label: "Dibatalkan" },
+] as const;
+
 export const PRACTICE_KINDS = [
   { id: "teknik", label: "Teknik" },
   { id: "daya_tahan", label: "Daya tahan" },

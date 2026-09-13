@@ -41,5 +41,16 @@ export function formatDateId(iso: string | null | undefined, pattern = "d MMM yy
 }
 
 export function todayIso() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  return jakartaNowParts().date;
+}
+
+export function jakartaNowParts(now = new Date()): { date: string; time: string } {
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(now);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+  return { date, time };
 }

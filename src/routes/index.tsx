@@ -57,6 +57,7 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
     club,
     swimmers,
     upcomingPractices,
+    noticePractices,
     upcomingMeets,
     recentPbs,
     unreadAnnouncements,
@@ -111,6 +112,26 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
           ) : null}
         </section>
       ) : null}
+      {noticePractices.map((p) => (
+        <section
+          key={p.id}
+          className="rounded-2xl border border-border bg-card p-5 sm:p-6"
+        >
+          <p className="text-sm font-semibold text-muted-foreground">
+            {p.status === "cancelled" ? "Latihan hari ini dibatalkan" : "Latihan hari ini selesai"}
+          </p>
+          <h2 className="font-display mt-1 text-3xl">{p.title}</h2>
+          {p.status === "cancelled" && p.cancelReason ? (
+            <p className="mt-2 text-sm text-destructive">{p.cancelReason}</p>
+          ) : null}
+          <Button asChild variant="outline" className="mt-4">
+            <Link to="/latihan/$id" params={{ id: String(p.id) }}>
+              Lihat sesi
+              <ArrowRight />
+            </Link>
+          </Button>
+        </section>
+      ))}
       <section
         aria-labelledby="next-session"
         className="rounded-2xl border border-primary/30 bg-card p-5 sm:p-6"

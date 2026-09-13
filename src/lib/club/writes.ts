@@ -29,6 +29,21 @@ export async function deletePractice(actor: Actor, id: number): Promise<{ ok: tr
   const hats = await hatsFor(actor);
   if (!canWritePractice(hats)) throw new Error("Tidak diizinkan");
   const clubId = await requireClubId(actor);
+  const practice = await actor.sql<{ status: string }>`
+    select status from practices where id = ${id} and club_id = ${clubId} limit 1
+  `;
+  if (!practice[0]) throw new Error("Sesi latihan tidak ditemukan");
+  if (practice[0].status === "completed" || practice[0].status === "cancelled") {
+    throw new Error("Batalkan sesi, jangan hapus.");
+  }
+  const recorded = await actor.sql<{ n: number }>`
+    select count(*)::int as n from practice_attendance
+    where practice_id = ${id} and club_id = ${clubId}
+      and (status <> 'belum' or meters_completed is not null)
+  `;
+  if ((recorded[0]?.n ?? 0) > 0) {
+    throw new Error("Batalkan sesi, jangan hapus.");
+  }
   await actor.sql`delete from practices where id = ${id} and club_id = ${clubId}`;
   return { ok: true };
 }

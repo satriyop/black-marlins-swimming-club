@@ -8,7 +8,7 @@ import { listPractices } from "@/lib/server/fns";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PRACTICE_KINDS, labelOf } from "@/lib/swim/constants";
+import { PRACTICE_KINDS, PRACTICE_STATUSES, labelOf } from "@/lib/swim/constants";
 import { formatDateId } from "@/lib/utils";
 
 export const Route = createFileRoute("/latihan")({ component: Page });
@@ -67,7 +67,15 @@ function Page() {
                 <p className="font-mono text-sm tabular-nums text-primary">
                   {p.totalMeters.toLocaleString("id-ID")} m
                 </p>
-                <Badge className="mt-1">{labelOf(PRACTICE_KINDS, p.kind)}</Badge>
+                <div className="mt-1 flex flex-wrap justify-end gap-1">
+                  {p.status && p.status !== "scheduled" ? (
+                    <Badge tone={p.status === "cancelled" ? "warn" : p.status === "in_progress" ? "pool" : "muted"}>
+                      {labelOf(PRACTICE_STATUSES, p.status)}
+                    </Badge>
+                  ) : (
+                    <Badge>{labelOf(PRACTICE_KINDS, p.kind)}</Badge>
+                  )}
+                </div>
               </div>
             </Link>
           ))}
