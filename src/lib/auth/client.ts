@@ -39,27 +39,33 @@ export async function signIn(
   providerId: string,
   opts: { callbackURL?: string; errorCallbackURL?: string } = {},
 ): Promise<void> {
+  const callbackURL = opts.callbackURL ?? "/";
+  const errorCallbackURL = opts.errorCallbackURL ?? "/login?error=auth";
   const { data, error } = await authClient.signIn.social({
     provider: providerId as "google",
-    callbackURL: opts.callbackURL ?? "/",
-    errorCallbackURL: opts.errorCallbackURL ?? "/",
+    callbackURL,
+    errorCallbackURL,
   });
-  if (error) throw new Error(error.message ?? "Sign-in failed");
+  if (error) throw new Error(error.message ?? "Masuk gagal");
   if (data?.url) window.location.href = data.url;
 }
 
-export async function signInWithPassword(email: string, password: string): Promise<void> {
+export async function signInWithPassword(
+  email: string,
+  password: string,
+  opts: { callbackURL?: string } = {},
+): Promise<void> {
   const { error } = await authClient.signIn.email({
     email: email.trim(),
     password,
-    callbackURL: "/",
+    callbackURL: opts.callbackURL ?? "/",
   });
   if (error) throw new Error(error.message ?? "Masuk gagal");
 }
 
 export async function signOut(redirectTo = "/"): Promise<void> {
   const { error } = await authClient.signOut();
-  if (error) throw new Error(error.message ?? "Sign-out failed");
+  if (error) throw new Error(error.message ?? "Gagal keluar");
   setBearerToken(null);
   window.location.href = redirectTo;
 }

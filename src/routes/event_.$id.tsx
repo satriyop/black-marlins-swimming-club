@@ -1,6 +1,6 @@
 import { useAccess } from "@/lib/club/use-access";
 import { canWriteMeet, canWriteMeetEntry, canWriteOfficialResult } from "@/lib/club/permissions";
-import { QueryError } from "@/components/ui/query-error";
+import { ResourceQueryError } from "@/components/ui/query-error";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { ResultList } from "@/components/swim/result-list";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -68,7 +68,7 @@ function Page() {
   if (error || !data)
     return (
       <AppShell>
-        <QueryError retry={() => refetch()} />
+        <ResourceQueryError error={error} retry={() => refetch()} />
       </AppShell>
     );
   const { meet, entries, results } = data;
