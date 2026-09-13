@@ -24,9 +24,16 @@ export function SignedOut({ children }: { children: ReactNode }) {
 
 export function RedirectToSignIn({ to = SIGN_IN_PATH }: { to?: string }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const searchStr = useRouterState({ select: (s) => s.location.searchStr });
-  const next = returnPathForLocation(pathname, searchStr);
+  const searchStr = useRouterState({ select: (s) => s.location.searchStr ?? "" });
   if (to !== SIGN_IN_PATH) return <Navigate to={to} />;
+  const path = typeof window !== "undefined" ? window.location.pathname : pathname;
+  const search = typeof window !== "undefined" ? window.location.search : searchStr;
+  const next = returnPathForLocation(path, search);
+  const href = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
+  if (typeof window !== "undefined") {
+    const here = `${window.location.pathname}${window.location.search}`;
+    if (here !== href) window.location.replace(href);
+  }
   return <Navigate to="/login" search={next ? { next } : {}} />;
 }
 
