@@ -43,7 +43,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
            total_meters, notes, status, cancel_reason, reopen_reason,
            original_session_date::text as original_session_date, original_start_time, original_location,
-           revision, incomplete_ack
+           revision, incomplete_ack, series_id, occurrence_date::text as occurrence_date
     from practices
     where club_id = ${clubId}
       and status in ('scheduled', 'in_progress')
@@ -54,7 +54,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
            total_meters, notes, status, cancel_reason, reopen_reason,
            original_session_date::text as original_session_date, original_start_time, original_location,
-           revision, incomplete_ack
+           revision, incomplete_ack, series_id, occurrence_date::text as occurrence_date
     from practices
     where club_id = ${clubId}
       and status in ('completed', 'cancelled')

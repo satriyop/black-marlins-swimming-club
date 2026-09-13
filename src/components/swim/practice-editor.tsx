@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus } from "lucide-react";
-import { savePractice, type SetInput } from "@/lib/server/fns";
+import { createClubPracticeSeries, savePractice, type SetInput } from "@/lib/server/fns";
 import type { PracticeDetail } from "@/lib/swim/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, SelectNative, Textarea } from "@/components/ui/input";
-import { PRACTICE_KINDS, SET_BLOCKS, STROKES, labelOf, strokeLabel } from "@/lib/swim/constants";
+import { isoWeekday } from "@/lib/club/series";
+import { PRACTICE_KINDS, SET_BLOCKS, STROKES, WEEKDAYS, labelOf, strokeLabel } from "@/lib/swim/constants";
 import { todayIso } from "@/lib/utils";
 import { formatInterval } from "@/lib/swim/time";
 
@@ -64,17 +65,38 @@ export function PracticeEditor({
       : [blankSet()],
   );
   const [template, setTemplate] = useState("");
+  const [weekly, setWeekly] = useState(false);
+  const [weekday, setWeekday] = useState(() => isoWeekday(editing ? source.sessionDate : todayIso()));
+  const [weeks, setWeeks] = useState(8);
+  const [editScope, setEditScope] = useState<"this" | "future">("this");
   const mut = useMutation({
     mutationFn: () =>
-      savePractice({
-        data: {
-          ...form,
-          id: editing ? source.id : undefined,
-          expectedRevision: editing ? source.revision : undefined,
-          durationMin: form.durationMin ? Number(form.durationMin) : undefined,
-          sets,
-        },
-      }),
+      weekly && !editing
+        ? createClubPracticeSeries({
+            data: {
+              title: form.title,
+              weekday,
+              startTime: form.startTime,
+              durationMin: form.durationMin ? Number(form.durationMin) : undefined,
+              location: form.location,
+              kind: form.kind,
+              focus: form.focus,
+              notes: form.notes,
+              weeks,
+              fromDate: form.sessionDate,
+              sets,
+            },
+          }).then((s) => ({ id: s.practiceIds[0]! }))
+        : savePractice({
+            data: {
+              ...form,
+              id: editing ? source.id : undefined,
+              expectedRevision: editing ? source.revision : undefined,
+              durationMin: form.durationMin ? Number(form.durationMin) : undefined,
+              scope: editing && source.seriesId ? editScope : undefined,
+              sets,
+            },
+          }),
     onSuccess: async ({ id }) => {
       await qc.invalidateQueries();
       await navigate({ to: "/latihan/$id", params: { id: String(id) } });
@@ -106,13 +128,60 @@ export function PracticeEditor({
             placeholder="Teknik gaya bebas"
           />
         </Field>
+        {!editing ? (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={weekly}
+              onChange={(e) => {
+                setWeekly(e.target.checked);
+                if (e.target.checked) setWeekday(isoWeekday(form.sessionDate));
+              }}
+            />
+            Jadwal berulang setiap minggu
+          </label>
+        ) : null}
+        {editing && source.seriesId ? (
+          <Field label="Cakupan">
+            <SelectNative value={editScope} onChange={(e) => setEditScope(e.target.value as "this" | "future")}>
+              <option value="this">Hanya sesi ini</option>
+              <option value="future">Sesi ini dan berikutnya</option>
+            </SelectNative>
+          </Field>
+        ) : null}
+        {weekly && !editing ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Hari">
+              <SelectNative value={String(weekday)} onChange={(e) => setWeekday(Number(e.target.value))}>
+                {WEEKDAYS.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.label}
+                  </option>
+                ))}
+              </SelectNative>
+            </Field>
+            <Field label="Jumlah minggu">
+              <Input
+                type="number"
+                min={1}
+                max={16}
+                value={weeks}
+                onChange={(e) => setWeeks(Number(e.target.value) || 8)}
+              />
+            </Field>
+          </div>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Tanggal">
+          <Field label={weekly ? "Mulai dari tanggal" : "Tanggal"}>
             <Input
               type="date"
               required
               value={form.sessionDate}
-              onChange={(e) => setForm({ ...form, sessionDate: e.target.value })}
+              onChange={(e) => {
+                const sessionDate = e.target.value;
+                setForm({ ...form, sessionDate });
+                if (weekly) setWeekday(isoWeekday(sessionDate));
+              }}
             />
           </Field>
           <Field label="Jam mulai">

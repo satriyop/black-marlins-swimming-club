@@ -33,7 +33,16 @@ export type PracticeRow = {
   original_location: string | null;
   revision: number;
   incomplete_ack: boolean;
+  series_id: number | null;
+  occurrence_date: string | null;
 };
+
+function dayBeforeIso(isoDate: string): string {
+  const [y, m, d] = isoDate.slice(0, 10).split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return dt.toISOString().slice(0, 10);
+}
 
 function asDate(value: string | Date | null | undefined): string | null {
   if (value == null) return null;
@@ -61,6 +70,8 @@ export function mapPractice(p: PracticeRow) {
     originalLocation: p.original_location,
     revision: p.revision,
     incompleteAck: p.incomplete_ack,
+    seriesId: p.series_id,
+    occurrenceDate: asDate(p.occurrence_date),
   };
 }
 
@@ -77,7 +88,7 @@ async function loadRow(actor: Actor, clubId: number, id: number): Promise<Practi
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
            total_meters, notes, status, cancel_reason, reopen_reason,
            original_session_date::text as original_session_date, original_start_time, original_location,
-           revision, incomplete_ack
+           revision, incomplete_ack, series_id, occurrence_date::text as occurrence_date
     from practices where id = ${id} and club_id = ${clubId} limit 1
   `;
   const row = rows[0];
@@ -104,6 +115,9 @@ export async function savePracticeRecord(
     notes?: string;
     sets: PracticeSetInput[];
     expectedRevision?: number;
+    seriesId?: number;
+    occurrenceDate?: string;
+    scope?: "this" | "future";
   },
 ): Promise<{ id: number; revision: number; scheduleChanged: boolean }> {
   const clubId = await clubIdFor(actor);
@@ -157,13 +171,61 @@ export async function savePracticeRecord(
       `;
       if (!updatedRows[0]) throw new Error("Sesi sudah diubah. Muat ulang.");
       await actor.sql`delete from practice_sets where practice_id = ${practiceId} and club_id = ${clubId}`;
+      if (data.scope === "future" && current.series_id) {
+        const from = asDate(current.occurrence_date) ?? asDate(current.session_date);
+        await actor.sql`
+          update practice_series set
+            title = ${data.title.trim()},
+            start_time = ${nextTime},
+            duration_min = ${data.durationMin ?? null},
+            location = ${nextLocation},
+            kind = ${data.kind},
+            focus = ${data.focus?.trim() || null},
+            notes = ${data.notes?.trim() || null}
+          where id = ${current.series_id} and club_id = ${clubId}
+        `;
+        await actor.sql`delete from practice_series_sets where series_id = ${current.series_id} and club_id = ${clubId}`;
+        for (let i = 0; i < data.sets.length; i++) {
+          const s = data.sets[i]!;
+          await actor.sql`
+            insert into practice_series_sets (club_id, series_id, sort_order, block, reps, distance_m, stroke, interval_sec, description)
+            values (${clubId}, ${current.series_id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})
+          `;
+        }
+        const future = await actor.sql<{ id: number }>`
+          select id from practices
+          where club_id = ${clubId} and series_id = ${current.series_id} and id <> ${practiceId}
+            and status in ('scheduled', 'in_progress')
+            and coalesce(occurrence_date, session_date) > ${from}::date
+        `;
+        for (const f of future) {
+          await actor.sql`
+            update practices set
+              start_time = ${nextTime},
+              duration_min = ${data.durationMin ?? null},
+              location = ${nextLocation},
+              kind = ${data.kind},
+              title = ${data.title.trim()},
+              focus = ${data.focus?.trim() || null},
+              notes = ${data.notes?.trim() || null},
+              total_meters = ${total},
+              revision = revision + 1
+            where id = ${f.id} and club_id = ${clubId}
+          `;
+          await actor.sql`delete from practice_sets where practice_id = ${f.id} and club_id = ${clubId}`;
+          for (let i = 0; i < data.sets.length; i++) {
+            const s = data.sets[i]!;
+            await actor.sql`insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description) values (${clubId}, ${f.id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})`;
+          }
+        }
+      }
     } else {
       const rows = await actor.sql<{ id: number }>`
-        insert into practices (club_id, session_date, start_time, duration_min, location, kind, title, focus, total_meters, notes)
+        insert into practices (club_id, session_date, start_time, duration_min, location, kind, title, focus, total_meters, notes, series_id, occurrence_date)
         values (
           ${clubId}, ${data.sessionDate}, ${data.startTime || null}, ${data.durationMin ?? null},
           ${data.location?.trim() || null}, ${data.kind}, ${data.title.trim()}, ${data.focus?.trim() || null},
-          ${total}, ${data.notes?.trim() || null}
+          ${total}, ${data.notes?.trim() || null}, ${data.seriesId ?? null}, ${data.occurrenceDate ?? null}
         )
         returning id
       `;
@@ -294,7 +356,7 @@ function assertExpectedRevision(row: PracticeRow, expected: number | undefined):
 
 export async function cancelPractice(
   actor: Actor,
-  input: { id: number; reason: string; expectedRevision: number },
+  input: { id: number; reason: string; expectedRevision: number; scope?: "this" | "future" },
 ): Promise<{ id: number }> {
   const { clubId } = await requireWritableClub(actor);
   const reason = input.reason.trim();
@@ -310,6 +372,25 @@ export async function cancelPractice(
     returning id
   `;
   if (!bumped[0]) throw new Error("Sesi sudah diubah. Muat ulang.");
+  if (input.scope === "future" && row.series_id) {
+    const from = asDate(row.occurrence_date) ?? asDate(row.session_date);
+    await actor.sql`
+      update practices
+      set status = 'cancelled', cancel_reason = ${reason}, revision = revision + 1
+      where club_id = ${clubId}
+        and series_id = ${row.series_id}
+        and id <> ${input.id}
+        and status in ('scheduled', 'in_progress')
+        and coalesce(occurrence_date, session_date) > ${from}::date
+    `;
+    const until = dayBeforeIso(from!);
+    await actor.sql`
+      update practice_series
+      set until_date = ${until}
+      where id = ${row.series_id} and club_id = ${clubId}
+        and (until_date is null or until_date > ${until}::date)
+    `;
+  }
   return { id: input.id };
 }
 

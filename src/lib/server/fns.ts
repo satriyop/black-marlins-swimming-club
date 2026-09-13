@@ -25,6 +25,11 @@ export {
   withdrawClubAbsenceNotice,
   requestClubAttendanceCorrection,
   resolveClubAttendanceCorrection,
+  createClubPracticeSeries,
+  listClubPracticeSeries,
+  skipClubSeriesRange,
+  refreshClubPracticeSeries,
+  getPracticeIcs,
   type SetInput,
 } from "./fns-practice";
 export {
