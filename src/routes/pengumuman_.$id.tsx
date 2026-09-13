@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { getAnnouncement } from "@/lib/server/fns";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
-import { QueryError } from "@/components/ui/query-error";
+import { ResourceQueryError } from "@/components/ui/query-error";
 import { formatDateId } from "@/lib/utils";
 
 export const Route = createFileRoute("/pengumuman_/$id")({ component: Page });
@@ -42,7 +42,7 @@ function Page() {
   if (query.isError || !query.data)
     return (
       <AppShell>
-        <QueryError retry={() => query.refetch()} />
+        <ResourceQueryError error={query.error} retry={() => query.refetch()} />
       </AppShell>
     );
 

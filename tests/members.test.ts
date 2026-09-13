@@ -9,8 +9,12 @@ import {
   revokeInvite,
 } from "../src/lib/club/invites";
 import {
+  getPublicClubContact,
   linkGuardian,
   listMembers,
+  listMyAccessHelp,
+  saveClubSupport,
+  submitAccessHelp,
   revokeStaffRole,
   setStaffRole,
   unlinkGuardian,
@@ -121,6 +125,38 @@ test("club admin cannot demote a superadmin", async () => {
   await expect(
     setStaffRole(h.actor(AZKIYA_ID), { userId: SATRIYO_ID, role: "coach" }),
   ).rejects.toThrow(/Tidak diizinkan|superadmin/);
+});
+
+test("uninvited signed-in user can request access without seeing the skuad", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  await h.sql`
+    insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+    values ('usr_stranger', 'Stranger', 'stranger@example.com', true, now(), now())
+  `;
+  await submitAccessHelp(h.actor("usr_stranger"), { kind: "access", message: "Tolong undang saya" });
+  const mine = await listMyAccessHelp(h.actor("usr_stranger"));
+  expect(mine[0]?.kind).toBe("access");
+  expect(mine[0]?.resolved_at).toBeNull();
+  await expect(
+    submitAccessHelp(h.actor("usr_stranger"), { kind: "missing_child", message: "Anak" }),
+  ).rejects.toThrow(/Tidak diizinkan/);
+});
+
+test("admin can set https support contact and it is public", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  await expect(
+    saveClubSupport(h.actor(SATRIYO_ID), { url: "http://insecure.example" }),
+  ).rejects.toThrow(/https/);
+  await saveClubSupport(h.actor(SATRIYO_ID), {
+    email: "admin@bmsc.test",
+    phone: "+62 812 0000",
+    url: "https://bmsc.klaten.org",
+  });
+  const pub = await getPublicClubContact(h.sql);
+  expect(pub?.supportEmail).toBe("admin@bmsc.test");
+  expect(pub?.supportUrl).toBe("https://bmsc.klaten.org");
 });
 
 test("admin can link an existing wali to an existing child", async () => {

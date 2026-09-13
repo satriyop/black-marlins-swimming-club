@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ADULT_PROVIDERS, authEnabled, signIn, signInWithPassword } from "@/lib/auth/client";
+import { getPublicClubContact } from "@/lib/server/fns";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { MarlinMark } from "@/components/swim/mark";
@@ -45,7 +47,13 @@ export function Splash({ label = "Memuat klub…" }: { label?: string }) {
   );
 }
 
-export function LoginScreen() {
+export function LoginScreen({
+  next = null,
+  errorCode,
+}: {
+  next?: string | null;
+  errorCode?: string;
+}) {
   const google = ADULT_PROVIDERS.find((p) => p.idp === "google");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,7 +65,7 @@ export function LoginScreen() {
     setError(null);
     setPending(true);
     try {
-      await signInWithPassword(email, password);
+      await signInWithPassword(email, password, { callbackURL: next ?? "/" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Masuk gagal");
       setPending(false);
@@ -99,11 +107,16 @@ export function LoginScreen() {
                   type="button"
                   size="lg"
                   className="w-full bg-foreground text-background hover:opacity-90"
-                  onClick={() =>
-                    void signIn(google.providerId, { callbackURL: "/" }).catch((err) =>
-                      setError(err.message),
-                    )
-                  }
+                  onClick={() => {
+                    const dest = next ?? "/";
+                    const errUrl = next
+                      ? `/login?error=auth&next=${encodeURIComponent(next)}`
+                      : "/login?error=auth";
+                    void signIn(google.providerId, {
+                      callbackURL: dest,
+                      errorCallbackURL: errUrl,
+                    }).catch((err) => setError(err.message));
+                  }}
                 >
                   <GoogleGlyph />
                   Masuk dengan Google
@@ -112,9 +125,12 @@ export function LoginScreen() {
               <p className="text-center text-xs text-muted-foreground">
                 Staf dan wali masuk dengan akun Google.
               </p>
-              {error && (
+              {(error || errorCode) && (
                 <p role="alert" className="text-sm text-destructive">
-                  {error}
+                  {error ??
+                    (errorCode === "auth"
+                      ? "Masuk dibatalkan atau gagal. Silakan coba lagi."
+                      : "Masuk gagal. Silakan coba lagi.")}
                 </p>
               )}
               <div className="relative my-1">
@@ -153,11 +169,26 @@ export function LoginScreen() {
             <p className="text-sm text-muted-foreground">Masuk belum diaktifkan.</p>
           )}
         </div>
+        <LoginPublicContact />
         <p className="rise-in rise-in-3 mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <MarlinMark className="size-4" />
           Pelatih Hardiyanto Wibowo
         </p>
       </div>
     </main>
+  );
+}
+
+function LoginPublicContact() {
+  const q = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
+  const info = q.data;
+  if (!info?.supportEmail && !info?.supportPhone && !info?.supportUrl) return null;
+  return (
+    <p className="rise-in mt-4 text-center text-xs text-muted-foreground">
+      Bantuan
+      {info.supportEmail ? ` · ${info.supportEmail}` : ""}
+      {info.supportPhone ? ` · ${info.supportPhone}` : ""}
+      {info.supportUrl ? ` · ${info.supportUrl}` : ""}
+    </p>
   );
 }

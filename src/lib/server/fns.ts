@@ -54,5 +54,8 @@ export {
   listClubAdminHandoff,
   submitClubAccessHelp,
   listClubAccessHelp,
+  listMyClubAccessHelp,
   resolveClubAccessHelp,
+  getPublicClubContact,
+  saveClubSupportContact,
 } from "./fns-invites";
