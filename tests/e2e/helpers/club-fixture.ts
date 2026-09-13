@@ -2,8 +2,19 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import type { BrowserContext } from "@playwright/test";
 
+export type ClubFixtureOptions = {
+  childCount?: number;
+  extraSquad?: number;
+  practice?: "scheduled" | "none" | "cancelled" | "completed";
+  importantNotices?: number;
+  results?: boolean;
+};
+
 /** Only synthetic rows in a local test database; cleanup never touches pre-existing records. */
-export async function createClubFixture(role: "guardian" | "coach" | "combined" = "combined") {
+export async function createClubFixture(
+  role: "guardian" | "coach" | "combined" = "combined",
+  options: ClubFixtureOptions = {},
+) {
   const url = process.env.DATABASE_URL;
   if (!url || !["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname)) {
     throw new Error("Browser fixtures require an explicit local DATABASE_URL");
@@ -37,32 +48,68 @@ export async function createClubFixture(role: "guardian" | "coach" | "combined" 
       "insert into user_club_prefs (user_id,task_view,welcome_dismissed_at,grants_acked_at) values ($1,$2,now(),now())",
       [userId, role === "guardian" ? "family" : "club"],
     );
-    const swimmer = await pool.query(
-      "insert into swimmers (club_id, full_name, date_of_birth, gender) values ($1,'Perenang Contoh','2014-06-01','putra') returning id",
-      [clubId],
-    );
-    const swimmerId = swimmer.rows[0].id as number;
-    if (role !== "coach")
-      await pool.query("insert into guardians (user_id,swimmer_id) values ($1,$2)", [
-        userId,
-        swimmerId,
-      ]);
-    const practice = await pool.query(
-      "insert into practices (club_id, session_date, start_time, location, kind, title, status) values ($1,current_date,'16:00','Kolam contoh','renang','Latihan Contoh Visual','in_progress') returning id",
-      [clubId],
-    );
-    const practiceId = practice.rows[0].id as number;
-    await pool.query(
-      "insert into practice_attendance (club_id,practice_id,swimmer_id,status) values ($1,$2,$3,'hadir')",
-      [clubId, practiceId, swimmerId],
-    );
-    for (const [date, time] of [
-      ["2026-08-01", 38000],
-      ["2026-09-01", 37000],
-    ]) {
+    const extraSquad = options.extraSquad ?? 0;
+    for (let i = 0; i < extraSquad; i += 1) {
       await pool.query(
-        "insert into results (club_id,swimmer_id,result_date,stroke,distance_m,course,time_ms,kind) values ($1,$2,$3,'bebas',50,'50',$4,'test')",
-        [clubId, swimmerId, date, time],
+        "insert into swimmers (club_id, full_name, date_of_birth, gender) values ($1,$2,'2008-01-01','putra')",
+        [clubId, `Skuad Lebih Awal ${String(i + 1).padStart(2, "0")}`],
+      );
+    }
+    const childCount = options.childCount ?? (role === "coach" ? 0 : 1);
+    const childIds: number[] = [];
+    for (let i = 0; i < childCount; i += 1) {
+      const child = await pool.query(
+        "insert into swimmers (club_id, full_name, nickname, date_of_birth, gender) values ($1,$2,$3,'2014-06-01','putra') returning id",
+        [
+          clubId,
+          i === 0 ? "Perenang Contoh" : `Anak Tambahan ${i + 1} Dengan Nama Panjang`,
+          i === 0 ? null : `Niko ${i + 1}`,
+        ],
+      );
+      childIds.push(child.rows[0].id as number);
+      if (role !== "coach")
+        await pool.query("insert into guardians (user_id,swimmer_id) values ($1,$2)", [
+          userId,
+          childIds[i],
+        ]);
+    }
+    const swimmerId = childIds[0];
+    const practiceKind = options.practice ?? "scheduled";
+    let practiceId: number | undefined;
+    if (practiceKind !== "none") {
+      const status =
+        practiceKind === "cancelled"
+          ? "cancelled"
+          : practiceKind === "completed"
+            ? "completed"
+            : "in_progress";
+      const practice = await pool.query(
+        "insert into practices (club_id, session_date, start_time, location, kind, title, status, cancel_reason) values ($1,current_date,'16:00','Kolam contoh dengan nama lokasi yang panjang untuk pemeriksaan antarmuka','renang','Latihan Contoh Visual',$2,$3) returning id",
+        [clubId, status, practiceKind === "cancelled" ? "Hujan petir di kolam" : null],
+      );
+      practiceId = practice.rows[0].id as number;
+      if (swimmerId)
+        await pool.query(
+          "insert into practice_attendance (club_id,practice_id,swimmer_id,status) values ($1,$2,$3,'hadir')",
+          [clubId, practiceId, swimmerId],
+        );
+    }
+    if (options.results !== false && swimmerId) {
+      for (const [date, time] of [
+        ["2026-08-01", 38000],
+        ["2026-09-01", 37000],
+      ]) {
+        await pool.query(
+          "insert into results (club_id,swimmer_id,result_date,stroke,distance_m,course,time_ms,kind) values ($1,$2,$3,'bebas',50,'50',$4,'test')",
+          [clubId, swimmerId, date, time],
+        );
+      }
+    }
+    const importantNotices = options.importantNotices ?? 0;
+    for (let i = 0; i < importantNotices; i += 1) {
+      await pool.query(
+        "insert into announcements (club_id, title, body, important, created_by) values ($1,$2,$3,true,$4)",
+        [clubId, `Pengumuman penting ${i + 1}`, "Isi pengumuman contoh.", userId],
       );
     }
     return {
