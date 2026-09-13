@@ -40,15 +40,20 @@ export type PracticeSet = {
   description: string | null;
 };
 
+export type AttendanceStatus = "belum" | "hadir" | "izin" | "sakit" | "alfa";
+
 export type Attendance = {
   id: number;
   practiceId: number;
   swimmerId: number;
   swimmerName: string;
-  status: "belum" | "hadir" | "izin" | "sakit" | "alfa";
+  status: AttendanceStatus;
   metersCompleted: number | null;
   notes: string | null;
+  onRoll: boolean;
 };
+
+export type PracticeStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 
 export type Practice = {
   id: number;
@@ -61,6 +66,14 @@ export type Practice = {
   focus: string | null;
   totalMeters: number;
   notes: string | null;
+  status: PracticeStatus;
+  cancelReason: string | null;
+  reopenReason: string | null;
+  originalSessionDate: string | null;
+  originalStartTime: string | null;
+  originalLocation: string | null;
+  revision: number;
+  incompleteAck: boolean;
   presentCount?: number;
   rosterCount?: number;
 };
@@ -142,6 +155,7 @@ export type Dashboard = {
   club: Club;
   swimmers: Swimmer[];
   upcomingPractices: Practice[];
+  noticePractices: Practice[];
   upcomingMeets: Meet[];
   recentResults: Result[];
   recentPbs: Result[];

@@ -13,6 +13,11 @@ export {
   savePractice,
   deletePractice,
   updateAttendance,
+  cancelClubPractice,
+  completeClubPractice,
+  reopenClubPractice,
+  addClubPracticeParticipant,
+  removeClubPracticeParticipant,
   type SetInput,
 } from "./fns-practice";
 export {
