@@ -9,6 +9,7 @@ export const dbSource: DbSource = databaseUrl ? "neon" : "pglite";
 export interface Sql {
   <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]>;
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
+  transaction<T>(fn: (sql: Sql) => Promise<T>): Promise<T>;
 }
 
 const globalRef = globalThis as typeof globalThis & {
@@ -23,13 +24,14 @@ const OID_INTERVAL = 1186;
 const identity = (v: string) => v;
 type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
 
-function toSql(run: Run): Sql {
+function toSql(run: Run, beginTransaction: (fn: (sql: Sql) => Promise<unknown>) => Promise<unknown>): Sql {
   const sql = (async <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]> => {
     let text = strings[0];
     for (let i = 0; i < values.length; i += 1) text += `$${i + 1}${strings[i + 1]}`;
     return run<T>(text, values);
   }) as unknown as Sql;
   sql.query = <T = Record<string, unknown>>(text: string, params: unknown[] = []) => run<T>(text, params);
+  sql.transaction = <T>(fn: (sql: Sql) => Promise<T>) => beginTransaction(fn) as Promise<T>;
   return sql;
 }
 
@@ -40,10 +42,35 @@ function createNeonSql(): Promise<Sql> {
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
     const pool = new Pool({ connectionString: databaseUrl });
+    const beginTransaction = async (fn: (sql: Sql) => Promise<unknown>) => {
+      const client = await pool.connect();
+      const inner = toSql(
+        async <T>(text: string, params: unknown[]) => {
+          const res = await client.query(text, params);
+          return res.rows as T[];
+        },
+        async (nested) => nested(inner),
+      );
+      try {
+        await client.query("begin");
+        const result = await fn(inner);
+        await client.query("commit");
+        return result;
+      } catch (err) {
+        try {
+          await client.query("rollback");
+        } catch {
+          /* keep */
+        }
+        throw err;
+      } finally {
+        client.release();
+      }
+    };
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
-    });
+    }, beginTransaction);
   })().catch((err) => {
     globalRef.__pgSqlPromise__ = undefined;
     throw err;
@@ -79,10 +106,23 @@ async function createPgliteSql(): Promise<Sql> {
   const pass = (globalRef.__pgliteMigrateChain__ ?? Promise.resolve()).catch(() => undefined).then(migrate);
   globalRef.__pgliteMigrateChain__ = pass;
   await pass;
-  const sql = toSql(async <T>(text: string, params: unknown[]) => {
-    const result = await pg.query<T>(text, params);
-    return result.rows;
-  });
+  const sql = toSql(
+    async <T>(text: string, params: unknown[]) => {
+      const result = await pg.query<T>(text, params);
+      return result.rows;
+    },
+    async (fn) =>
+      pg.transaction(async (tx) => {
+        const inner = toSql(
+          async <T>(text: string, params: unknown[]) => {
+            const result = await tx.query<T>(text, params);
+            return result.rows;
+          },
+          async (nested) => nested(inner),
+        );
+        return fn(inner);
+      }),
+  );
   const { seedClub } = await import("@/lib/club/seed");
   await seedClub(sql);
   return sql;

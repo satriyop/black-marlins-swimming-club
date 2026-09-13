@@ -77,12 +77,15 @@ function Page() {
         </div>
       ) : !/^[a-f0-9]{48}$/.test(token) ||
         data?.state === "invalid" ||
-        data?.state === "expired" ? (
+        data?.state === "expired" ||
+        data?.state === "revoked" ? (
         <>
           <p>
             {data?.state === "expired"
               ? "Undangan sudah kedaluwarsa."
-              : "Tautan undangan tidak berlaku."}
+              : data?.state === "revoked"
+                ? "Undangan ini sudah dicabut."
+                : "Tautan undangan tidak berlaku."}
           </p>
           <p className="text-sm text-muted-foreground">Minta pengundang membuat tautan baru.</p>
           <Link to="/login" className="inline-flex min-h-11 items-center underline">

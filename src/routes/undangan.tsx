@@ -4,7 +4,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { createClubInvite, getAccess, listClubInvites, listSwimmers } from "@/lib/server/fns";
+import {
+  createClubInvite,
+  getAccess,
+  linkClubGuardian,
+  listClubAccessHelp,
+  listClubAdminHandoff,
+  listClubInvites,
+  listClubMembers,
+  listSwimmers,
+  recreateClubInvite,
+  revokeClubInvite,
+  revokeClubStaffRole,
+  setClubStaffRole,
+  resolveClubAccessHelp,
+  submitClubAccessHelp,
+  unlinkClubGuardian,
+} from "@/lib/server/fns";
 import { canSeeUndangan } from "@/lib/club/nav";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -47,7 +63,7 @@ function Page() {
   const swimmers = useQuery({ queryKey: ["swimmers"], queryFn: () => listSwimmers() });
   const hats = access.data?.hats;
   const staffOk = hats?.staff === "superadmin" || hats?.staff === "club_admin";
-  const familyOk = (hats?.guardianSwimmerIds.length ?? 0) > 0;
+  const familyOk = (hats?.guardianSwimmerIds.length ?? 0) > 0 || hats?.family === true;
 
   const [email, setEmail] = useState("");
   const [kind, setKind] = useState<"staff" | "guardian" | "swimmer_account">(
@@ -86,7 +102,7 @@ function Page() {
       <AppShell>
         <EmptyState
           title="Tidak diizinkan"
-          description="Halaman undangan hanya untuk admin klub, superadmin, dan wali."
+          description="Halaman ini untuk admin klub, pelatih, dan wali."
         />
       </AppShell>
     );
@@ -103,9 +119,22 @@ function Page() {
     <AppShell>
       <PageHeader
         kicker="Akses"
-        title="Undangan"
-        description="Undang staf, wali, atau buat akun perenang. Tidak ada pendaftaran terbuka."
+        title={staffOk ? "Anggota & undangan" : hats?.staff === "coach" ? "Akses klub" : "Undangan"}
+        description={
+          staffOk
+            ? "Lihat akses yang sudah diterima, ubah peran, dan pulihkan undangan. Tautan dibagikan manual."
+            : hats?.staff === "coach"
+              ? "Undangan dan perubahan akses dikelola admin klub."
+              : "Undang wali lain untuk anak Anda. Tautan dibagikan sendiri."
+        }
       />
+      {hats?.staff === "coach" && !staffOk ? <CoachHandoff /> : null}
+      {staffOk ? <MembersDirectory /> : null}
+      {familyOk && !staffOk ? <FamilyHelp /> : null}
+      {staffOk ? (
+        <HelpInbox />
+      ) : null}
+      {(staffOk || familyOk) && (
       <div className="grid gap-6 lg:grid-cols-2">
         <form
           className="grid gap-3 rounded-2xl bg-card p-5 shadow-border"
@@ -199,17 +228,18 @@ function Page() {
               </Button>
             </div>
           )}
-          <h2 className="font-display mb-3 text-2xl">Undangan belum diterima</h2>
+          <h2 className="font-display mb-3 text-2xl">Undangan</h2>
           {invites.isPending ? (
             <p role="status">Memuat undangan…</p>
           ) : invites.isError ? (
             <QueryError retry={() => invites.refetch()} />
           ) : !invites.data?.length ? (
-            <p className="text-sm text-muted-foreground">Belum ada undangan aktif.</p>
+            <p className="text-sm text-muted-foreground">Belum ada undangan.</p>
           ) : (
             <ul className="grid gap-2">
               {invites.data.map((inv) => {
                 const url = acceptUrl(inv.acceptPath);
+                const status = inv.status ?? "pending";
                 return (
                   <li
                     key={inv.id}
@@ -230,32 +260,78 @@ function Page() {
                         : inv.payload.swimmerIds?.length
                           ? ` · ${swimmerName(inv.payload.swimmerIds)}`
                           : ""}
+                      {` · ${status === "pending" ? "Menunggu" : status === "accepted" ? "Diterima" : status === "expired" ? "Kedaluwarsa" : "Dibatalkan"}`}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(inv.expiresAt).getTime() <= Date.now()
-                        ? "Kedaluwarsa"
-                        : "Berlaku sampai"}{" "}
-                      · {formatDateId(inv.expiresAt)}
+                    <p className="text-xs text-muted-foreground">
+                      {inv.invitedBy ? `Oleh ${inv.invitedBy}` : "Diundang"}
+                      {` · ${formatDateId(inv.expiresAt)}`}
+                      {inv.acceptedAt ? ` · diterima ${formatDateId(inv.acceptedAt)}` : ""}
+                      {inv.revokedAt ? ` · dicabut ${formatDateId(inv.revokedAt)}` : ""}
                     </p>
-                    <div className="flex gap-2">
-                      <Input
-                        aria-label={`Tautan untuk ${inv.email}`}
-                        readOnly
-                        value={url}
-                        className="font-mono text-xs"
-                        onFocus={(e) => e.currentTarget.select()}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={async () => {
-                          const ok = await copyText(url);
-                          toast.success(ok ? "Tautan disalin" : "Salin manual dari kotak tautan");
-                        }}
-                      >
-                        Salin
-                      </Button>
-                    </div>
+                    {status === "pending" || status === "expired" ? (
+                      <div className="flex flex-wrap gap-2">
+                        {status === "pending" ? (
+                          <>
+                            <Input
+                              aria-label={`Tautan untuk ${inv.email}`}
+                              readOnly
+                              value={url}
+                              className="font-mono text-xs"
+                              onFocus={(e) => e.currentTarget.select()}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={async () => {
+                                const ok = await copyText(url);
+                                toast.success(ok ? "Tautan disalin" : "Salin manual dari kotak tautan");
+                              }}
+                            >
+                              Salin
+                            </Button>
+                          </>
+                        ) : null}
+                        {staffOk ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await revokeClubInvite({ data: { id: inv.id } });
+                                  toast.success("Undangan dibatalkan");
+                                  await qc.invalidateQueries({ queryKey: ["invites"] });
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : "Gagal");
+                                }
+                              }}
+                            >
+                              Cabut
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  const next = await recreateClubInvite({ data: { id: inv.id } });
+                                  const copied = await copyText(acceptUrl(next.acceptPath));
+                                  toast.success(
+                                    copied
+                                      ? "Tautan baru disalin. Bagikan sendiri; email tidak terkirim otomatis."
+                                      : "Tautan baru dibuat. Bagikan sendiri.",
+                                  );
+                                  await qc.invalidateQueries({ queryKey: ["invites"] });
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : "Gagal");
+                                }
+                              }}
+                            >
+                              Buat tautan baru
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}
@@ -263,6 +339,246 @@ function Page() {
           )}
         </div>
       </div>
+      )}
     </AppShell>
+  );
+}
+
+function CoachHandoff() {
+  const q = useQuery({ queryKey: ["admin-handoff"], queryFn: () => listClubAdminHandoff() });
+  if (q.isPending) return <p role="status">Memuat admin…</p>;
+  if (q.isError) return <QueryError retry={() => q.refetch()} />;
+  return (
+    <section className="mb-6 rounded-2xl bg-card p-5 shadow-border">
+      <h2 className="font-display text-2xl">Hubungi admin klub</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Pelatih tidak mengubah undangan atau peran. Minta admin untuk undangan, wali, dan akses.
+      </p>
+      <ul className="mt-3 grid gap-1 text-sm">
+        {(q.data ?? []).map((a) => (
+          <li key={a.email ?? a.name}>
+            {a.name}
+            {a.email ? ` · ${a.email}` : ""}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function MembersDirectory() {
+  const qc = useQueryClient();
+  const access = useQuery({ queryKey: ["access"], queryFn: () => getAccess() });
+  const members = useQuery({ queryKey: ["members"], queryFn: () => listClubMembers() });
+  const swimmers = useQuery({ queryKey: ["swimmers"], queryFn: () => listSwimmers() });
+  const [linkUser, setLinkUser] = useState("");
+  const [linkSwimmer, setLinkSwimmer] = useState<number | "">("");
+  if (members.isPending) return <p role="status">Memuat anggota…</p>;
+  if (members.isError) return <QueryError retry={() => members.refetch()} />;
+  return (
+    <section className="mb-8">
+      <h2 className="font-display mb-3 text-2xl">Anggota aktif</h2>
+      <ul className="grid gap-2">
+        {(members.data ?? []).map((m) => (
+          <li key={m.userId} className="rounded-2xl bg-card p-4 text-sm shadow-border">
+            <p className="font-medium">{m.name}</p>
+            <p className="text-muted-foreground">
+              {m.email}
+              {m.staffRole
+                ? ` · ${m.staffRole === "coach" ? "Pelatih" : m.staffRole === "club_admin" ? "Admin klub" : "Superadmin"}`
+                : ""}
+              {m.swimmerNames.length ? ` · Wali: ${m.swimmerNames.join(", ")}` : m.family ? " · Wali (belum ada anak)" : ""}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {m.staffRole ? (
+                <>
+                  <SelectNative
+                    key={`${m.userId}-${m.staffRole}`}
+                    value={m.staffRole}
+                    onChange={async (e) => {
+                      const role = e.target.value as StaffRole;
+                      if (!confirm(`Ubah peran ${m.name} menjadi ${role}?`)) return;
+                      try {
+                        await setClubStaffRole({ data: { userId: m.userId, role } });
+                        toast.success("Peran diperbarui");
+                        await qc.invalidateQueries({ queryKey: ["members"] });
+                        await qc.invalidateQueries({ queryKey: ["access"] });
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Gagal");
+                      }
+                    }}
+                  >
+                    <option value="coach">Pelatih</option>
+                    <option value="club_admin">Admin klub</option>
+                    {access.data?.hats.staff === "superadmin" ? (
+                      <option value="superadmin">Superadmin</option>
+                    ) : null}
+                  </SelectNative>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      if (!confirm(`Cabut peran staf ${m.name}? Akses wali tetap ada.`)) return;
+                      try {
+                        await revokeClubStaffRole({ data: { userId: m.userId } });
+                        toast.success("Peran staf dicabut");
+                        await qc.invalidateQueries({ queryKey: ["members"] });
+                        await qc.invalidateQueries({ queryKey: ["access"] });
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Gagal");
+                      }
+                    }}
+                  >
+                    Cabut staf
+                  </Button>
+                </>
+              ) : null}
+              {m.swimmerIds.map((id, i) => (
+                <Button
+                  key={id}
+                  type="button"
+                  variant="ghost"
+                  onClick={async () => {
+                    if (!confirm(`Putuskan wali ${m.name} dari ${m.swimmerNames[i]}? Data atlet tetap ada.`)) return;
+                    try {
+                      await unlinkClubGuardian({ data: { userId: m.userId, swimmerId: id } });
+                      toast.success("Tautan wali diputus");
+                      await qc.invalidateQueries({ queryKey: ["members"] });
+                      await qc.invalidateQueries({ queryKey: ["access"] });
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Gagal");
+                    }
+                  }}
+                >
+                  Putuskan {m.swimmerNames[i]?.split(" ")[0]}
+                </Button>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="mt-4 flex flex-wrap items-end gap-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!linkUser || linkSwimmer === "") return;
+          if (!confirm("Hubungkan wali ini ke perenang tersebut?")) return;
+          try {
+            await linkClubGuardian({ data: { userId: linkUser, swimmerId: Number(linkSwimmer) } });
+            toast.success("Wali dihubungkan");
+            setLinkUser("");
+            setLinkSwimmer("");
+            await qc.invalidateQueries({ queryKey: ["members"] });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Gagal");
+          }
+        }}
+      >
+        <Field label="Hubungkan wali yang sudah ada">
+          <SelectNative value={linkUser} onChange={(e) => setLinkUser(e.target.value)}>
+            <option value="">Pilih anggota</option>
+            {(members.data ?? []).map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.name}
+              </option>
+            ))}
+          </SelectNative>
+        </Field>
+        <Field label="Perenang">
+          <SelectNative
+            value={linkSwimmer === "" ? "" : String(linkSwimmer)}
+            onChange={(e) => setLinkSwimmer(e.target.value ? Number(e.target.value) : "")}
+          >
+            <option value="">Pilih perenang</option>
+            {(swimmers.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.fullName}
+              </option>
+            ))}
+          </SelectNative>
+        </Field>
+        <Button type="submit" variant="outline">
+          Hubungkan
+        </Button>
+      </form>
+    </section>
+  );
+}
+
+function FamilyHelp() {
+  const [message, setMessage] = useState("");
+  const [kind, setKind] = useState<"missing_child" | "wrong_link">("missing_child");
+  const mut = useMutation({
+    mutationFn: () => submitClubAccessHelp({ data: { kind, message } }),
+    onSuccess: () => {
+      toast.success("Permintaan terkirim ke admin klub");
+      setMessage("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <form
+      className="mb-6 grid gap-3 rounded-2xl bg-card p-5 shadow-border"
+      onSubmit={(e) => {
+        e.preventDefault();
+        mut.mutate();
+      }}
+    >
+      <h2 className="font-display text-2xl">Anak belum terhubung?</h2>
+      <p className="text-sm text-muted-foreground">
+        Jangan cari anak lain di skuad. Kirim permintaan ke admin klub.
+      </p>
+      <Field label="Jenis">
+        <SelectNative value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+          <option value="missing_child">Anak belum terhubung</option>
+          <option value="wrong_link">Tautan wali salah</option>
+        </SelectNative>
+      </Field>
+      <Field label="Pesan">
+        <Input required value={message} onChange={(e) => setMessage(e.target.value)} />
+      </Field>
+      <Button type="submit" variant="outline" disabled={mut.isPending}>
+        Kirim ke admin
+      </Button>
+    </form>
+  );
+}
+
+function HelpInbox() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["access-help"], queryFn: () => listClubAccessHelp() });
+  if (q.isPending) return null;
+  if (q.isError) return <QueryError retry={() => q.refetch()} />;
+  if (!q.data?.length) return null;
+  return (
+    <section className="mb-6 rounded-2xl border border-primary/30 p-5">
+      <h2 className="font-display text-2xl">Permintaan wali</h2>
+      <ul className="mt-3 grid gap-2 text-sm">
+        {q.data.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-start justify-between gap-2">
+            <p>
+              <span className="font-medium">{r.name}</span>
+              {r.email ? ` · ${r.email}` : ""}
+              {` · ${formatDateId(r.created_at)} · `}
+              {r.kind === "missing_child" ? "Anak belum terhubung" : "Tautan salah"}: {r.message}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await resolveClubAccessHelp({ data: { id: r.id } });
+                  await qc.invalidateQueries({ queryKey: ["access-help"] });
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Gagal");
+                }
+              }}
+            >
+              Selesai
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
