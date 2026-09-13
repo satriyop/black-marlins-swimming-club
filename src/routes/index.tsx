@@ -446,11 +446,11 @@ function ProgressBlock({ results, familyView }: { results: Result[]; familyView:
           profil {familyView ? "anak" : "perenang"}.
         </p>
       ) : (
-        <div className="rounded-2xl bg-card p-4 shadow-border">
+        <div className="min-w-0 rounded-2xl bg-card p-4 shadow-border">
           <Link
             to="/perenang/$id"
             params={{ id: String(latest.swimmerId) }}
-            className="flex min-h-11 items-center justify-between gap-3"
+            className="flex min-h-11 min-w-0 max-w-full flex-wrap items-start justify-between gap-3"
           >
             <span className="min-w-0 [overflow-wrap:anywhere]">
               <span className="block font-semibold">{latest.swimmerName}</span>
@@ -461,7 +461,7 @@ function ProgressBlock({ results, familyView }: { results: Result[]; familyView:
               </span>
             </span>
             {latest.timeMs != null ? (
-              <span className="shrink-0 text-right">
+              <span className="min-w-0 max-w-full text-right">
                 <span className="block font-mono text-lg">{formatTime(latest.timeMs)}</span>
                 {latest.isPb ? <Badge tone="ok">Rekor pribadi</Badge> : null}
               </span>
