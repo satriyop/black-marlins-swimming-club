@@ -1,9 +1,11 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/lib/auth/provider";
-import { Toaster } from "sonner";
+import { AppToaster } from "@/components/ui/app-toaster";
 import { useState, type ReactNode } from "react";
 import appCss from "../styles.css?url";
+
+import { APPEARANCE_SCRIPT } from "@/lib/appearance";
 
 const APP_NAME = "Black Marlins Swimming Club";
 
@@ -21,7 +23,11 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
       { name: "theme-color", content: "#061018" },
-      { name: "description", content: "Sistem klub Black Marlins Swimming Club Klaten — perenang, latihan, prestasi, dan event." },
+      {
+        name: "description",
+        content:
+          "Sistem klub Black Marlins Swimming Club Klaten — perenang, latihan, prestasi, dan event.",
+      },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -30,12 +36,15 @@ export const Route = createRootRoute({
   }),
   component: () => (
     <html lang="id" className="antialiased" suppressHydrationWarning>
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_SCRIPT }} />
+      </head>
       <body>
         <AuthProvider>
           <Providers>
             <Outlet />
-            <Toaster theme="dark" position="top-center" toastOptions={{ style: { background: "#0c1c26", border: "1px solid #1c333e", color: "#e8f1f4" } }} />
+            <AppToaster />
           </Providers>
         </AuthProvider>
         <Scripts />

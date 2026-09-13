@@ -1,3 +1,4 @@
+import { AppearanceSelect } from "@/components/settings/appearance-select";
 import { EmptyState } from "@/components/ui/page-header";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
@@ -135,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">
-          <header className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 md:px-8">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3 md:px-8">
             <div className="flex min-w-0 items-center gap-2 md:hidden">
               <img
                 src="/images/crest.jpg"
@@ -155,7 +156,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <p className="text-xs text-muted-foreground">{roles.join(" · ")}</p>
               ) : null}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <AppearanceSelect />
               {dual ? <TaskViewSwitch current={access.data.taskView} /> : null}
               <OnboardingHelp />
               <div className="[&_button]:text-muted-foreground [&_span]:max-w-32 [&_span]:truncate">
