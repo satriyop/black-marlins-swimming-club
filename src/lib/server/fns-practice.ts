@@ -13,11 +13,10 @@ import {
   cancelPractice,
   completePractice,
   loadPractice,
-  mapPractice,
+  listPracticeSummaries,
   removePracticeParticipant,
   reopenPractice,
   savePracticeRecord,
-  type PracticeRow,
 } from "@/lib/club/practice";
 import {
   createPracticeSeriesBatch,
@@ -25,42 +24,21 @@ import {
   listPracticeIcs,
   listPracticeSeries,
   materializePracticeSeries,
-  refreshActivePracticeSeries,
   setSeriesActive,
   skipSeriesRange,
 } from "@/lib/club/series";
-import { hatsFor } from "@/lib/club/hats";
-import { canWritePractice } from "@/lib/club/permissions";
 import { deletePractice as deletePracticeFor } from "@/lib/club/writes";
-import type { Practice } from "@/lib/swim/types";
 import type { WeekdayId } from "@/lib/swim/constants";
 
 export type SetInput = {
   block: string; reps: number; distanceM: number; stroke: string; intervalSec?: number | null; description?: string;
 };
 
-export const listPractices = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
+export const listPractices = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input?: {
+  view?: "overview" | "history"; page?: number;
+}) => input ?? {}).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
-  const { sql, clubId } = actor;
-  if (canWritePractice(await hatsFor(actor))) await refreshActivePracticeSeries(actor);
-  const rows = await sql<PracticeRow & { present_count: number; roster_count: number }>`
-    select p.id, p.session_date::text as session_date, p.start_time, p.duration_min, p.location, p.kind, p.title, p.focus,
-           p.total_meters, p.notes, p.status, p.cancel_reason, p.reopen_reason,
-           p.original_session_date::text as original_session_date, p.original_start_time, p.original_location,
-           p.revision, p.incomplete_ack, p.series_id, p.occurrence_date::text as occurrence_date,
-           coalesce(sum(case when a.on_roll and a.status = 'hadir' then 1 else 0 end), 0)::int as present_count,
-           coalesce(sum(case when a.on_roll then 1 else 0 end), 0)::int as roster_count
-    from practices p
-    left join practice_attendance a on a.practice_id = p.id
-    where p.club_id = ${clubId}
-    group by p.id
-    order by p.session_date desc, p.start_time desc
-  `;
-  return rows.map((p): Practice => ({
-    ...mapPractice(p),
-    presentCount: p.present_count,
-    rosterCount: p.roster_count,
-  }));
+  return listPracticeSummaries(actor, { view: data.view ?? "overview", page: data.page });
 });
 
 export const getPractice = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {

@@ -3,7 +3,8 @@ import { absenceCutoffLabel, isBeforeAbsenceCutoff } from "./absence-window";
 import { canSeeSwimmer, hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
 import { canWritePractice } from "./permissions";
-import type { Attendance, PracticeDetail, PracticeStatus } from "@/lib/swim/types";
+import type { Attendance, Practice, PracticeDetail, PracticeStatus } from "@/lib/swim/types";
+import { jakartaNowParts } from "@/lib/utils";
 
 export type PracticeSetInput = {
   block: string;
@@ -36,6 +37,60 @@ export type PracticeRow = {
   series_id: number | null;
   occurrence_date: string | null;
 };
+
+type PracticeSummaryRow = PracticeRow & { present_count: number; roster_count: number };
+
+function addIsoDays(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day! + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function mapPracticeSummary(row: PracticeSummaryRow): Practice {
+  return {
+    ...mapPractice(row),
+    presentCount: row.present_count,
+    rosterCount: row.roster_count,
+  };
+}
+
+/** A bounded read model for the operational practice workspace. */
+export async function listPracticeSummaries(
+  actor: Actor,
+  input: { view: "overview" | "history"; page?: number; today?: string },
+): Promise<Practice[]> {
+  const clubId = await clubIdFor(actor);
+  if (clubId == null) throw new Error("Tidak diizinkan");
+  const today = input.today ?? jakartaNowParts().date;
+  const select = `
+    select p.id, p.session_date::text as session_date, p.start_time, p.duration_min, p.location,
+           p.kind, p.title, p.focus, p.total_meters, p.notes, p.status, p.cancel_reason,
+           p.reopen_reason, p.original_session_date::text as original_session_date,
+           p.original_start_time, p.original_location, p.revision, p.incomplete_ack,
+           p.series_id, p.occurrence_date::text as occurrence_date,
+           coalesce(sum(case when a.on_roll and a.status = 'hadir' then 1 else 0 end), 0)::int as present_count,
+           coalesce(sum(case when a.on_roll then 1 else 0 end), 0)::int as roster_count
+    from practices p
+    left join practice_attendance a on a.practice_id = p.id
+  `;
+  const group = " group by p.id ";
+  if (input.view === "history") {
+    const page = Math.max(1, Math.trunc(input.page ?? 1));
+    const rows = await actor.sql.query<PracticeSummaryRow>(
+      `${select} where p.club_id = $1 and p.session_date < $2::date ${group}
+       order by p.session_date desc, p.start_time desc, p.id desc limit 20 offset $3`,
+      [clubId, today, (page - 1) * 20],
+    );
+    return rows.map(mapPracticeSummary);
+  }
+  const through = addIsoDays(today, 7);
+  const rows = await actor.sql.query<PracticeSummaryRow>(
+    `${select} where p.club_id = $1 and p.session_date between $2::date and $3::date ${group}
+     order by p.session_date asc, p.start_time asc, p.id asc limit 24`,
+    [clubId, today, through],
+  );
+  return rows.map(mapPracticeSummary);
+}
 
 function dayBeforeIso(isoDate: string): string {
   const [y, m, d] = isoDate.slice(0, 10).split("-").map(Number);
