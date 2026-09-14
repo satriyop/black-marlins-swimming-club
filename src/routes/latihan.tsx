@@ -32,6 +32,11 @@ function Page() {
         action={
           <div className="flex flex-wrap gap-2">
             <CalendarDownload />
+            {canCreate ? (
+              <Button asChild variant="outline">
+                <Link to="/latihan/jadwal">Jadwal berulang</Link>
+              </Button>
+            ) : null}
             {canCreate ? <NewPracticeButton /> : null}
           </div>
         }
@@ -102,7 +107,8 @@ function SeriesSkipBar() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [reason, setReason] = useState("Libur");
-  if (!series.data?.length) return null;
+  const active = (series.data ?? []).filter((s) => s.active);
+  if (!active.length) return null;
   return (
     <form
       className="mb-4 flex flex-wrap items-end gap-2 rounded-2xl bg-card p-4 text-sm shadow-border"
@@ -123,7 +129,7 @@ function SeriesSkipBar() {
       <Field label="Lewati jadwal berulang">
         <SelectNative value={id === "" ? "" : String(id)} onChange={(e) => setId(e.target.value ? Number(e.target.value) : "")}>
           <option value="">Pilih jadwal</option>
-          {series.data.map((s) => (
+          {active.map((s) => (
             <option key={s.id} value={s.id}>
               {s.title}
             </option>

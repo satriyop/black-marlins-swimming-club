@@ -16,6 +16,7 @@ export type SeriesInput = {
   notes?: string;
   weeks?: number;
   fromDate?: string;
+  active?: boolean;
   sets: PracticeSetInput[];
 };
 
@@ -72,14 +73,15 @@ export async function createPracticeSeries(actor: Actor, input: SeriesInput) {
   if (!title) throw new Error("Judul wajib diisi");
   const weeks = input.weeks ?? 8;
   const fromDate = input.fromDate ?? jakartaNowParts().date;
+  const active = input.active ?? true;
   const rows = await actor.sql<{ id: number }>`
     insert into practice_series (
-      club_id, title, weekday, start_time, duration_min, location, kind, focus, notes, horizon_weeks
+      club_id, title, weekday, start_time, duration_min, location, kind, focus, notes, horizon_weeks, active
     )
     values (
       ${clubId}, ${title}, ${input.weekday}, ${input.startTime || null}, ${input.durationMin ?? null},
       ${input.location?.trim() || null}, ${input.kind}, ${input.focus?.trim() || null},
-      ${input.notes?.trim() || null}, ${weeks}
+      ${input.notes?.trim() || null}, ${weeks}, ${active}
     )
     returning id
   `;
@@ -96,6 +98,7 @@ export async function createPracticeSeries(actor: Actor, input: SeriesInput) {
       )
     `;
   }
+  if (!active) return { id, title, practiceIds: [] as number[] };
   const materialized = await materializePracticeSeries(actor, { id, fromDate });
   return { id, title, practiceIds: materialized.practiceIds };
 }
@@ -223,11 +226,29 @@ export async function listPracticeSeries(actor: Actor) {
     start_time: string | null;
     location: string | null;
     horizon_weeks: number;
+    active: boolean;
   }>`
-    select id, title, weekday, start_time, location, horizon_weeks
-    from practice_series where club_id = ${clubId} and active = true
-    order by weekday, start_time, id
+    select id, title, weekday, start_time, location, horizon_weeks, active
+    from practice_series where club_id = ${clubId}
+    order by title, weekday, start_time, id
   `;
+}
+
+export async function setSeriesActive(
+  actor: Actor,
+  input: { id: number; active: boolean },
+): Promise<{ ok: true }> {
+  const clubId = await requireCoach(actor);
+  const updated = await actor.sql<{ id: number }>`
+    update practice_series set active = ${input.active}
+    where id = ${input.id} and club_id = ${clubId}
+    returning id
+  `;
+  if (!updated[0]) throw new Error("Jadwal berulang tidak ditemukan");
+  if (input.active) {
+    await materializePracticeSeries(actor, { id: input.id, fromDate: jakartaNowParts().date });
+  }
+  return { ok: true };
 }
 
 function icsEscape(value: string): string {

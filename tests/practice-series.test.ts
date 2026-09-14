@@ -6,7 +6,9 @@ import {
   datesInRange,
   isoWeekday,
   listPracticeIcs,
+  listPracticeSeries,
   materializePracticeSeries,
+  setSeriesActive,
   skipSeriesRange,
 } from "../src/lib/club/series";
 import { RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
@@ -245,5 +247,79 @@ test("wali cannot create a series", async () => {
       fromDate: "2026-10-06",
       sets,
     }),
+  ).rejects.toThrow(/Tidak diizinkan/);
+});
+
+test("creating a series inactive skips materialization until it is turned on", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  const series = await createPracticeSeries(h.actor(SATRIYO_ID), {
+    title: "Sabtu Pagi Opsional",
+    weekday: 6,
+    startTime: "05:00",
+    location: "Umbul Brondong",
+    kind: "teknik",
+    weeks: 4,
+    fromDate: "2026-10-06",
+    active: false,
+    sets,
+  });
+  expect(series.practiceIds).toHaveLength(0);
+  const beforeCount = await h.sql<{ n: number }>`
+    select count(*)::int as n from practices where series_id = ${series.id}
+  `;
+  expect(beforeCount[0]?.n).toBe(0);
+
+  await setSeriesActive(h.actor(SATRIYO_ID), { id: series.id, active: true });
+  const afterCount = await h.sql<{ n: number }>`
+    select count(*)::int as n from practices where series_id = ${series.id}
+  `;
+  expect(afterCount[0]?.n).toBeGreaterThan(0);
+});
+
+test("deactivating a series stops future generation without cancelling sessions already scheduled", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  const series = await createPracticeSeries(h.actor(SATRIYO_ID), {
+    title: "Reguler Selasa",
+    weekday: 2,
+    startTime: "15:30",
+    kind: "teknik",
+    weeks: 4,
+    fromDate: "2026-10-06",
+    sets,
+  });
+  expect(series.practiceIds).toHaveLength(4);
+
+  await setSeriesActive(h.actor(SATRIYO_ID), { id: series.id, active: false });
+
+  const rows = await h.sql<{ status: string }>`
+    select status from practices where series_id = ${series.id} order by session_date
+  `;
+  expect(rows.every((r) => r.status !== "cancelled")).toBe(true);
+
+  const listed = await listPracticeSeries(h.actor(SATRIYO_ID));
+  const found = listed.find((s) => s.id === series.id);
+  expect(found?.active).toBe(false);
+
+  await expect(
+    materializePracticeSeries(h.actor(SATRIYO_ID), { id: series.id, fromDate: "2026-10-06" }),
+  ).rejects.toThrow(/tidak ditemukan/);
+});
+
+test("wali cannot toggle a series on or off", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  const series = await createPracticeSeries(h.actor(SATRIYO_ID), {
+    title: "Reguler",
+    weekday: 2,
+    startTime: "15:30",
+    kind: "teknik",
+    weeks: 2,
+    fromDate: "2026-10-06",
+    sets,
+  });
+  await expect(
+    setSeriesActive(h.actor(RATIH_ID), { id: series.id, active: false }),
   ).rejects.toThrow(/Tidak diizinkan/);
 });

@@ -24,6 +24,7 @@ import {
   listPracticeIcs,
   listPracticeSeries,
   materializePracticeSeries,
+  setSeriesActive,
   skipSeriesRange,
 } from "@/lib/club/series";
 import { deletePractice as deletePracticeFor } from "@/lib/club/writes";
@@ -104,10 +105,15 @@ export const addClubPracticeParticipant = createServerFn({ method: "POST" }).mid
 
 export const createClubPracticeSeries = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
   title: string; weekday: number; startTime?: string; durationMin?: number; location?: string;
-  kind: string; focus?: string; notes?: string; weeks?: number; fromDate?: string; sets: SetInput[];
+  kind: string; focus?: string; notes?: string; weeks?: number; fromDate?: string; active?: boolean; sets: SetInput[];
 }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return createPracticeSeries(actor, data);
+});
+
+export const setClubPracticeSeriesActive = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; active: boolean }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return setSeriesActive(actor, data);
 });
 
 export const listClubPracticeSeries = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {

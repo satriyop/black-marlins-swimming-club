@@ -35,9 +35,11 @@ const templates: Record<string, SetInput[]> = {
 export function PracticeEditor({
   source,
   mode = "create",
+  defaultWeekly = false,
 }: {
   source?: PracticeDetail;
   mode?: "create" | "edit";
+  defaultWeekly?: boolean;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -65,41 +67,64 @@ export function PracticeEditor({
       : [blankSet()],
   );
   const [template, setTemplate] = useState("");
-  const [weekly, setWeekly] = useState(false);
-  const [weekday, setWeekday] = useState(() => isoWeekday(editing ? source.sessionDate : todayIso()));
+  const [weekly, setWeekly] = useState(defaultWeekly);
+  const [weekdays, setWeekdays] = useState<number[]>(() => [
+    isoWeekday(editing ? source.sessionDate : todayIso()),
+  ]);
   const [weeks, setWeeks] = useState(8);
+  const [active, setActive] = useState(true);
   const [editScope, setEditScope] = useState<"this" | "future">("this");
+  const toggleWeekday = (day: number) =>
+    setWeekdays((days) =>
+      days.includes(day)
+        ? days.length > 1
+          ? days.filter((d) => d !== day)
+          : days
+        : [...days, day].sort((a, b) => a - b),
+    );
   const mut = useMutation({
-    mutationFn: () =>
-      weekly && !editing
-        ? createClubPracticeSeries({
-            data: {
-              title: form.title,
-              weekday,
-              startTime: form.startTime,
-              durationMin: form.durationMin ? Number(form.durationMin) : undefined,
-              location: form.location,
-              kind: form.kind,
-              focus: form.focus,
-              notes: form.notes,
-              weeks,
-              fromDate: form.sessionDate,
-              sets,
-            },
-          }).then((s) => ({ id: s.practiceIds[0]! }))
-        : savePractice({
-            data: {
-              ...form,
-              id: editing ? source.id : undefined,
-              expectedRevision: editing ? source.revision : undefined,
-              durationMin: form.durationMin ? Number(form.durationMin) : undefined,
-              scope: editing && source.seriesId ? editScope : undefined,
-              sets,
-            },
-          }),
-    onSuccess: async ({ id }) => {
+    mutationFn: async () => {
+      if (weekly && !editing) {
+        const results = await Promise.all(
+          weekdays.map((weekday) =>
+            createClubPracticeSeries({
+              data: {
+                title: form.title,
+                weekday,
+                startTime: form.startTime,
+                durationMin: form.durationMin ? Number(form.durationMin) : undefined,
+                location: form.location,
+                kind: form.kind,
+                focus: form.focus,
+                notes: form.notes,
+                weeks,
+                fromDate: form.sessionDate,
+                active,
+                sets,
+              },
+            }),
+          ),
+        );
+        const soloPracticeId = active && results.length === 1 ? results[0]!.practiceIds[0] : undefined;
+        return soloPracticeId != null
+          ? { to: "/latihan/$id" as const, params: { id: String(soloPracticeId) } }
+          : { to: "/latihan/jadwal" as const, params: undefined };
+      }
+      const saved = await savePractice({
+        data: {
+          ...form,
+          id: editing ? source.id : undefined,
+          expectedRevision: editing ? source.revision : undefined,
+          durationMin: form.durationMin ? Number(form.durationMin) : undefined,
+          scope: editing && source.seriesId ? editScope : undefined,
+          sets,
+        },
+      });
+      return { to: "/latihan/$id" as const, params: { id: String(saved.id) } };
+    },
+    onSuccess: async (dest) => {
       await qc.invalidateQueries();
-      await navigate({ to: "/latihan/$id", params: { id: String(id) } });
+      await navigate(dest);
     },
   });
   const volume = sets.reduce((total, s) => total + s.reps * s.distanceM, 0);
@@ -133,10 +158,7 @@ export function PracticeEditor({
             <input
               type="checkbox"
               checked={weekly}
-              onChange={(e) => {
-                setWeekly(e.target.checked);
-                if (e.target.checked) setWeekday(isoWeekday(form.sessionDate));
-              }}
+              onChange={(e) => setWeekly(e.target.checked)}
             />
             Jadwal berulang setiap minggu
           </label>
@@ -150,25 +172,56 @@ export function PracticeEditor({
           </Field>
         ) : null}
         {weekly && !editing ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Hari">
-              <SelectNative value={String(weekday)} onChange={(e) => setWeekday(Number(e.target.value))}>
-                {WEEKDAYS.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Field>
-            <Field label="Jumlah minggu">
-              <Input
-                type="number"
-                min={1}
-                max={16}
-                value={weeks}
-                onChange={(e) => setWeeks(Number(e.target.value) || 8)}
-              />
-            </Field>
+          <div className="grid gap-4">
+            <div className="grid min-w-0 gap-1.5 text-sm">
+              <p className="font-semibold text-foreground">Hari</p>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Pilih hari">
+                {WEEKDAYS.map((d) => {
+                  const selected = weekdays.includes(d.id);
+                  return (
+                    <Button
+                      key={d.id}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      aria-pressed={selected}
+                      onClick={() => toggleWeekday(d.id)}
+                    >
+                      {d.label.slice(0, 3)}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {weekdays.length > 1
+                  ? `Membuat ${weekdays.length} jadwal terpisah, satu per hari, dengan judul dan jam yang sama.`
+                  : "Pilih lebih dari satu hari untuk membuat beberapa jadwal sekaligus."}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Jumlah minggu">
+                <Input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={weeks}
+                  onChange={(e) => setWeeks(Number(e.target.value) || 8)}
+                />
+              </Field>
+              <div className="grid min-w-0 gap-1.5 text-sm">
+                <p className="font-semibold text-foreground">Status saat dibuat</p>
+                <div className="flex min-h-11 items-center gap-4">
+                  <label className="flex items-center gap-2">
+                    <input type="radio" checked={active} onChange={() => setActive(true)} />
+                    Aktif sekarang
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="radio" checked={!active} onChange={() => setActive(false)} />
+                    Simpan, nonaktif dulu
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-3">
@@ -177,11 +230,7 @@ export function PracticeEditor({
               type="date"
               required
               value={form.sessionDate}
-              onChange={(e) => {
-                const sessionDate = e.target.value;
-                setForm({ ...form, sessionDate });
-                if (weekly) setWeekday(isoWeekday(sessionDate));
-              }}
+              onChange={(e) => setForm({ ...form, sessionDate: e.target.value })}
             />
           </Field>
           <Field label="Jam mulai">

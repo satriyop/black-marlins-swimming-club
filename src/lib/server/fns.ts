@@ -29,6 +29,7 @@ export {
   listClubPracticeSeries,
   skipClubSeriesRange,
   refreshClubPracticeSeries,
+  setClubPracticeSeriesActive,
   getPracticeIcs,
   type SetInput,
 } from "./fns-practice";
