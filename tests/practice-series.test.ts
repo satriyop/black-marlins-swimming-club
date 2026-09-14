@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import {
   cancelPractice,
   loadPractice,
+  savePracticeRecord,
 } from "../src/lib/club/practice";
 import {
   createPracticeSeries,
@@ -112,6 +113,37 @@ test("staff open today's scheduled training once and receive its attendance shee
   ]);
   const active = await harness.sql<{ count: number }>`select count(*)::int as count from swimmers where club_id = ${clubId} and status = 'aktif'`;
   expect(training.attendance).toHaveLength(active[0]!.count);
+});
+
+test("an opened day's own edited program overrides the schedule template in the daily view", async () => {
+  const { harness } = await setup();
+  const today = jakartaNowParts().date;
+  const schedule = await createTodaySchedule(harness);
+  const opened = await openScheduledTrainingDay(harness.actor(SATRIYO_ID), { scheduleId: schedule.id, date: today });
+  const training = await loadPractice(harness.actor(SATRIYO_ID), opened.id);
+
+  await savePracticeRecord(harness.actor(SATRIYO_ID), {
+    id: opened.id,
+    expectedRevision: training.revision,
+    sessionDate: training.sessionDate,
+    startTime: training.startTime ?? undefined,
+    location: training.location ?? undefined,
+    kind: training.kind,
+    title: training.title,
+    focus: "Air dingin, sesi teknik ringan",
+    sets: [{ block: "teknik", reps: 2, distanceM: 25, stroke: "bebas" }],
+  });
+
+  const days = await listScheduledTrainingDays(harness.actor(SATRIYO_ID), { fromDate: today, days: 1 });
+  expect(days).toEqual([
+    expect.objectContaining({
+      scheduleId: schedule.id,
+      date: today,
+      practiceId: opened.id,
+      focus: "Air dingin, sesi teknik ringan",
+      totalMeters: 50,
+    }),
+  ]);
 });
 
 test("attendance cannot be opened before the scheduled training day", async () => {

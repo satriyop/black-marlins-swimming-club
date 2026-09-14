@@ -269,12 +269,14 @@ export async function listScheduledTrainingDays(
     where skip_date between ${fromDate}::date and ${toDate}::date
   `;
   const skipped = new Set(skips.map((row) => `${row.series_id}:${row.skip_date.slice(0, 10)}`));
-  const practices = await actor.sql<{ id: number; series_id: number; occurrence_date: string }>`
-    select id, series_id, occurrence_date::text as occurrence_date from practices
+  const practices = await actor.sql<{
+    id: number; series_id: number; occurrence_date: string; focus: string | null; total_meters: number;
+  }>`
+    select id, series_id, occurrence_date::text as occurrence_date, focus, total_meters from practices
     where club_id = ${clubId} and series_id is not null
       and occurrence_date between ${fromDate}::date and ${toDate}::date
   `;
-  const practiceByDay = new Map(practices.map((row) => [`${row.series_id}:${row.occurrence_date.slice(0, 10)}`, row.id]));
+  const practiceByDay = new Map(practices.map((row) => [`${row.series_id}:${row.occurrence_date.slice(0, 10)}`, row]));
   const result: ScheduledTrainingDay[] = [];
   for (let offset = 0; offset < days; offset += 1) {
     const date = new Date(`${fromDate}T00:00:00Z`);
@@ -283,16 +285,19 @@ export async function listScheduledTrainingDays(
     for (const schedule of schedules) {
       const key = `${schedule.id}:${day}`;
       if (day < schedule.start_date.slice(0, 10) || isoWeekday(day) !== schedule.weekday || skipped.has(key)) continue;
+      // Once a day is opened, its own record is the source of truth for focus/volume —
+      // it may have been edited for just that occurrence, diverging from the schedule template.
+      const opened = practiceByDay.get(key);
       result.push({
         scheduleId: schedule.id,
-        practiceId: practiceByDay.get(key) ?? null,
+        practiceId: opened?.id ?? null,
         date: day,
         title: schedule.title,
         startTime: schedule.start_time,
         durationMin: schedule.duration_min,
         location: schedule.location,
-        focus: schedule.focus,
-        totalMeters: schedule.total_meters,
+        focus: opened ? opened.focus : schedule.focus,
+        totalMeters: opened ? opened.total_meters : schedule.total_meters,
       });
     }
   }
