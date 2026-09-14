@@ -68,7 +68,7 @@ Neon, and set the same env vars. Do not expect a pure static Pages upload.
 
 ## Production (aidev)
 
-Native Node + Postgres + systemd + Caddy on **https://bmsc.klaten.org**. See [docs/aidev-deploy.md](docs/aidev-deploy.md) for CI, releases, and rollback.
+Native Node + Postgres + systemd + Caddy on **https://bmsc.klaten.org**. See [docs/aidev-deploy.md](docs/aidev-deploy.md) for CI, releases, rollback, and the `npm run deploy:manual` fallback for when GitHub Actions can't run.
 
 ## Scripts
 
@@ -81,3 +81,4 @@ Native Node + Postgres + systemd + Caddy on **https://bmsc.klaten.org**. See [do
 - `npm run db:import-kiko` — race times (not part of deploy)
 - `npm run smoke` — HTTP GET `/login` against `.output`
 - `npm run test:e2e` — Playwright login smoke
+- `npm run deploy:manual` — fallback deploy to aidev when GitHub Actions can't run (see [docs/aidev-deploy.md](docs/aidev-deploy.md))

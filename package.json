@@ -13,6 +13,7 @@
     "db:seed": "node scripts/seed-club.mjs",
     "db:import-kiko": "node scripts/run-import-kiko.mjs",
     "smoke": "node scripts/smoke-http.mjs",
+    "deploy:manual": "bash scripts/deploy-manual.sh",
     "test:e2e": "playwright test",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "node scripts/with-app-env.mjs vite preview",
