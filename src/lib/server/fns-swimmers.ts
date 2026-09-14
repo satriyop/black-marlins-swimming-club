@@ -61,29 +61,31 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
   const row = rows[0];
   if (!row || !canSeeSwimmer(hats, data.id)) throw new Error("Perenang tidak ditemukan");
   const swimmer = mapSwimmer(row);
-  const results = await sql<ResultRow>`
-    select r.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name
-    from results r left join meets m on m.id = r.meet_id
-    where r.club_id = ${clubId} and r.swimmer_id = ${data.id} order by r.result_date desc, r.id desc`;
-  const pbs = await sql<{ stroke: string; distance_m: number; course: string; time_ms: number; result_date: string; meet_name: string | null }>`
-    select distinct on (r.stroke, r.distance_m, r.course) r.stroke, r.distance_m, r.course, r.time_ms, r.result_date, m.name as meet_name
-    from results r left join meets m on m.id = r.meet_id
-    where r.club_id = ${clubId} and r.swimmer_id = ${data.id} and r.status = 'selesai' and r.time_ms is not null
-    order by r.stroke, r.distance_m, r.course, r.time_ms asc`;
-  const att = await sql<{ hadir: number; total: number }>`
-    select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*) filter (where status <> 'belum')::int as total
-    from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id}`;
-  const volume = await sql<{ n: number }>`select coalesce(sum(meters_completed), 0)::int as n from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id} and status = 'hadir'`;
-  const attendanceHistory = await listAttendanceHistory({ sql, userId }, data.id);
-  const entries = await sql<{
-    id: number; meet_id: number; swimmer_id: number; swimmer_name: string; stroke: string; distance_m: number;
-    age_group: string | null; seed_time_ms: number | null; registration_status: RegistrationStatus; registration_reason: string | null; status: string; lane: number | null; heat: string | null;
-    meet_name: string; start_date: string;
-  }>`
-    select e.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name, m.start_date
-    from meet_entries e join meets m on m.id = e.meet_id
-    where e.club_id = ${clubId} and e.swimmer_id = ${data.id} and coalesce(m.end_date,m.start_date) >= current_date
-    order by m.start_date, e.distance_m`;
+  const [results, pbs, att, volume, attendanceHistory, entries] = await Promise.all([
+    sql<ResultRow>`
+      select r.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name
+      from results r left join meets m on m.id = r.meet_id
+      where r.club_id = ${clubId} and r.swimmer_id = ${data.id} order by r.result_date desc, r.id desc`,
+    sql<{ stroke: string; distance_m: number; course: string; time_ms: number; result_date: string; meet_name: string | null }>`
+      select distinct on (r.stroke, r.distance_m, r.course) r.stroke, r.distance_m, r.course, r.time_ms, r.result_date, m.name as meet_name
+      from results r left join meets m on m.id = r.meet_id
+      where r.club_id = ${clubId} and r.swimmer_id = ${data.id} and r.status = 'selesai' and r.time_ms is not null
+      order by r.stroke, r.distance_m, r.course, r.time_ms asc`,
+    sql<{ hadir: number; total: number }>`
+      select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*) filter (where status <> 'belum')::int as total
+      from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id}`,
+    sql<{ n: number }>`select coalesce(sum(meters_completed), 0)::int as n from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id} and status = 'hadir'`,
+    listAttendanceHistory({ sql, userId }, data.id),
+    sql<{
+      id: number; meet_id: number; swimmer_id: number; swimmer_name: string; stroke: string; distance_m: number;
+      age_group: string | null; seed_time_ms: number | null; registration_status: RegistrationStatus; registration_reason: string | null; status: string; lane: number | null; heat: string | null;
+      meet_name: string; start_date: string;
+    }>`
+      select e.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name, m.start_date
+      from meet_entries e join meets m on m.id = e.meet_id
+      where e.club_id = ${clubId} and e.swimmer_id = ${data.id} and coalesce(m.end_date,m.start_date) >= current_date
+      order by m.start_date, e.distance_m`,
+  ]);
   return {
     swimmer, results: results.map(mapResult),
     pbs: pbs.map((p): PersonalBest => ({ stroke: p.stroke, distanceM: p.distance_m, course: p.course, timeMs: p.time_ms, resultDate: p.result_date, meetName: p.meet_name })),
