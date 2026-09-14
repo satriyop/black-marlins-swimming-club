@@ -96,7 +96,7 @@ export function PracticeEditor({
             notes: form.notes,
             fromDate: form.sessionDate,
             active,
-            sets: [],
+            sets,
           },
         });
         const soloPracticeId = active && results.length === 1 ? results[0]!.practiceIds[0] : undefined;
@@ -230,7 +230,7 @@ export function PracticeEditor({
             placeholder="Nama kolam atau tempat latihan"
           />
         </Field>
-        <div className={weekly ? "grid gap-3" : "grid gap-3 sm:grid-cols-2"}>
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Jenis latihan">
             <SelectNative
               value={form.kind}
@@ -243,19 +243,19 @@ export function PracticeEditor({
               ))}
             </SelectNative>
           </Field>
-          {!weekly ? <Field label="Fokus sesi">
+          <Field label={weekly ? "Fokus latihan" : "Fokus sesi"}>
             <Input
               value={form.focus}
               onChange={(e) => setForm({ ...form, focus: e.target.value })}
               placeholder="Contoh: posisi tubuh dan pernapasan"
             />
-          </Field> : null}
+          </Field>
         </div>
       </fieldset>
-      {!weekly ? <fieldset disabled={mut.isPending} className="grid gap-4">
+      <fieldset disabled={mut.isPending} className="grid gap-4">
         <legend className="sr-only">Program set</legend>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-2xl">Program set</h2>
+          <h2 className="font-display text-2xl">Program latihan</h2>
           <p className="font-mono">{volume.toLocaleString("id-ID")} m</p>
         </div>
         <details className="rounded-xl border border-border p-4">
@@ -393,13 +393,13 @@ export function PracticeEditor({
           <Plus />
           Tambah set
         </Button>
-        <Field label="Catatan sesi">
+        <Field label={weekly ? "Catatan untuk pelatih" : "Catatan sesi"}>
           <Textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
           />
         </Field>
-      </fieldset> : null}
+      </fieldset>
       {mut.isError && (
         <p
           role="alert"
@@ -410,7 +410,7 @@ export function PracticeEditor({
       )}
       <div className="sticky bottom-[calc(var(--mobile-nav-height,4rem)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 md:bottom-2">
         <p className="text-sm">
-          {weekly ? "Jadwal menentukan hari latihan klub." : <>Total rencana <strong>{volume.toLocaleString("id-ID")} m</strong></>}
+          {weekly ? <>Program jadwal <strong>{volume.toLocaleString("id-ID")} m</strong></> : <>Total rencana <strong>{volume.toLocaleString("id-ID")} m</strong></>}
         </p>
         <div className="flex gap-2">
           <Button asChild variant="outline">
