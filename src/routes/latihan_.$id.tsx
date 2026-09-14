@@ -572,15 +572,17 @@ function MarkAllPresentButton({
         pending.map((a) => updateAttendance({ data: { id: a.id, status: "hadir" } })),
       );
     },
-    onSuccess: async () => {
+    onSuccess: () => toast.success("Semua ditandai hadir"),
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: async () => {
+      // Runs on both success and partial failure so rows already saved server-side
+      // aren't left showing stale status after a mid-batch error.
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["practice", practiceId] }),
         qc.invalidateQueries({ queryKey: ["practices"] }),
         qc.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
-      toast.success("Semua ditandai hadir");
     },
-    onError: (e: Error) => toast.error(e.message),
   });
   if (!pending.length) return null;
   return (
@@ -673,6 +675,7 @@ function AttendanceCard({
         <button
           type="button"
           className="min-w-0 flex-1 text-left"
+          disabled={!hasDetail}
           onClick={() => setExpanded((v) => !v)}
         >
           <span className="block truncate text-base font-medium">{a.swimmerName}</span>
@@ -725,6 +728,17 @@ function AttendanceCard({
           >
             <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
           </button>
+        ) : null}
+      </div>
+      <div aria-live="polite" className="px-3.5 text-sm empty:hidden [&:not(:empty)]:pb-2.5">
+        {update.isPending || notice.isPending ? (
+          <p>Menyimpan…</p>
+        ) : update.isError ? (
+          <p role="alert" className="text-destructive">
+            {update.error.message} Silakan coba lagi.
+          </p>
+        ) : update.isSuccess || notice.isSuccess ? (
+          <p className="text-muted-foreground">Tersimpan.</p>
         ) : null}
       </div>
       {expanded ? (
@@ -884,17 +898,6 @@ function AttendanceCard({
               </div>
             </form>
           ) : null}
-          <div aria-live="polite" className="text-sm empty:hidden">
-            {update.isPending || notice.isPending ? (
-              <p>Menyimpan…</p>
-            ) : update.isError ? (
-              <p role="alert" className="text-destructive">
-                {update.error.message} Silakan coba lagi.
-              </p>
-            ) : update.isSuccess || notice.isSuccess ? (
-              <p className="text-muted-foreground">Tersimpan.</p>
-            ) : null}
-          </div>
           {canRemove ? (
             <div className="flex justify-end border-t border-border pt-2">
               <Button
