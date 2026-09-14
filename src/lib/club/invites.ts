@@ -8,6 +8,7 @@ import { canInviteStaff, staffRoleAtLeast } from "./permissions";
 export type InviteInput = {
   kind: "staff" | "guardian" | "swimmer_account";
   email: string;
+  confirmedEmail?: string;
   role?: StaffRole;
   swimmerIds?: number[];
 };
@@ -148,6 +149,9 @@ export async function createInvite(
   if (input.kind === "staff") {
     const role = input.role;
     if (!role || !canInviteStaff(hats, role)) throw new Error("Tidak diizinkan");
+    if (input.confirmedEmail?.toLowerCase().trim() !== email) {
+      throw new Error("Konfirmasi email staf tidak cocok.");
+    }
   } else if (input.kind === "guardian" || input.kind === "swimmer_account") {
     const staffOk = hats.staff === "superadmin" || hats.staff === "club_admin";
     const familyOk = hats.guardianSwimmerIds.length > 0;
@@ -269,7 +273,7 @@ async function claimInvite(
         and accepted_at is null
         and revoked_at is null
         and expires_at > now()
-        and (email is null or lower(email) = ${input.email.toLowerCase()})
+        and lower(email) = ${input.email.toLowerCase()}
       returning id, club_id, kind, payload
     `;
     const invite = claimed[0];
@@ -425,6 +429,7 @@ export async function recreateInvite(
     const created = await createInvite(tx, {
       kind: row.kind,
       email: row.email!,
+      confirmedEmail: row.kind === "staff" ? row.email! : undefined,
       role: payload.role ?? undefined,
       swimmerIds: payload.swimmerIds ?? [],
     });

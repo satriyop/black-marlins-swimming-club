@@ -4,12 +4,39 @@ import { hatsFor } from "../src/lib/club/hats";
 import { AZKIYA_ID, RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
 import { createClubHarness } from "./harness";
 
+test("staff invite requires the exact email to be confirmed", async () => {
+  const h = await createClubHarness();
+  await seedClub(h.sql);
+  await expect(
+    createInvite(h.actor(SATRIYO_ID), {
+      kind: "staff",
+      email: "pelatih.baru@example.com",
+      confirmedEmail: "pelatih.baru1@example.com",
+      role: "coach",
+    }),
+  ).rejects.toThrow(/Konfirmasi email staf tidak cocok/);
+  const rows = await h.sql<{ n: number }>`
+    select count(*)::int as n from invites where email = 'pelatih.baru@example.com'
+  `;
+  expect(rows[0]?.n).toBe(0);
+});
+
+test("invite email cannot be null", async () => {
+  const h = await createClubHarness();
+  const clubId = await seedClub(h.sql);
+  await expect(h.sql`
+    insert into invites (club_id, email, kind, payload, token, invited_by, expires_at)
+    values (${clubId}, ${null}, 'staff', '{}'::jsonb, 'null-email-test', ${SATRIYO_ID}, now() + interval '1 day')
+  `).rejects.toThrow();
+});
+
 test("club admin can invite a coach and cannot invite superadmin", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   const coach = await createInvite(h.actor(AZKIYA_ID), {
     kind: "staff",
     email: "hardiyanto@example.com",
+    confirmedEmail: "hardiyanto@example.com",
     role: "coach",
   });
   expect(coach.token).toBeTruthy();
@@ -40,6 +67,7 @@ test("accepting a coach invite grants the hat", async () => {
   const invite = await createInvite(h.actor(SATRIYO_ID), {
     kind: "staff",
     email: "hardiyanto@example.com",
+    confirmedEmail: "hardiyanto@example.com",
     role: "coach",
   });
   await h.sql`
@@ -213,6 +241,7 @@ test("expired invite is rejected", async () => {
   const invite = await createInvite(h.actor(SATRIYO_ID), {
     kind: "staff",
     email: "late@example.com",
+    confirmedEmail: "late@example.com",
     role: "coach",
   });
   await h.sql`update invites set expires_at = now() - interval '1 day' where token = ${invite.token}`;

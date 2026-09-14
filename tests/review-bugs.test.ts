@@ -20,6 +20,7 @@ test("accept staff invite by matching email grants coach", async () => {
   const invite = await createInvite(h.actor(SATRIYO_ID), {
     kind: "staff",
     email: "hardiyanto@example.com",
+    confirmedEmail: "hardiyanto@example.com",
     role: "coach",
   });
   expect(invite.acceptPath).toContain("/terima?token=");
@@ -58,6 +59,7 @@ test("weaker staff invite does not downgrade superadmin", async () => {
     createInvite(h.actor(AZKIYA_ID), {
       kind: "staff",
       email: "satriyopamungkas@gmail.com",
+      confirmedEmail: "satriyopamungkas@gmail.com",
       role: "coach",
     }),
   ).rejects.toThrow(/sudah staf/);

@@ -38,6 +38,12 @@ function acceptUrl(path: string): string {
   return `${window.location.origin}${path}`;
 }
 
+function staffRoleLabel(role: StaffRole): string {
+  if (role === "club_admin") return "Admin klub";
+  if (role === "superadmin") return "Superadmin";
+  return "Pelatih";
+}
+
 async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -75,13 +81,21 @@ function Page() {
   );
   const [role, setRole] = useState<StaffRole>("coach");
   const [swimmerId, setSwimmerId] = useState<number | "new" | "">("");
+  const [staffReview, setStaffReview] = useState<{ email: string; role: StaffRole } | null>(null);
+  const [confirmedEmail, setConfirmedEmail] = useState("");
+  const members = useQuery({
+    queryKey: ["members"],
+    queryFn: () => listClubMembers(),
+    enabled: staffOk,
+  });
 
   const mut = useMutation({
-    mutationFn: () =>
+    mutationFn: (confirmation?: string) =>
       createClubInvite({
         data: {
           kind,
           email,
+          confirmedEmail: kind === "staff" ? confirmation : undefined,
           role: kind === "staff" ? role : undefined,
           swimmerIds:
             kind === "staff"
@@ -96,6 +110,8 @@ function Page() {
       const copied = await copyText(url);
       toast.success(copied ? "Undangan dibuat. Tautan disalin." : "Undangan dibuat.");
       setEmail("");
+      setStaffReview(null);
+      setConfirmedEmail("");
       await qc.invalidateQueries({ queryKey: ["invites"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -144,11 +160,20 @@ function Page() {
           className="grid gap-3 rounded-2xl bg-card p-5 shadow-border"
           onSubmit={(e) => {
             e.preventDefault();
-            mut.mutate();
+            if (kind === "staff") {
+              setStaffReview({ email: email.trim().toLowerCase(), role });
+              setConfirmedEmail("");
+              return;
+            }
+            mut.mutate(undefined);
           }}
         >
           <Field label="Jenis">
-            <SelectNative value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+            <SelectNative value={kind} onChange={(e) => {
+              setKind(e.target.value as typeof kind);
+              setStaffReview(null);
+              setConfirmedEmail("");
+            }}>
               {staffOk ? <option value="staff">Staf klub</option> : null}
               {staffOk || familyOk ? <option value="guardian">Wali</option> : null}
               {staffOk || familyOk ? <option value="swimmer_account">Akun perenang</option> : null}
@@ -156,12 +181,16 @@ function Page() {
           </Field>
           {kind === "staff" ? (
             <Field label="Peran">
-              <SelectNative value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
+              <SelectNative value={role} onChange={(e) => {
+                setRole(e.target.value as StaffRole);
+                setStaffReview(null);
+                setConfirmedEmail("");
+              }}>
                 {staffRoles
                   .filter((r) => r !== "superadmin" || hats?.staff === "superadmin")
                   .map((r) => (
                     <option key={r} value={r}>
-                      {r === "club_admin" ? "Admin klub" : r === "coach" ? "Pelatih" : "Superadmin"}
+                      {staffRoleLabel(r)}
                     </option>
                   ))}
               </SelectNative>
@@ -190,21 +219,69 @@ function Page() {
           )}
           {swimmers.isError && kind !== "staff" && <QueryError retry={() => swimmers.refetch()} />}
           <Field label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input type="email" value={email} onChange={(e) => {
+              setEmail(e.target.value);
+              setStaffReview(null);
+              setConfirmedEmail("");
+            }} required />
           </Field>
           <p className="text-sm text-muted-foreground">
             {kind === "guardian" && staffOk
               ? "Pilih anak yang sudah di skuad, atau Anak belum di sistem jika orang tua akan mengisi data anak. Tautan berlaku 14 hari; salin dan bagikan sendiri."
               : "Undangan dibuat sebagai tautan. Salin dan bagikan sendiri kepada penerima."}
           </p>
+          {staffReview ? (
+            <section className="grid gap-3 rounded-xl border border-warning/40 bg-warning/5 p-4" aria-labelledby="staff-review-title">
+              <div>
+                <h2 id="staff-review-title" className="font-semibold">Periksa akses staf</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Akun Google dengan email berikut akan mendapat akses {staffRoleLabel(staffReview.role)}.
+                </p>
+              </div>
+              <p className="break-all font-mono font-semibold">{staffReview.email}</p>
+              {(members.data ?? []).some((member) => member.staffRole) ? (
+                <div className="text-sm">
+                  <p className="font-semibold">Staf yang sudah aktif</p>
+                  <ul className="mt-1 grid gap-1 text-muted-foreground">
+                    {(members.data ?? []).filter((member) => member.staffRole).map((member) => (
+                      <li key={member.userId}>{member.name} · {member.email}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-muted-foreground">
+                    Jika orangnya sudah ada di daftar ini, ubah perannya pada Anggota aktif dan jangan buat undangan baru.
+                  </p>
+                </div>
+              ) : null}
+              <Field label="Ketik ulang email staf" hint="Harus sama persis dengan email di atas.">
+                <Input type="email" autoComplete="off" value={confirmedEmail} onChange={(e) => setConfirmedEmail(e.target.value)} />
+              </Field>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={() => {
+                  setStaffReview(null);
+                  setConfirmedEmail("");
+                }}>
+                  Perbaiki data
+                </Button>
+                <Button
+                  type="button"
+                  disabled={mut.isPending || confirmedEmail.trim().toLowerCase() !== staffReview.email}
+                  onClick={() => mut.mutate(confirmedEmail)}
+                >
+                  {mut.isPending ? "Membuat…" : "Konfirmasi & buat"}
+                </Button>
+              </div>
+            </section>
+          ) : null}
           {mut.isError && (
             <p role="alert" className="text-sm text-destructive">
               {mut.error.message}
             </p>
           )}
-          <Button type="submit" disabled={mut.isPending}>
-            {mut.isPending ? "Membuat…" : "Buat undangan"}
-          </Button>
+          {!staffReview ? (
+            <Button type="submit" disabled={mut.isPending}>
+              {mut.isPending ? "Membuat…" : kind === "staff" ? "Periksa undangan" : "Buat undangan"}
+            </Button>
+          ) : null}
         </form>
         <div>
           {mut.isSuccess && (
