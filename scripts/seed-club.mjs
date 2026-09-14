@@ -6,6 +6,7 @@
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import pg from "pg";
+import { ensureDefaultTrainingSchedules } from "./default-training-schedules.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -79,7 +80,16 @@ async function main() {
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
   const client = await pool.connect();
   try {
-    await seedClubPg(client);
+    await client.query("begin");
+    const clubId = await seedClubPg(client);
+    const schedules = await ensureDefaultTrainingSchedules(client.query.bind(client), clubId);
+    await client.query("commit");
+    console.log(
+      `[seed] schedules ensured (${schedules.seriesCreated} series, ${schedules.practicesCreated} practices created).`,
+    );
+  } catch (err) {
+    await client.query("rollback");
+    throw err;
   } finally {
     client.release();
     await pool.end();

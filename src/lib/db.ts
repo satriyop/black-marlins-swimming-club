@@ -124,7 +124,13 @@ async function createPgliteSql(): Promise<Sql> {
       }),
   );
   const { seedClub } = await import("@/lib/club/seed");
-  await seedClub(sql);
+  const { ensureDefaultTrainingSchedules } =
+    await import("../../scripts/default-training-schedules.mjs");
+  const clubId = await seedClub(sql);
+  await ensureDefaultTrainingSchedules(
+    async (text, params = []) => ({ rows: await sql.query(text, params) }),
+    clubId,
+  );
   return sql;
 }
 
