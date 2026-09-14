@@ -8,16 +8,17 @@ import { canWritePractice } from "@/lib/club/permissions";
 import { getPractice } from "@/lib/server/fns";
 
 export const Route = createFileRoute("/latihan_/baru")({
-  validateSearch: (search: Record<string, unknown>): { copy?: number } => ({
+  validateSearch: (search: Record<string, unknown>): { copy?: number; weekly?: boolean } => ({
     copy:
       Number.isSafeInteger(Number(search.copy)) && Number(search.copy) > 0
         ? Number(search.copy)
         : undefined,
+    weekly: search.weekly === true || search.weekly === "true",
   }),
   component: Page,
 });
 function Page() {
-  const { copy } = Route.useSearch();
+  const { copy, weekly } = Route.useSearch();
   const { hats, isPending } = useAccess();
   const source = useQuery({
     queryKey: ["practice", copy],
@@ -45,7 +46,7 @@ function Page() {
       ) : copy && source.isPending ? (
         <p role="status">Memuat program…</p>
       ) : (
-        <PracticeEditor key={copy ?? "new"} source={source.data} />
+        <PracticeEditor key={copy ?? "new"} source={source.data} defaultWeekly={weekly} />
       )}
     </AppShell>
   );

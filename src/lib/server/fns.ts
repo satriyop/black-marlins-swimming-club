@@ -27,8 +27,10 @@ export {
   resolveClubAttendanceCorrection,
   createClubPracticeSeries,
   listClubPracticeSeries,
+  createClubPracticeSeriesBatch,
   skipClubSeriesRange,
   refreshClubPracticeSeries,
+  setClubPracticeSeriesActive,
   getPracticeIcs,
   type SetInput,
 } from "./fns-practice";

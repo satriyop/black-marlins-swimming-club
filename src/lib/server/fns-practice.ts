@@ -20,21 +20,29 @@ import {
   type PracticeRow,
 } from "@/lib/club/practice";
 import {
+  createPracticeSeriesBatch,
   createPracticeSeries,
   listPracticeIcs,
   listPracticeSeries,
   materializePracticeSeries,
+  refreshActivePracticeSeries,
+  setSeriesActive,
   skipSeriesRange,
 } from "@/lib/club/series";
+import { hatsFor } from "@/lib/club/hats";
+import { canWritePractice } from "@/lib/club/permissions";
 import { deletePractice as deletePracticeFor } from "@/lib/club/writes";
 import type { Practice } from "@/lib/swim/types";
+import type { WeekdayId } from "@/lib/swim/constants";
 
 export type SetInput = {
   block: string; reps: number; distanceM: number; stroke: string; intervalSec?: number | null; description?: string;
 };
 
 export const listPractices = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
-  const { sql, clubId } = await requireClub(context.userId);
+  const actor = await requireClub(context.userId);
+  const { sql, clubId } = actor;
+  if (canWritePractice(await hatsFor(actor))) await refreshActivePracticeSeries(actor);
   const rows = await sql<PracticeRow & { present_count: number; roster_count: number }>`
     select p.id, p.session_date::text as session_date, p.start_time, p.duration_min, p.location, p.kind, p.title, p.focus,
            p.total_meters, p.notes, p.status, p.cancel_reason, p.reopen_reason,
@@ -103,11 +111,24 @@ export const addClubPracticeParticipant = createServerFn({ method: "POST" }).mid
 });
 
 export const createClubPracticeSeries = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
-  title: string; weekday: number; startTime?: string; durationMin?: number; location?: string;
-  kind: string; focus?: string; notes?: string; weeks?: number; fromDate?: string; sets: SetInput[];
+  title: string; weekday: WeekdayId; startTime?: string; durationMin?: number; location?: string;
+  kind: string; focus?: string; notes?: string; weeks?: number; fromDate?: string; active?: boolean; sets: SetInput[];
 }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return createPracticeSeries(actor, data);
+});
+
+export const createClubPracticeSeriesBatch = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  title: string; weekdays: WeekdayId[]; startTime?: string; durationMin?: number; location?: string;
+  kind: string; focus?: string; notes?: string; weeks?: number; fromDate?: string; active?: boolean; sets: SetInput[];
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return createPracticeSeriesBatch(actor, data);
+});
+
+export const setClubPracticeSeriesActive = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; active: boolean }) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return setSeriesActive(actor, data);
 });
 
 export const listClubPracticeSeries = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {

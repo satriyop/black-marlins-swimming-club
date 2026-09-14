@@ -4,10 +4,11 @@ import { clubIdFor } from "./membership";
 import { canWritePractice } from "./permissions";
 import { cancelPractice, savePracticeRecord, type PracticeSetInput } from "./practice";
 import { jakartaNowParts } from "@/lib/utils";
+import type { WeekdayId } from "@/lib/swim/constants";
 
 export type SeriesInput = {
   title: string;
-  weekday: number;
+  weekday: WeekdayId;
   startTime?: string;
   durationMin?: number;
   location?: string;
@@ -16,18 +17,19 @@ export type SeriesInput = {
   notes?: string;
   weeks?: number;
   fromDate?: string;
+  active?: boolean;
   sets: PracticeSetInput[];
 };
 
-export function isoWeekday(isoDate: string): number {
+export function isoWeekday(isoDate: string): WeekdayId {
   const [y, m, d] = isoDate.split("-").map(Number);
   const js = new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay();
-  return js === 0 ? 7 : js;
+  return (js === 0 ? 7 : js) as WeekdayId;
 }
 
-export function datesForWeekday(weekday: number, fromDate: string, weeks: number): string[] {
+export function datesForWeekday(weekday: WeekdayId, fromDate: string, weeks: number): string[] {
   if (weekday < 1 || weekday > 7) throw new Error("Hari tidak valid");
-  const count = Math.min(Math.max(weeks, 1), 16);
+  const count = Math.max(Math.trunc(weeks), 1);
   const [y, m, d] = fromDate.slice(0, 10).split("-").map(Number);
   const start = new Date(Date.UTC(y!, m! - 1, d!));
   const dates: string[] = [];
@@ -42,7 +44,7 @@ export function datesForWeekday(weekday: number, fromDate: string, weeks: number
   return dates;
 }
 
-export function datesInRange(weekday: number, fromDate: string, toDate: string): string[] {
+export function datesInRange(weekday: WeekdayId, fromDate: string, toDate: string): string[] {
   if (fromDate > toDate) throw new Error("Rentang tanggal tidak valid");
   if (weekday < 1 || weekday > 7) throw new Error("Hari tidak valid");
   const dates: string[] = [];
@@ -72,32 +74,58 @@ export async function createPracticeSeries(actor: Actor, input: SeriesInput) {
   if (!title) throw new Error("Judul wajib diisi");
   const weeks = input.weeks ?? 8;
   const fromDate = input.fromDate ?? jakartaNowParts().date;
-  const rows = await actor.sql<{ id: number }>`
-    insert into practice_series (
-      club_id, title, weekday, start_time, duration_min, location, kind, focus, notes, horizon_weeks
-    )
-    values (
-      ${clubId}, ${title}, ${input.weekday}, ${input.startTime || null}, ${input.durationMin ?? null},
-      ${input.location?.trim() || null}, ${input.kind}, ${input.focus?.trim() || null},
-      ${input.notes?.trim() || null}, ${weeks}
-    )
-    returning id
-  `;
-  const id = rows[0]!.id;
-  for (let i = 0; i < input.sets.length; i += 1) {
-    const s = input.sets[i]!;
-    await actor.sql`
-      insert into practice_series_sets (
-        club_id, series_id, sort_order, block, reps, distance_m, stroke, interval_sec, description
+  const active = input.active ?? true;
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 52)
+    throw new Error("Jangka penyiapan tidak valid");
+  return actor.sql.transaction(async (sql) => {
+    const a = { ...actor, sql };
+    const rows = await sql<{ id: number }>`
+      insert into practice_series (
+        club_id, title, weekday, start_time, duration_min, location, kind, focus, notes,
+        horizon_weeks, start_date, active
       )
       values (
-        ${clubId}, ${id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke},
-        ${s.intervalSec ?? null}, ${s.description?.trim() || null}
+        ${clubId}, ${title}, ${input.weekday}, ${input.startTime || null}, ${input.durationMin ?? null},
+        ${input.location?.trim() || null}, ${input.kind}, ${input.focus?.trim() || null},
+        ${input.notes?.trim() || null}, ${weeks}, ${fromDate}, ${active}
       )
+      returning id
     `;
+    const id = rows[0]!.id;
+    for (let i = 0; i < input.sets.length; i += 1) {
+      const s = input.sets[i]!;
+      await sql`
+        insert into practice_series_sets (
+          club_id, series_id, sort_order, block, reps, distance_m, stroke, interval_sec, description
+        )
+        values (
+          ${clubId}, ${id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke},
+          ${s.intervalSec ?? null}, ${s.description?.trim() || null}
+        )
+      `;
+    }
+    if (!active) return { id, title, practiceIds: [] as number[] };
+    const materialized = await materializePracticeSeries(a, { id, fromDate });
+    return { id, title, practiceIds: materialized.practiceIds };
+  });
+}
+
+export async function createPracticeSeriesBatch(
+  actor: Actor,
+  input: Omit<SeriesInput, "weekday"> & { weekdays: WeekdayId[] },
+) {
+  if (!input.weekdays.length || new Set(input.weekdays).size !== input.weekdays.length) {
+    throw new Error("Pilih setidaknya satu hari tanpa duplikat");
   }
-  const materialized = await materializePracticeSeries(actor, { id, fromDate });
-  return { id, title, practiceIds: materialized.practiceIds };
+  if (input.weekdays.some((day) => day < 1 || day > 7)) throw new Error("Hari tidak valid");
+  return actor.sql.transaction(async (sql) => {
+    const a = { ...actor, sql };
+    const results = [];
+    for (const weekday of input.weekdays) {
+      results.push(await createPracticeSeries(a, { ...input, weekday }));
+    }
+    return results;
+  });
 }
 
 export async function materializePracticeSeries(
@@ -108,7 +136,7 @@ export async function materializePracticeSeries(
   const series = await actor.sql<{
     id: number;
     title: string;
-    weekday: number;
+    weekday: WeekdayId;
     start_time: string | null;
     duration_min: number | null;
     location: string | null;
@@ -116,9 +144,11 @@ export async function materializePracticeSeries(
     focus: string | null;
     notes: string | null;
     horizon_weeks: number;
+    start_date: string;
     until_date: string | null;
   }>`
-    select id, title, weekday, start_time, duration_min, location, kind, focus, notes, horizon_weeks, until_date::text as until_date
+    select id, title, weekday, start_time, duration_min, location, kind, focus, notes,
+           horizon_weeks, start_date::text as start_date, until_date::text as until_date
     from practice_series where id = ${input.id} and club_id = ${clubId} and active = true limit 1
   `;
   const row = series[0];
@@ -134,7 +164,9 @@ export async function materializePracticeSeries(
     select block, reps, distance_m, stroke, interval_sec, description
     from practice_series_sets where series_id = ${row.id} and club_id = ${clubId} order by sort_order, id
   `;
-  const fromDate = input.fromDate ?? jakartaNowParts().date;
+  const requestedFrom = input.fromDate ?? jakartaNowParts().date;
+  const fromDate =
+    requestedFrom > row.start_date.slice(0, 10) ? requestedFrom : row.start_date.slice(0, 10);
   const dates = datesForWeekday(row.weekday, fromDate, row.horizon_weeks);
   const skips = await actor.sql<{ skip_date: string }>`
     select skip_date::text as skip_date from practice_series_skips where series_id = ${row.id}
@@ -185,7 +217,7 @@ export async function skipSeriesRange(
 ): Promise<{ ok: true }> {
   const clubId = await requireCoach(actor);
   const reason = input.reason.trim() || "Libur";
-  const series = await actor.sql<{ weekday: number }>`
+  const series = await actor.sql<{ weekday: WeekdayId }>`
     select weekday from practice_series where id = ${input.id} and club_id = ${clubId} limit 1
   `;
   if (!series[0]) throw new Error("Jadwal berulang tidak ditemukan");
@@ -216,18 +248,63 @@ export async function skipSeriesRange(
 
 export async function listPracticeSeries(actor: Actor) {
   const clubId = await requireCoach(actor);
+  await refreshActivePracticeSeries(actor);
   return actor.sql<{
     id: number;
     title: string;
-    weekday: number;
+    weekday: WeekdayId;
     start_time: string | null;
     location: string | null;
     horizon_weeks: number;
+    active: boolean;
+    until_date: string | null;
   }>`
-    select id, title, weekday, start_time, location, horizon_weeks
-    from practice_series where club_id = ${clubId} and active = true
-    order by weekday, start_time, id
+    select id, title, weekday, start_time, location, horizon_weeks, active,
+           until_date::text as until_date
+    from practice_series where club_id = ${clubId}
+    order by title, weekday, start_time, id
   `;
+}
+
+export async function setSeriesActive(
+  actor: Actor,
+  input: { id: number; active: boolean },
+): Promise<{ ok: true }> {
+  const clubId = await requireCoach(actor);
+  return actor.sql.transaction(async (sql) => {
+    const a = { ...actor, sql };
+    const updated = await sql<{ id: number }>`
+      update practice_series
+      set active = ${input.active}
+      where id = ${input.id} and club_id = ${clubId}
+        and (${input.active} = false or until_date is null)
+      returning id
+    `;
+    if (!updated[0]) {
+      const ended = await sql<{ ended: boolean }>`
+        select (until_date is not null) as ended
+        from practice_series where id = ${input.id} and club_id = ${clubId}
+      `;
+      if (ended[0]?.ended && input.active) {
+        throw new Error("Jadwal sudah berakhir. Buat jadwal baru untuk memulai lagi.");
+      }
+      throw new Error("Jadwal berulang tidak ditemukan");
+    }
+    if (input.active) {
+      await materializePracticeSeries(a, { id: input.id, fromDate: jakartaNowParts().date });
+    }
+    return { ok: true };
+  });
+}
+
+export async function refreshActivePracticeSeries(actor: Actor): Promise<void> {
+  const clubId = await requireCoach(actor);
+  const active = await actor.sql<{ id: number }>`
+    select id from practice_series where club_id = ${clubId} and active = true order by id
+  `;
+  for (const row of active) {
+    await materializePracticeSeries(actor, { id: row.id, fromDate: jakartaNowParts().date });
+  }
 }
 
 function icsEscape(value: string): string {

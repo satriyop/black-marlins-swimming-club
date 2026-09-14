@@ -128,13 +128,13 @@ export async function savePracticeRecord(
     if (s.distanceM <= 0 || s.reps <= 0) throw new Error("Set tidak valid");
   }
   const total = data.sets.reduce((acc, s) => acc + s.reps * s.distanceM, 0);
-  await actor.sql.query("begin");
-  try {
+  return actor.sql.transaction(async (sql) => {
+    const a = { ...actor, sql };
     let practiceId = data.id;
     let revision = 1;
     let scheduleChanged = false;
     if (practiceId) {
-      const current = await loadRow(actor, clubId, practiceId);
+      const current = await loadRow(a, clubId, practiceId);
       assertOpen(current.status);
       if (data.expectedRevision !== current.revision) {
         throw new Error("Sesi sudah diubah. Muat ulang.");
@@ -151,7 +151,7 @@ export async function savePracticeRecord(
       const originalTime = keepOriginal ? current.original_start_time : current.start_time;
       const originalLocation = keepOriginal ? current.original_location : current.location;
       revision = current.revision + 1;
-      const updatedRows = await actor.sql<{ id: number }>`
+      const updatedRows = await sql<{ id: number }>`
         update practices set
           session_date = ${nextDate},
           start_time = ${nextTime},
@@ -170,10 +170,10 @@ export async function savePracticeRecord(
         returning id
       `;
       if (!updatedRows[0]) throw new Error("Sesi sudah diubah. Muat ulang.");
-      await actor.sql`delete from practice_sets where practice_id = ${practiceId} and club_id = ${clubId}`;
+      await sql`delete from practice_sets where practice_id = ${practiceId} and club_id = ${clubId}`;
       if (data.scope === "future" && current.series_id) {
         const from = asDate(current.occurrence_date) ?? asDate(current.session_date);
-        await actor.sql`
+        await sql`
           update practice_series set
             title = ${data.title.trim()},
             start_time = ${nextTime},
@@ -184,22 +184,22 @@ export async function savePracticeRecord(
             notes = ${data.notes?.trim() || null}
           where id = ${current.series_id} and club_id = ${clubId}
         `;
-        await actor.sql`delete from practice_series_sets where series_id = ${current.series_id} and club_id = ${clubId}`;
+        await sql`delete from practice_series_sets where series_id = ${current.series_id} and club_id = ${clubId}`;
         for (let i = 0; i < data.sets.length; i++) {
           const s = data.sets[i]!;
-          await actor.sql`
+          await sql`
             insert into practice_series_sets (club_id, series_id, sort_order, block, reps, distance_m, stroke, interval_sec, description)
             values (${clubId}, ${current.series_id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})
           `;
         }
-        const future = await actor.sql<{ id: number }>`
+        const future = await sql<{ id: number }>`
           select id from practices
           where club_id = ${clubId} and series_id = ${current.series_id} and id <> ${practiceId}
             and status in ('scheduled', 'in_progress')
             and coalesce(occurrence_date, session_date) > ${from}::date
         `;
         for (const f of future) {
-          await actor.sql`
+          await sql`
             update practices set
               start_time = ${nextTime},
               duration_min = ${data.durationMin ?? null},
@@ -212,15 +212,15 @@ export async function savePracticeRecord(
               revision = revision + 1
             where id = ${f.id} and club_id = ${clubId}
           `;
-          await actor.sql`delete from practice_sets where practice_id = ${f.id} and club_id = ${clubId}`;
+          await sql`delete from practice_sets where practice_id = ${f.id} and club_id = ${clubId}`;
           for (let i = 0; i < data.sets.length; i++) {
             const s = data.sets[i]!;
-            await actor.sql`insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description) values (${clubId}, ${f.id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})`;
+            await sql`insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description) values (${clubId}, ${f.id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})`;
           }
         }
       }
     } else {
-      const rows = await actor.sql<{ id: number }>`
+      const rows = await sql<{ id: number }>`
         insert into practices (club_id, session_date, start_time, duration_min, location, kind, title, focus, total_meters, notes, series_id, occurrence_date)
         values (
           ${clubId}, ${data.sessionDate}, ${data.startTime || null}, ${data.durationMin ?? null},
@@ -230,25 +230,17 @@ export async function savePracticeRecord(
         returning id
       `;
       practiceId = rows[0]!.id;
-      const roster = await actor.sql<{ id: number }>`select id from swimmers where club_id = ${clubId} and status = 'aktif'`;
+      const roster = await sql<{ id: number }>`select id from swimmers where club_id = ${clubId} and status = 'aktif'`;
       for (const s of roster) {
-        await actor.sql`insert into practice_attendance (club_id, practice_id, swimmer_id, status, meters_completed, on_roll) values (${clubId}, ${practiceId}, ${s.id}, 'belum', null, true)`;
+        await sql`insert into practice_attendance (club_id, practice_id, swimmer_id, status, meters_completed, on_roll) values (${clubId}, ${practiceId}, ${s.id}, 'belum', null, true)`;
       }
     }
     for (let i = 0; i < data.sets.length; i++) {
       const s = data.sets[i]!;
-      await actor.sql`insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description) values (${clubId}, ${practiceId}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})`;
+      await sql`insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description) values (${clubId}, ${practiceId}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})`;
     }
-    await actor.sql.query("commit");
     return { id: practiceId!, revision, scheduleChanged };
-  } catch (err) {
-    try {
-      await actor.sql.query("rollback");
-    } catch {
-      /* keep */
-    }
-    throw err;
-  }
+  });
 }
 
 export async function loadPractice(actor: Actor, id: number): Promise<PracticeDetail> {
@@ -386,7 +378,7 @@ export async function cancelPractice(
     const until = dayBeforeIso(from!);
     await actor.sql`
       update practice_series
-      set until_date = ${until}
+      set until_date = ${until}, active = false
       where id = ${row.series_id} and club_id = ${clubId}
         and (until_date is null or until_date > ${until}::date)
     `;

@@ -21,6 +21,7 @@ import { Route as UndanganRouteImport } from './routes/undangan'
 import { Route as EventIdRouteImport } from './routes/event_.$id'
 import { Route as LatihanIdRouteImport } from './routes/latihan_.$id'
 import { Route as LatihanBaruRouteImport } from './routes/latihan_.baru'
+import { Route as LatihanJadwalRouteImport } from './routes/latihan_.jadwal'
 import { Route as PengumumanIdRouteImport } from './routes/pengumuman_.$id'
 import { Route as PerenangIdRouteImport } from './routes/perenang_.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -86,6 +87,11 @@ const LatihanBaruRoute = LatihanBaruRouteImport.update({
   path: '/latihan/baru',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LatihanJadwalRoute = LatihanJadwalRouteImport.update({
+  id: '/latihan_/jadwal',
+  path: '/latihan/jadwal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PengumumanIdRoute = PengumumanIdRouteImport.update({
   id: '/pengumuman_/$id',
   path: '/pengumuman/$id',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
   '/latihan/baru': typeof LatihanBaruRoute
+  '/latihan/jadwal': typeof LatihanJadwalRoute
   '/pengumuman/$id': typeof PengumumanIdRoute
   '/perenang/$id': typeof PerenangIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/event/$id': typeof EventIdRoute
   '/latihan/$id': typeof LatihanIdRoute
   '/latihan/baru': typeof LatihanBaruRoute
+  '/latihan/jadwal': typeof LatihanJadwalRoute
   '/pengumuman/$id': typeof PengumumanIdRoute
   '/perenang/$id': typeof PerenangIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/event_/$id': typeof EventIdRoute
   '/latihan_/$id': typeof LatihanIdRoute
   '/latihan_/baru': typeof LatihanBaruRoute
+  '/latihan_/jadwal': typeof LatihanJadwalRoute
   '/pengumuman_/$id': typeof PengumumanIdRoute
   '/perenang_/$id': typeof PerenangIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/event/$id'
     | '/latihan/$id'
     | '/latihan/baru'
+    | '/latihan/jadwal'
     | '/pengumuman/$id'
     | '/perenang/$id'
     | '/api/auth/$'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/event/$id'
     | '/latihan/$id'
     | '/latihan/baru'
+    | '/latihan/jadwal'
     | '/pengumuman/$id'
     | '/perenang/$id'
     | '/api/auth/$'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/event_/$id'
     | '/latihan_/$id'
     | '/latihan_/baru'
+    | '/latihan_/jadwal'
     | '/pengumuman_/$id'
     | '/perenang_/$id'
     | '/api/auth/$'
@@ -232,6 +244,7 @@ export interface RootRouteChildren {
   EventIdRoute: typeof EventIdRoute
   LatihanIdRoute: typeof LatihanIdRoute
   LatihanBaruRoute: typeof LatihanBaruRoute
+  LatihanJadwalRoute: typeof LatihanJadwalRoute
   PengumumanIdRoute: typeof PengumumanIdRoute
   PerenangIdRoute: typeof PerenangIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -324,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LatihanBaruRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/latihan_/jadwal': {
+      id: '/latihan_/jadwal'
+      path: '/latihan/jadwal'
+      fullPath: '/latihan/jadwal'
+      preLoaderRoute: typeof LatihanJadwalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pengumuman_/$id': {
       id: '/pengumuman_/$id'
       path: '/pengumuman/$id'
@@ -368,6 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   EventIdRoute: EventIdRoute,
   LatihanIdRoute: LatihanIdRoute,
   LatihanBaruRoute: LatihanBaruRoute,
+  LatihanJadwalRoute: LatihanJadwalRoute,
   PengumumanIdRoute: PengumumanIdRoute,
   PerenangIdRoute: PerenangIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
