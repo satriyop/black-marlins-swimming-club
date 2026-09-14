@@ -41,6 +41,28 @@ Private repos on GitHub Free cannot use repository rulesets. After the first gre
 
 Until that is set, `main` can still be pushed directly; deploy still waits for the `ci` job in the same workflow.
 
+## Manual deploy (GitHub Actions unavailable)
+
+**Preferred path is always**: merge to `main` and let Actions build, test, and deploy. Use this section only when Actions cannot run — e.g. a billing/spending-limit block on the repo's GitHub account (`ci` job fails immediately with "recent account payments have failed"), a GitHub outage, or another reason Actions itself is unavailable, not as a routine way to skip CI.
+
+Agents: if you hit that situation, use `scripts/deploy-manual.sh` — do not hand-roll `tar`/`ssh` commands. The script exists specifically because a hand-rolled version broke a real deploy (see the tar gotcha below); using it keeps that fixed and keeps a manual deploy identical in shape to what CI would have done.
+
+```bash
+npm run deploy:manual                       # full local CI parity: lint, typecheck, unit tests, build, smoke, e2e
+npm run deploy:manual -- --skip-e2e         # skip Playwright (faster; less coverage)
+npm run deploy:manual -- --skip-checks      # skip lint/typecheck/test/smoke/e2e entirely — only if you already ran them
+```
+
+What it does, matching the GitHub Actions `ci` + `deploy` jobs:
+
+1. Refuses to run unless you're on `main`, the working tree is clean, and local `main` matches `origin/main` (it deploys exactly what's merged, never local uncommitted state).
+2. Runs `npm ci`, lint, typecheck, `npm test`, `npm run build`, `npm run smoke`, and (unless `--skip-e2e`) the Playwright suite — against `DATABASE_URL` (default `postgres://bmsc:bmsc@127.0.0.1:5432/bmsc`), which must be a **local/test** Postgres, never aidev's.
+3. Packages `.output`, `package.json`, `package-lock.json`, `migrations`, `scripts`, `data` into `bmsc-release.tgz`.
+4. Ships it to `aidev` over SSH (host alias `aidev`, root — see `~/.ssh/config`; this machine must already be on the tailnet or otherwise able to reach it) and runs the same `sudo bash scripts/bmsc.sh apply-release <tarball> <sha>` the CI `deploy` job runs.
+5. Curls `https://bmsc.klaten.org/login` to confirm it's live.
+
+**macOS tar gotcha** (why this script exists instead of a one-liner): macOS's `tar` embeds AppleDouble metadata files (`._0001_auth.sql`, `._<anything>`) for extended attributes like `com.apple.provenance`. The remote migrate step runs every `*.sql` file it finds in `migrations/`, so one of these junk files reaching the server makes `db:migrate` fail with `invalid message format` (Postgres protocol error, code `08P01`) partway through. This happened for real deploying PR #75. It's safe — `apply-release` only swaps the `current` symlink *after* migrations succeed, so a failed migrate leaves production on the old release untouched — but it still means Postgres was fed one CI cycle's worth of garbage input for nothing. The script builds with `COPYFILE_DISABLE=1 tar --no-xattrs` and verifies the tarball has no `._*` entries before shipping it, so this can't recur. If you ever build a release tarball by hand on macOS, use those same flags.
+
 ## First time
 
 On your laptop, create the Google OAuth web client:
