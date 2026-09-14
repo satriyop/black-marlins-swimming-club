@@ -31,6 +31,7 @@ for (const width of [390, 1440]) {
         }
       }
       await page.goto(`/latihan/${fixture.practiceId}`);
+      await page.getByRole("button", { name: /^Tampilkan detail/ }).first().click();
       const meters = page.getByRole("spinbutton").first();
       await expect(meters).toBeVisible();
       await meters.fill("1250");

@@ -7,7 +7,7 @@
     "durationMin": 90,
     "location": "Umbul Tirtomulyono Pluneng",
     "kind": "teknik",
-    "notes": "Peta: https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
+    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
@@ -18,7 +18,7 @@
     "durationMin": 90,
     "location": "Umbul Tirtomulyono Pluneng",
     "kind": "teknik",
-    "notes": "Peta: https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
+    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
@@ -29,7 +29,7 @@
     "durationMin": 90,
     "location": "Umbul Tirtomulyono Pluneng",
     "kind": "teknik",
-    "notes": "Peta: https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
+    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
@@ -40,7 +40,7 @@
     "durationMin": 90,
     "location": "Umbul Tirtomulyono Pluneng",
     "kind": "teknik",
-    "notes": "Peta: https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
+    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
@@ -51,7 +51,7 @@
     "durationMin": 90,
     "location": "Umbul Tirtomulyono Pluneng",
     "kind": "teknik",
-    "notes": "Peta: https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
+    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
@@ -62,7 +62,8 @@
     "durationMin": 90,
     "location": "Umbul Brondong",
     "kind": "teknik",
-    "notes": "Opsional. Peta: https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
+    "notes": "Opsional.",
+    "mapUrl": "https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
     "active": false
   },
   {
@@ -73,7 +74,7 @@
     "durationMin": 90,
     "location": "Umbul Brondong",
     "kind": "teknik",
-    "notes": "Peta: https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
+    "mapUrl": "https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
     "active": true
   },
   {
@@ -84,7 +85,7 @@
     "durationMin": 90,
     "location": "Umbul Brondong",
     "kind": "teknik",
-    "notes": "Peta: https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
+    "mapUrl": "https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
     "active": true
   },
   {
@@ -95,7 +96,8 @@
     "durationMin": 90,
     "location": "Kolam Renang Depo",
     "kind": "teknik",
-    "notes": "Alternatif lokasi. Peta: https://maps.app.goo.gl/6nY8dcFiKv9e4Xh76",
+    "notes": "Alternatif lokasi.",
+    "mapUrl": "https://maps.app.goo.gl/6nY8dcFiKv9e4Xh76",
     "active": false
   },
   {
@@ -106,7 +108,8 @@
     "durationMin": 90,
     "location": "Kolam Renang Depo",
     "kind": "teknik",
-    "notes": "Alternatif lokasi. Peta: https://maps.app.goo.gl/6nY8dcFiKv9e4Xh76",
+    "notes": "Alternatif lokasi.",
+    "mapUrl": "https://maps.app.goo.gl/6nY8dcFiKv9e4Xh76",
     "active": false
   }
 ]

@@ -59,7 +59,7 @@ async function seedRoster(pool: Pool, clubId: number, practiceId: number) {
   return ids;
 }
 
-test.describe("compact coach attendance (#51)", () => {
+test.describe("compact attendance workspace", () => {
   test("coach can one-tap Hadir, switch status via Ubah status, and an unsaved distance draft survives filter changes and other rows saving", async ({
     page,
     context,
@@ -83,11 +83,11 @@ test.describe("compact coach attendance (#51)", () => {
       await expect(offRollSection.getByText("Lepas Dari Sesi")).toBeVisible();
 
       const belumRow = page.locator("article", { hasText: "Budi Dua" });
-      await expect(belumRow.locator("span", { hasText: "Belum dicatat" })).toBeVisible();
+      await expect(belumRow.getByLabel("Ubah status: Budi Dua")).toHaveValue("belum");
 
-      // One-tap Hadir.
+      // One-tap Hadir, right in the collapsed row.
       await belumRow.getByRole("button", { name: /^Hadir: Budi Dua$/ }).click();
-      await expect(belumRow.locator("span", { hasText: "Hadir" })).toBeVisible();
+      await expect(belumRow.getByLabel("Ubah status: Budi Dua")).toHaveValue("hadir");
       await expect(belumRow.getByRole("button", { name: /^Hadir: Budi Dua$/ })).toHaveCount(0);
 
       // Ubah status select carries every permitted status and switches the record.
@@ -95,10 +95,12 @@ test.describe("compact coach attendance (#51)", () => {
       const izinSelect = izinRow.getByLabel("Ubah status: Citra Tiga");
       await expect(izinSelect).toHaveValue("izin");
       await izinSelect.selectOption("alfa");
-      await expect(izinRow.locator("span", { hasText: "Alfa" })).toBeVisible();
+      await expect(izinSelect).toHaveValue("alfa");
 
-      // Start an unsaved distance draft on the swimmer already marked hadir.
+      // Secondary controls (distance, "Lepas dari sesi") stay collapsed until the row is expanded.
       const hadirRow = page.locator("article", { hasText: "Ahmad Satu" });
+      await expect(hadirRow.getByLabel("Jarak selesai (m)")).toHaveCount(0);
+      await hadirRow.getByRole("button", { name: "Tampilkan detail Ahmad Satu" }).click();
       const metersInput = hadirRow.getByLabel("Jarak selesai (m)");
       await expect(metersInput).toBeVisible();
       await metersInput.fill("850");
@@ -121,6 +123,12 @@ test.describe("compact coach attendance (#51)", () => {
       const longRow = page.locator("article", { hasText: LONG_NAME });
       await expect(longRow.getByRole("button", { name: `Hadir: ${LONG_NAME}` })).toBeVisible();
 
+      // Name search narrows the list to matching swimmers only.
+      await page.getByLabel("Cari perenang").fill("Citra");
+      await expect(page.getByText("Citra Tiga")).toBeVisible();
+      await expect(page.getByText("Budi Dua")).toBeHidden();
+      await page.getByLabel("Cari perenang").fill("");
+
       // The overflow status filter reaches statuses not covered by the two primary buttons,
       // and rows that no longer match stay mounted (hidden) rather than unmounting.
       await page.getByLabel("Filter status lain").selectOption("alfa");
@@ -128,6 +136,16 @@ test.describe("compact coach attendance (#51)", () => {
       await expect(page.getByText("Citra Tiga")).toBeVisible();
       await expect(page.getByText("Eka Lima")).toBeVisible();
       await expect(page.getByText("Ahmad Satu")).toBeHidden();
+      await page.getByRole("button", { name: /^Semua/ }).click();
+
+      // Bulk-marking present covers everyone still unmarked in one action.
+      const markAll = page.getByRole("button", { name: /^Tandai semua hadir/ });
+      await expect(markAll).toBeVisible();
+      await markAll.click();
+      await expect(markAll).toHaveCount(0);
+      await expect(page.locator("article", { hasText: "Fajar Enam" }).getByLabel("Ubah status: Fajar Enam")).toHaveValue(
+        "hadir",
+      );
     } finally {
       await pool.end();
       await fixture.cleanup();

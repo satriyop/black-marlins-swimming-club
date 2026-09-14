@@ -16,11 +16,11 @@ test("default schedules seed idempotently and preserve on/off choices", async ()
   const schedules = await h.sql<{
     seed_key: string;
     active: boolean;
-    notes: string;
-  }>`select seed_key, active, notes from practice_series where club_id = ${clubId} order by seed_key`;
+    map_url: string;
+  }>`select seed_key, active, map_url from practice_series where club_id = ${clubId} order by seed_key`;
   expect(schedules).toHaveLength(10);
   expect(schedules.filter((row) => row.active)).toHaveLength(7);
-  expect(schedules.every((row) => row.notes.includes("https://maps.app.goo.gl/"))).toBe(true);
+  expect(schedules.every((row) => row.map_url.includes("https://maps.app.goo.gl/"))).toBe(true);
   expect(schedules.find((row) => row.seed_key === "saturday-morning-brondong-0500")?.active).toBe(
     false,
   );
