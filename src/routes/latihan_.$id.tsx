@@ -1,3 +1,4 @@
+import { AnnouncementComposer } from "@/components/announcements/composer";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -162,13 +163,14 @@ function Page() {
         )}
       </div>
       {staff && (data.status === "cancelled" || data.originalSessionDate || data.originalStartTime || data.originalLocation) ? (
-        <p className="mb-5 rounded-xl border border-border p-3 text-sm">
+        <div className="mb-5 rounded-xl border border-border p-3 text-sm">
           Umumkan perubahan ke keluarga?{" "}
-          <Link to="/pengumuman" className="text-primary hover:underline">
-            Tulis pengumuman
-          </Link>
+          <AnnouncementComposer label="Tulis pengumuman perubahan" prefill={{
+            practiceId:data.id,title:`Perubahan latihan: ${data.title}`,
+            body:`${data.title}\nJadwal: ${data.sessionDate} ${data.startTime ?? ""}\nLokasi: ${data.location ?? "Belum ditentukan"}${data.status === "cancelled" ? `\nDibatalkan: ${data.cancelReason ?? "Hubungi pelatih"}` : ""}`,
+          }} />
           . Mengumumkan bukan berarti pesan sudah sampai.
-        </p>
+        </div>
       ) : null}
       <Tabs.Root key={`${id}-${canAttend}`} defaultValue={canAttend ? "attendance" : "program"}>
         <Tabs.List

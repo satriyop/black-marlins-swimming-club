@@ -172,6 +172,8 @@ export type Activity = {
 };
 
 export type Dashboard = {
+  pendingAcknowledgements: { id: number; title: string }[];
+  pendingAcknowledgementCount: number;
   club: Club;
   swimmers: Swimmer[];
   upcomingPractices: Practice[];

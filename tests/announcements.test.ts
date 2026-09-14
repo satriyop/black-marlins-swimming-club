@@ -85,15 +85,15 @@ test("author is already read; receipts count wali and perenang", async () => {
   const before = await getAnnouncement(h.actor(SATRIYO_ID), post.id);
   expect(before.receipts).toBeTruthy();
   expect(before.receipts?.expected).toBeGreaterThanOrEqual(3);
-  expect(before.receipts?.read).toBe(1);
-  expect(before.receipts?.outstanding.some((n) => n.includes("Ratih"))).toBe(true);
-  expect(before.receipts?.outstanding.some((n) => n.includes("Luigi"))).toBe(true);
+  expect(before.receipts?.opened).toBe(1);
+  expect(before.receipts?.notOpened.some((n) => n.includes("Ratih"))).toBe(true);
+  expect(before.receipts?.notOpened.some((n) => n.includes("Luigi"))).toBe(true);
 
   await getAnnouncement(h.actor(RATIH_ID), post.id);
   await getAnnouncement(h.actor("usr_luigi"), post.id);
   const after = await getAnnouncement(h.actor(SATRIYO_ID), post.id);
-  expect(after.receipts?.outstanding.some((n) => n.includes("Ratih"))).toBe(false);
-  expect(after.receipts?.outstanding.some((n) => n.includes("Luigi"))).toBe(false);
+  expect(after.receipts?.notOpened.some((n) => n.includes("Ratih"))).toBe(false);
+  expect(after.receipts?.notOpened.some((n) => n.includes("Luigi"))).toBe(false);
 });
 
 test("uninvited user cannot list or open", async () => {

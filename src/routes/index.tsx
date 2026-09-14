@@ -108,6 +108,16 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
         <UrgentNotice key={p.id} practice={p} />
       ))}
 
+      {data.pendingAcknowledgementCount > 0 && (
+        <section className="rounded-xl border border-border p-4" aria-label="Pengumuman perlu konfirmasi">
+          <p className="font-semibold">{data.pendingAcknowledgementCount} pengumuman perlu konfirmasi</p>
+          <p className="mt-1 text-sm text-muted-foreground">Membuka pengumuman belum berarti memberi konfirmasi.</p>
+          <ul className="mt-2">{data.pendingAcknowledgements.slice(0,3).map(post => (
+            <li key={post.id}><Link className="inline-flex min-h-11 items-center text-sm font-semibold text-primary" to="/pengumuman/$id" params={{ id:String(post.id) }}>{post.title}</Link></li>
+          ))}</ul>
+          {data.pendingAcknowledgementCount > 3 && <Link to="/pengumuman" className="inline-flex min-h-11 items-center text-sm underline">Lihat semua konfirmasi</Link>}
+        </section>
+      )}
       {important.length > 0 || unreadCount > 0 ? (
         <NoticeSummary posts={unreadAnnouncements} unreadCount={unreadCount} />
       ) : null}
