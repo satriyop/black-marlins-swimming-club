@@ -81,6 +81,12 @@ export async function createClubFixture(
     const practiceKind = options.practice ?? "scheduled";
     let practiceId: number | undefined;
     if (practiceKind !== "none") {
+      const practiceDate = jakartaToday();
+      const weekday = new Date(`${practiceDate}T00:00:00Z`).getUTCDay() || 7;
+      const series = await pool.query(
+        "insert into practice_series (club_id,title,weekday,start_time,duration_min,location,kind,start_date) values ($1,'Latihan Contoh Visual',$2,'16:00',90,'Kolam contoh dengan nama lokasi yang panjang untuk pemeriksaan antarmuka','renang',$3::date) returning id",
+        [clubId, weekday, practiceDate],
+      );
       const status =
         practiceKind === "cancelled"
           ? "cancelled"
@@ -88,12 +94,13 @@ export async function createClubFixture(
             ? "completed"
             : "in_progress";
       const practice = await pool.query(
-        "insert into practices (club_id, session_date, start_time, location, kind, title, status, cancel_reason) values ($1,$2::date,'16:00','Kolam contoh dengan nama lokasi yang panjang untuk pemeriksaan antarmuka','renang','Latihan Contoh Visual',$3,$4) returning id",
+        "insert into practices (club_id, session_date, start_time, location, kind, title, status, cancel_reason, series_id, occurrence_date) values ($1,$2::date,'16:00','Kolam contoh dengan nama lokasi yang panjang untuk pemeriksaan antarmuka','renang','Latihan Contoh Visual',$3,$4,$5,$2::date) returning id",
         [
           clubId,
-          jakartaToday(),
+          practiceDate,
           status,
           practiceKind === "cancelled" ? "Hujan petir di kolam" : null,
+          series.rows[0].id,
         ],
       );
       practiceId = practice.rows[0].id as number;

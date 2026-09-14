@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Copy, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   addClubPracticeParticipant,
@@ -140,12 +140,6 @@ function Page() {
                 </Link>
               </Button>
             ) : null}
-            <Button asChild variant="outline">
-              <Link to="/latihan/baru" search={{ copy: data.id }}>
-                <Copy />
-                Salin sesi
-              </Link>
-            </Button>
             <SessionLifecycle data={data} />
             {!closed &&
             !data.attendance.some((a) => a.status !== "belum" || a.metersCompleted != null) ? (

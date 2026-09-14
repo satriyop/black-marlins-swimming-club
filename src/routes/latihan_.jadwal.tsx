@@ -1,14 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { listClubPracticeSeries, setClubPracticeSeriesActive } from "@/lib/server/fns";
+import { listClubPracticeSeries, setClubPracticeSeriesActive, skipClubSeriesRange } from "@/lib/server/fns";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
 import { useAccess } from "@/lib/club/use-access";
 import { canWritePractice } from "@/lib/club/permissions";
 import { WEEKDAYS } from "@/lib/swim/constants";
+import { Field, Input, SelectNative } from "@/components/ui/input";
+import { PracticeNavigation } from "@/components/practice/practice-navigation";
 
 export const Route = createFileRoute("/latihan_/jadwal")({ component: Page });
 
@@ -42,7 +45,7 @@ function groupSeries(rows: SeriesRow[]): SeriesGroup[] {
 function NewScheduleButton() {
   return (
     <Button asChild>
-      <Link to="/latihan/baru" search={{ copy: undefined, weekly: true }}>
+      <Link to="/latihan/baru" search={{ weekly: true }}>
         <Plus />
         Jadwal baru
       </Link>
@@ -68,17 +71,16 @@ function Page() {
   const groups = groupSeries(series.data ?? []);
   return (
     <AppShell>
-      <Link to="/latihan" className="mb-4 inline-flex min-h-11 items-center text-sm">
-        ← Latihan
-      </Link>
       <PageHeader
         kicker="Program"
-        title="Jadwal berulang"
-        description="Aktifkan atau nonaktifkan jadwal mingguan tanpa menghapusnya. Menonaktifkan menghentikan sesi baru; sesi yang sudah dijadwalkan tidak otomatis dibatalkan."
+        title="Atur jadwal rutin"
+        description="Kelola hari latihan mingguan. Gunakan sesi khusus untuk latihan yang hanya berlangsung sekali."
         action={
           canManage ? <NewScheduleButton /> : undefined
         }
       />
+      <PracticeNavigation active="schedule" canManage={canManage} />
+      {canManage ? <SeriesSkipBar series={series.data ?? []} /> : null}
       {accessPending || series.isPending ? (
         <div className="grid gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -130,5 +132,46 @@ function Page() {
         </ul>
       )}
     </AppShell>
+  );
+}
+
+function SeriesSkipBar({ series }: { series: SeriesRow[] }) {
+  const qc = useQueryClient();
+  const [id, setId] = useState<number | "">("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [reason, setReason] = useState("Libur");
+  const active = series.filter((item) => item.active && item.until_date == null);
+  if (!active.length) return null;
+  return (
+    <form
+      className="mb-6 grid gap-3 rounded-2xl bg-card p-4 shadow-border md:grid-cols-[minmax(12rem,2fr)_1fr_1fr_minmax(8rem,1fr)_auto] md:items-end"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (id === "") return;
+        try {
+          await skipClubSeriesRange({ data: { id: Number(id), fromDate, toDate, reason } });
+          toast.success("Rentang libur diterapkan");
+          await qc.invalidateQueries({ queryKey: ["practices"] });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Gagal menerapkan libur");
+        }
+      }}
+    >
+      <Field label="Liburkan jadwal">
+        <SelectNative value={id === "" ? "" : String(id)} onChange={(event) => setId(event.target.value ? Number(event.target.value) : "")} required>
+          <option value="">Pilih jadwal</option>
+          {active.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title} · {WEEKDAYS.find((day) => day.id === item.weekday)?.label}
+            </option>
+          ))}
+        </SelectNative>
+      </Field>
+      <Field label="Dari"><Input type="date" required value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></Field>
+      <Field label="Sampai"><Input type="date" required value={toDate} onChange={(event) => setToDate(event.target.value)} /></Field>
+      <Field label="Alasan"><Input value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
+      <Button type="submit" variant="outline">Terapkan</Button>
+    </form>
   );
 }
