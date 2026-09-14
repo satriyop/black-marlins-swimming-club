@@ -1,5 +1,19 @@
 import { expect, test } from "./helpers/browser-test";
 import { createClubFixture } from "./helpers/club-fixture";
+import type { Page } from "@playwright/test";
+
+const weekdayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+
+async function selectOnlyWeekdays(page: Page, wanted: string[]) {
+  for (const label of wanted) {
+    const button = page.getByRole("button", { name: label, exact: true });
+    if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+  }
+  for (const label of weekdayLabels.filter((day) => !wanted.includes(day))) {
+    const button = page.getByRole("button", { name: label, exact: true });
+    if ((await button.getAttribute("aria-pressed")) === "true") await button.click();
+  }
+}
 
 test.describe("flexible recurring schedule (jadwal berulang)", () => {
   test("multi-day creation produces one independently toggleable schedule per day", async ({
@@ -22,9 +36,7 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
       await expect(weeklyCheckbox).toBeChecked();
 
       await page.getByLabel("Judul sesi").fill("Latihan Sore");
-      // The current date's weekday starts selected; add a second day.
-      await page.getByRole("button", { name: "Sel", exact: true }).click();
-      await page.getByRole("button", { name: "Rab", exact: true }).click();
+      await selectOnlyWeekdays(page, ["Sel", "Rab"]);
       await page.getByLabel("Lokasi").fill("Umbul Tirtomulyono Pluneng");
       await page.getByRole("button", { name: "Simpan sesi" }).click();
 
@@ -78,7 +90,7 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
       await fixture.signIn(context, baseURL!);
       await page.goto("/latihan/baru?weekly=true");
       await page.getByLabel("Judul sesi").fill("Latihan Pagi Sabtu");
-      await page.getByRole("button", { name: "Sab", exact: true }).click();
+      await selectOnlyWeekdays(page, ["Sab"]);
       await page.getByLabel("Lokasi").fill("Umbul Brondong");
       await page.getByLabel("Simpan, nonaktif dulu").check();
       await page.getByRole("button", { name: "Simpan sesi" }).click();

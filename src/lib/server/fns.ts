@@ -27,6 +27,7 @@ export {
   resolveClubAttendanceCorrection,
   createClubPracticeSeries,
   listClubPracticeSeries,
+  createClubPracticeSeriesBatch,
   skipClubSeriesRange,
   refreshClubPracticeSeries,
   setClubPracticeSeriesActive,

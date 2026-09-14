@@ -65,6 +65,8 @@ export const WEEKDAYS = [
   { id: 7, label: "Minggu" },
 ] as const;
 
+export type WeekdayId = (typeof WEEKDAYS)[number]["id"];
+
 export const PRACTICE_KINDS = [
   { id: "teknik", label: "Teknik" },
   { id: "daya_tahan", label: "Daya tahan" },

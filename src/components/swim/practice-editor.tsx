@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus } from "lucide-react";
-import { createClubPracticeSeries, savePractice, type SetInput } from "@/lib/server/fns";
+import { createClubPracticeSeriesBatch, savePractice, type SetInput } from "@/lib/server/fns";
 import type { PracticeDetail } from "@/lib/swim/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, SelectNative, Textarea } from "@/components/ui/input";
 import { isoWeekday } from "@/lib/club/series";
-import { PRACTICE_KINDS, SET_BLOCKS, STROKES, WEEKDAYS, labelOf, strokeLabel } from "@/lib/swim/constants";
+import { PRACTICE_KINDS, SET_BLOCKS, STROKES, WEEKDAYS, labelOf, strokeLabel, type WeekdayId } from "@/lib/swim/constants";
 import { todayIso } from "@/lib/utils";
 import { formatInterval } from "@/lib/swim/time";
 
@@ -68,13 +68,12 @@ export function PracticeEditor({
   );
   const [template, setTemplate] = useState("");
   const [weekly, setWeekly] = useState(defaultWeekly);
-  const [weekdays, setWeekdays] = useState<number[]>(() => [
+  const [weekdays, setWeekdays] = useState<WeekdayId[]>(() => [
     isoWeekday(editing ? source.sessionDate : todayIso()),
   ]);
-  const [weeks, setWeeks] = useState(8);
   const [active, setActive] = useState(true);
   const [editScope, setEditScope] = useState<"this" | "future">("this");
-  const toggleWeekday = (day: number) =>
+  const toggleWeekday = (day: WeekdayId) =>
     setWeekdays((days) =>
       days.includes(day)
         ? days.length > 1
@@ -85,26 +84,22 @@ export function PracticeEditor({
   const mut = useMutation({
     mutationFn: async () => {
       if (weekly && !editing) {
-        const results = await Promise.all(
-          weekdays.map((weekday) =>
-            createClubPracticeSeries({
-              data: {
-                title: form.title,
-                weekday,
-                startTime: form.startTime,
-                durationMin: form.durationMin ? Number(form.durationMin) : undefined,
-                location: form.location,
-                kind: form.kind,
-                focus: form.focus,
-                notes: form.notes,
-                weeks,
-                fromDate: form.sessionDate,
-                active,
-                sets,
-              },
-            }),
-          ),
-        );
+        const results = await createClubPracticeSeriesBatch({
+          data: {
+            title: form.title,
+            weekdays,
+            startTime: form.startTime,
+            durationMin: form.durationMin ? Number(form.durationMin) : undefined,
+            location: form.location,
+            kind: form.kind,
+            focus: form.focus,
+            notes: form.notes,
+            weeks: 16,
+            fromDate: form.sessionDate,
+            active,
+            sets,
+          },
+        });
         const soloPracticeId = active && results.length === 1 ? results[0]!.practiceIds[0] : undefined;
         return soloPracticeId != null
           ? { to: "/latihan/$id" as const, params: { id: String(soloPracticeId) } }
@@ -199,15 +194,12 @@ export function PracticeEditor({
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Jumlah minggu">
-                <Input
-                  type="number"
-                  min={1}
-                  max={16}
-                  value={weeks}
-                  onChange={(e) => setWeeks(Number(e.target.value) || 8)}
-                />
-              </Field>
+              <div className="grid min-w-0 gap-1.5 text-sm">
+                <p className="font-semibold text-foreground">Berjalan terus</p>
+                <p className="text-xs text-muted-foreground">
+                  Jadwal tidak kedaluwarsa. Sistem selalu menyiapkan 16 minggu ke depan.
+                </p>
+              </div>
               <div className="grid min-w-0 gap-1.5 text-sm">
                 <p className="font-semibold text-foreground">Status saat dibuat</p>
                 <div className="flex min-h-11 items-center gap-4">

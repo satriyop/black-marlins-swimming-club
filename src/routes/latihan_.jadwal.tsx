@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { listClubPracticeSeries, setClubPracticeSeriesActive } from "@/lib/server/fns";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { QueryError } from "@/components/ui/query-error";
 import { useAccess } from "@/lib/club/use-access";
 import { canWritePractice } from "@/lib/club/permissions";
 import { WEEKDAYS } from "@/lib/swim/constants";
@@ -12,12 +13,13 @@ import { WEEKDAYS } from "@/lib/swim/constants";
 export const Route = createFileRoute("/latihan_/jadwal")({ component: Page });
 
 type SeriesRow = Awaited<ReturnType<typeof listClubPracticeSeries>>[number];
+type SeriesGroup = { key: string; title: string; startTime: string | null; location: string | null; members: SeriesRow[] };
 
 function groupKey(s: SeriesRow) {
-  return `${s.title}|${s.start_time ?? ""}|${s.location ?? ""}`;
+  return JSON.stringify([s.title, s.start_time, s.location]);
 }
 
-function groupSeries(rows: SeriesRow[]) {
+function groupSeries(rows: SeriesRow[]): SeriesGroup[] {
   const map = new Map<string, SeriesRow[]>();
   for (const row of rows) {
     const key = groupKey(row);
@@ -35,6 +37,17 @@ function groupSeries(rows: SeriesRow[]) {
       (a, b) =>
         a.title.localeCompare(b.title, "id") || (a.startTime ?? "").localeCompare(b.startTime ?? ""),
     );
+}
+
+function NewScheduleButton() {
+  return (
+    <Button asChild>
+      <Link to="/latihan/baru" search={{ copy: undefined, weekly: true }}>
+        <Plus />
+        Jadwal baru
+      </Link>
+    </Button>
+  );
 }
 
 function Page() {
@@ -63,14 +76,7 @@ function Page() {
         title="Jadwal berulang"
         description="Aktifkan atau nonaktifkan jadwal mingguan tanpa menghapusnya. Menonaktifkan menghentikan sesi baru; sesi yang sudah dijadwalkan tidak otomatis dibatalkan."
         action={
-          canManage ? (
-            <Button asChild>
-              <Link to="/latihan/baru" search={{ copy: undefined, weekly: true }}>
-                <Plus />
-                Jadwal baru
-              </Link>
-            </Button>
-          ) : undefined
+          canManage ? <NewScheduleButton /> : undefined
         }
       />
       {accessPending || series.isPending ? (
@@ -81,18 +87,13 @@ function Page() {
         </div>
       ) : !canManage ? (
         <EmptyState title="Khusus staf klub" description="Pelatih dan admin mengelola jadwal berulang." />
+      ) : series.isError ? (
+        <QueryError retry={() => series.refetch()} />
       ) : !groups.length ? (
         <EmptyState
           title="Belum ada jadwal berulang"
           description="Buat jadwal mingguan pertama, misalnya latihan sore setiap hari kerja."
-          action={
-            <Button asChild>
-              <Link to="/latihan/baru" search={{ copy: undefined, weekly: true }}>
-                <Plus />
-                Jadwal baru
-              </Link>
-            </Button>
-          }
+          action={<NewScheduleButton />}
         />
       ) : (
         <ul className="grid gap-3">
@@ -106,18 +107,20 @@ function Page() {
               <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={`Hari untuk ${g.title}`}>
                 {g.members.map((m) => {
                   const label = WEEKDAYS.find((d) => d.id === m.weekday)?.label ?? String(m.weekday);
+                  const ended = m.until_date != null;
                   return (
                     <Button
                       key={m.id}
                       type="button"
                       size="sm"
-                      variant={m.active ? "default" : "outline"}
+                      variant={m.active && !ended ? "default" : "outline"}
                       aria-pressed={m.active}
-                      aria-label={`${label}: ${m.active ? "Aktif" : "Nonaktif"}, ketuk untuk mengubah`}
-                      disabled={toggle.isPending}
+                      aria-label={ended ? `${label}: Berakhir` : `${label}: ${m.active ? "Aktif" : "Nonaktif"}, ketuk untuk mengubah`}
+                      disabled={toggle.isPending || ended}
                       onClick={() => toggle.mutate({ id: m.id, active: !m.active })}
                     >
                       {label.slice(0, 3)}
+                      {ended ? " · Berakhir" : ""}
                     </Button>
                   );
                 })}
