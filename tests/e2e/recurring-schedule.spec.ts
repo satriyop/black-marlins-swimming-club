@@ -29,16 +29,16 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
       await page.goto("/latihan/jadwal");
       await expect(page.getByText("Belum ada jadwal berulang")).toBeVisible();
 
-      // "+ Jadwal baru" pre-checks the weekly option.
+      // "Jadwal baru" opens a schedule-only form.
       await page.getByRole("link", { name: "Jadwal baru" }).first().click();
       await expect(page).toHaveURL(/\/latihan\/baru/);
-      const weeklyCheckbox = page.getByLabel("Jadwal berulang setiap minggu");
-      await expect(weeklyCheckbox).toBeChecked();
+      await expect(page.getByText("Jadwal latihan", { exact: true })).toBeVisible();
+      await expect(page.getByText("Program set")).toHaveCount(0);
 
-      await page.getByLabel("Judul sesi").fill("Latihan Sore");
+      await page.getByLabel("Nama jadwal").fill("Latihan Sore");
       await selectOnlyWeekdays(page, ["Sel", "Rab"]);
       await page.getByLabel("Lokasi").fill("Umbul Tirtomulyono Pluneng");
-      await page.getByRole("button", { name: "Simpan sesi" }).click();
+      await page.getByRole("button", { name: "Simpan jadwal" }).click();
 
       // More than one day selected -> lands on the management list, not a single session.
       await expect(page).toHaveURL(/\/latihan\/jadwal/);
@@ -89,11 +89,11 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
     try {
       await fixture.signIn(context, baseURL!);
       await page.goto("/latihan/baru?weekly=true");
-      await page.getByLabel("Judul sesi").fill("Latihan Pagi Sabtu");
+      await page.getByLabel("Nama jadwal").fill("Latihan Pagi Sabtu");
       await selectOnlyWeekdays(page, ["Sab"]);
       await page.getByLabel("Lokasi").fill("Umbul Brondong");
       await page.getByLabel("Simpan, nonaktif dulu").check();
-      await page.getByRole("button", { name: "Simpan sesi" }).click();
+      await page.getByRole("button", { name: "Simpan jadwal" }).click();
 
       await expect(page).toHaveURL(/\/latihan\/jadwal/);
       const card = page.locator("li", { hasText: "Latihan Pagi Sabtu" });

@@ -21,6 +21,16 @@ export type SeriesInput = {
   sets: PracticeSetInput[];
 };
 
+export type ScheduledTrainingDay = {
+  scheduleId: number;
+  practiceId: number | null;
+  date: string;
+  title: string;
+  startTime: string | null;
+  durationMin: number | null;
+  location: string | null;
+};
+
 export function isoWeekday(isoDate: string): WeekdayId {
   const [y, m, d] = isoDate.split("-").map(Number);
   const js = new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay();
@@ -78,7 +88,6 @@ export async function createPracticeSeries(actor: Actor, input: SeriesInput) {
   if (!Number.isInteger(weeks) || weeks < 1 || weeks > 52)
     throw new Error("Jangka penyiapan tidak valid");
   return actor.sql.transaction(async (sql) => {
-    const a = { ...actor, sql };
     const rows = await sql<{ id: number }>`
       insert into practice_series (
         club_id, title, weekday, start_time, duration_min, location, kind, focus, notes,
@@ -104,9 +113,7 @@ export async function createPracticeSeries(actor: Actor, input: SeriesInput) {
         )
       `;
     }
-    if (!active) return { id, title, practiceIds: [] as number[] };
-    const materialized = await materializePracticeSeries(a, { id, fromDate });
-    return { id, title, practiceIds: materialized.practiceIds };
+    return { id, title, practiceIds: [] as number[] };
   });
 }
 
@@ -126,89 +133,6 @@ export async function createPracticeSeriesBatch(
     }
     return results;
   });
-}
-
-export async function materializePracticeSeries(
-  actor: Actor,
-  input: { id: number; fromDate?: string },
-): Promise<{ practiceIds: number[] }> {
-  const clubId = await requireCoach(actor);
-  const series = await actor.sql<{
-    id: number;
-    title: string;
-    weekday: WeekdayId;
-    start_time: string | null;
-    duration_min: number | null;
-    location: string | null;
-    kind: string;
-    focus: string | null;
-    notes: string | null;
-    horizon_weeks: number;
-    start_date: string;
-    until_date: string | null;
-  }>`
-    select id, title, weekday, start_time, duration_min, location, kind, focus, notes,
-           horizon_weeks, start_date::text as start_date, until_date::text as until_date
-    from practice_series where id = ${input.id} and club_id = ${clubId} and active = true limit 1
-  `;
-  const row = series[0];
-  if (!row) throw new Error("Jadwal berulang tidak ditemukan");
-  const sets = await actor.sql<{
-    block: string | null;
-    reps: number;
-    distance_m: number;
-    stroke: string;
-    interval_sec: number | null;
-    description: string | null;
-  }>`
-    select block, reps, distance_m, stroke, interval_sec, description
-    from practice_series_sets where series_id = ${row.id} and club_id = ${clubId} order by sort_order, id
-  `;
-  const requestedFrom = input.fromDate ?? jakartaNowParts().date;
-  const fromDate =
-    requestedFrom > row.start_date.slice(0, 10) ? requestedFrom : row.start_date.slice(0, 10);
-  const dates = datesForWeekday(row.weekday, fromDate, row.horizon_weeks);
-  const skips = await actor.sql<{ skip_date: string }>`
-    select skip_date::text as skip_date from practice_series_skips where series_id = ${row.id}
-  `;
-  const skipSet = new Set(skips.map((s) => s.skip_date.slice(0, 10)));
-  const existing = await actor.sql<{ id: number; occurrence_date: string }>`
-    select id, occurrence_date::text as occurrence_date from practices
-    where club_id = ${clubId} and series_id = ${row.id}
-  `;
-  const have = new Map(existing.map((e) => [e.occurrence_date.slice(0, 10), e.id]));
-  const practiceIds: number[] = [];
-  for (const date of dates) {
-    const already = have.get(date);
-    if (already) {
-      practiceIds.push(already);
-      continue;
-    }
-    if (skipSet.has(date)) continue;
-    if (row.until_date && date > row.until_date.slice(0, 10)) continue;
-    const saved = await savePracticeRecord(actor, {
-      sessionDate: date,
-      startTime: row.start_time ?? undefined,
-      durationMin: row.duration_min ?? undefined,
-      location: row.location ?? undefined,
-      kind: row.kind,
-      title: row.title,
-      focus: row.focus ?? undefined,
-      notes: row.notes ?? undefined,
-      seriesId: row.id,
-      occurrenceDate: date,
-      sets: sets.map((s) => ({
-        block: s.block ?? "utama",
-        reps: s.reps,
-        distanceM: s.distance_m,
-        stroke: s.stroke,
-        intervalSec: s.interval_sec,
-        description: s.description ?? undefined,
-      })),
-    });
-    practiceIds.push(saved.id);
-  }
-  return { practiceIds };
 }
 
 export async function skipSeriesRange(
@@ -248,7 +172,6 @@ export async function skipSeriesRange(
 
 export async function listPracticeSeries(actor: Actor) {
   const clubId = await requireCoach(actor);
-  await refreshActivePracticeSeries(actor);
   return actor.sql<{
     id: number;
     title: string;
@@ -272,7 +195,6 @@ export async function setSeriesActive(
 ): Promise<{ ok: true }> {
   const clubId = await requireCoach(actor);
   return actor.sql.transaction(async (sql) => {
-    const a = { ...actor, sql };
     const updated = await sql<{ id: number }>`
       update practice_series
       set active = ${input.active}
@@ -290,21 +212,114 @@ export async function setSeriesActive(
       }
       throw new Error("Jadwal berulang tidak ditemukan");
     }
-    if (input.active) {
-      await materializePracticeSeries(a, { id: input.id, fromDate: jakartaNowParts().date });
-    }
     return { ok: true };
   });
 }
 
-export async function refreshActivePracticeSeries(actor: Actor): Promise<void> {
-  const clubId = await requireCoach(actor);
-  const active = await actor.sql<{ id: number }>`
-    select id from practice_series where club_id = ${clubId} and active = true order by id
+export async function listScheduledTrainingDays(
+  actor: Actor,
+  input: { fromDate?: string; days?: number },
+): Promise<ScheduledTrainingDay[]> {
+  const clubId = await clubIdFor(actor);
+  if (clubId == null) throw new Error("Tidak diizinkan");
+  const fromDate = input.fromDate ?? jakartaNowParts().date;
+  const days = Math.min(Math.max(Math.trunc(input.days ?? 8), 1), 31);
+  const to = new Date(`${fromDate}T00:00:00Z`);
+  to.setUTCDate(to.getUTCDate() + days - 1);
+  const toDate = to.toISOString().slice(0, 10);
+  const schedules = await actor.sql<{
+    id: number; title: string; weekday: WeekdayId; start_time: string | null;
+    duration_min: number | null; location: string | null; start_date: string;
+  }>`
+    select id, title, weekday, start_time, duration_min, location, start_date::text as start_date
+    from practice_series
+    where club_id = ${clubId} and active = true and start_date <= ${toDate}::date
+      and (until_date is null or until_date >= ${fromDate}::date)
+    order by weekday, start_time, id
   `;
-  for (const row of active) {
-    await materializePracticeSeries(actor, { id: row.id, fromDate: jakartaNowParts().date });
+  const skips = await actor.sql<{ series_id: number; skip_date: string }>`
+    select series_id, skip_date::text as skip_date from practice_series_skips
+    where skip_date between ${fromDate}::date and ${toDate}::date
+  `;
+  const skipped = new Set(skips.map((row) => `${row.series_id}:${row.skip_date.slice(0, 10)}`));
+  const practices = await actor.sql<{ id: number; series_id: number; occurrence_date: string }>`
+    select id, series_id, occurrence_date::text as occurrence_date from practices
+    where club_id = ${clubId} and series_id is not null
+      and occurrence_date between ${fromDate}::date and ${toDate}::date
+  `;
+  const practiceByDay = new Map(practices.map((row) => [`${row.series_id}:${row.occurrence_date.slice(0, 10)}`, row.id]));
+  const result: ScheduledTrainingDay[] = [];
+  for (let offset = 0; offset < days; offset += 1) {
+    const date = new Date(`${fromDate}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+    const day = date.toISOString().slice(0, 10);
+    for (const schedule of schedules) {
+      const key = `${schedule.id}:${day}`;
+      if (day < schedule.start_date.slice(0, 10) || isoWeekday(day) !== schedule.weekday || skipped.has(key)) continue;
+      result.push({
+        scheduleId: schedule.id,
+        practiceId: practiceByDay.get(key) ?? null,
+        date: day,
+        title: schedule.title,
+        startTime: schedule.start_time,
+        durationMin: schedule.duration_min,
+        location: schedule.location,
+      });
+    }
   }
+  return result;
+}
+
+export async function openScheduledTrainingDay(
+  actor: Actor,
+  input: { scheduleId: number; date: string },
+): Promise<{ id: number }> {
+  const clubId = await requireCoach(actor);
+  if (input.date > jakartaNowParts().date) throw new Error("Absensi belum dapat dibuka sebelum hari latihan.");
+  const schedules = await actor.sql<{
+    id: number; title: string; weekday: WeekdayId; start_time: string | null; duration_min: number | null;
+    location: string | null; kind: string; focus: string | null; notes: string | null;
+  }>`
+    select id, title, weekday, start_time, duration_min, location, kind, focus, notes
+    from practice_series where id = ${input.scheduleId} and club_id = ${clubId} and active = true
+      and start_date <= ${input.date}::date and (until_date is null or until_date >= ${input.date}::date)
+    limit 1
+  `;
+  const schedule = schedules[0];
+  if (!schedule || isoWeekday(input.date) !== schedule.weekday) throw new Error("Tanggal bukan hari latihan pada jadwal ini.");
+  const skipped = await actor.sql<{ found: boolean }>`
+    select true as found from practice_series_skips where series_id = ${schedule.id} and skip_date = ${input.date}::date limit 1
+  `;
+  if (skipped[0]) throw new Error("Jadwal latihan pada tanggal ini diliburkan.");
+  const existing = await actor.sql<{ id: number }>`
+    select id from practices where club_id = ${clubId} and series_id = ${schedule.id}
+      and occurrence_date = ${input.date}::date limit 1
+  `;
+  if (existing[0]) return existing[0];
+  const sets = await actor.sql<{
+    block: string | null; reps: number; distance_m: number; stroke: string;
+    interval_sec: number | null; description: string | null;
+  }>`
+    select block, reps, distance_m, stroke, interval_sec, description
+    from practice_series_sets where series_id = ${schedule.id} and club_id = ${clubId} order by sort_order, id
+  `;
+  const saved = await savePracticeRecord(actor, {
+    sessionDate: input.date,
+    startTime: schedule.start_time ?? undefined,
+    durationMin: schedule.duration_min ?? undefined,
+    location: schedule.location ?? undefined,
+    kind: schedule.kind,
+    title: schedule.title,
+    focus: schedule.focus ?? undefined,
+    notes: schedule.notes ?? undefined,
+    seriesId: schedule.id,
+    occurrenceDate: input.date,
+    sets: sets.map((set) => ({
+      block: set.block ?? "utama", reps: set.reps, distanceM: set.distance_m, stroke: set.stroke,
+      intervalSec: set.interval_sec, description: set.description ?? undefined,
+    })),
+  });
+  return { id: saved.id };
 }
 
 function icsEscape(value: string): string {

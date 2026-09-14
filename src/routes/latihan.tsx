@@ -2,14 +2,14 @@ import { useAccess } from "@/lib/club/use-access";
 import { canWritePractice } from "@/lib/club/permissions";
 import { QueryError } from "@/components/ui/query-error";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { MapPin, Plus } from "lucide-react";
-import { listPractices } from "@/lib/server/fns";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { MapPin } from "lucide-react";
+import { listClubScheduledTrainingDays, listPractices, openClubScheduledTrainingDay } from "@/lib/server/fns";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PRACTICE_STATUSES, labelOf } from "@/lib/swim/constants";
 import type { Practice } from "@/lib/swim/types";
+import type { ScheduledTrainingDay } from "@/lib/club/series";
 import { formatDateId, todayIso } from "@/lib/utils";
 import { PracticeNavigation } from "@/components/practice/practice-navigation";
 
@@ -31,13 +31,20 @@ function Page() {
   const canCreate = canWritePractice(hats);
   const { view, page = 1 } = Route.useSearch();
   const history = view === "history";
-  const practices = useQuery({
-    queryKey: ["practices", history ? "history" : "overview", page],
-    queryFn: () => listPractices({ data: { view: history ? "history" : "overview", page } }),
+  const historyQuery = useQuery({
+    queryKey: ["practices", "history", page],
+    queryFn: () => listPractices({ data: { view: "history", page } }),
+    enabled: history,
   });
   const today = todayIso();
-  const todayRows = history ? [] : (practices.data ?? []).filter((p) => p.sessionDate === today);
-  const upcomingRows = history ? [] : (practices.data ?? []).filter((p) => p.sessionDate > today);
+  const scheduleQuery = useQuery({
+    queryKey: ["scheduled-training-days", today],
+    queryFn: () => listClubScheduledTrainingDays({ data: { fromDate: today, days: 8 } }),
+    enabled: !history,
+  });
+  const activeQuery = history ? historyQuery : scheduleQuery;
+  const todayRows = history ? [] : (scheduleQuery.data ?? []).filter((row) => row.date === today);
+  const upcomingRows = history ? [] : (scheduleQuery.data ?? []).filter((row) => row.date > today);
 
   return (
     <AppShell>
@@ -49,15 +56,14 @@ function Page() {
             ? "Periksa sesi yang sudah berlalu."
             : "Buka sesi hari ini dan catat kehadiran atlet."
         }
-        action={canCreate ? <NewPracticeButton /> : undefined}
       />
       <PracticeNavigation active={history ? "history" : "today"} canManage={canCreate} />
-      {practices.isPending ? (
+      {activeQuery.isPending ? (
         <LoadingCards />
-      ) : practices.isError ? (
-        <QueryError retry={() => practices.refetch()} />
+      ) : activeQuery.isError ? (
+        <QueryError retry={() => activeQuery.refetch()} />
       ) : history ? (
-        <HistoryList rows={practices.data ?? []} page={page} />
+        <HistoryList rows={historyQuery.data ?? []} page={page} />
       ) : (
         <Overview
           today={today}
@@ -77,8 +83,8 @@ function Overview({
   canCreate,
 }: {
   today: string;
-  todayRows: Practice[];
-  upcomingRows: Practice[];
+  todayRows: ScheduledTrainingDay[];
+  upcomingRows: ScheduledTrainingDay[];
   canCreate: boolean;
 }) {
   return (
@@ -95,7 +101,7 @@ function Overview({
         {todayRows.length ? (
           <div className="grid gap-3">
             {todayRows.map((practice) => (
-              <TodayCard key={practice.id} practice={practice} canRecordAttendance={canCreate} />
+              <TodayCard key={practice.scheduleId} trainingDay={practice} canRecordAttendance={canCreate} />
             ))}
           </div>
         ) : (
@@ -103,16 +109,10 @@ function Overview({
             title="Tidak ada latihan hari ini"
             description={
               upcomingRows[0]
-                ? `Latihan berikutnya ${formatDateId(upcomingRows[0].sessionDate, "EEEE, d MMMM")} pukul ${upcomingRows[0].startTime ?? "—"}.`
+                ? `Latihan berikutnya ${formatDateId(upcomingRows[0].date, "EEEE, d MMMM")} pukul ${upcomingRows[0].startTime ?? "—"}.`
                 : "Belum ada sesi dalam tujuh hari ke depan."
             }
-            action={
-              canCreate ? (
-                <Button asChild variant="outline">
-                  <Link to="/latihan/jadwal">Atur jadwal</Link>
-                </Button>
-              ) : undefined
-            }
+            action={canCreate ? <Button asChild variant="outline"><Link to="/latihan/jadwal">Atur jadwal</Link></Button> : undefined}
           />
         )}
       </section>
@@ -123,24 +123,18 @@ function Overview({
           </h2>
           <ul className="overflow-hidden rounded-2xl bg-card shadow-border">
             {upcomingRows.map((practice) => (
-              <li key={practice.id} className="border-b border-border last:border-0">
-                <Link
-                  to="/latihan/$id"
-                  params={{ id: String(practice.id) }}
-                  className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 hover:bg-muted"
-                >
+              <li key={`${practice.scheduleId}:${practice.date}`} className="border-b border-border last:border-0">
+                <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <p className="font-medium">{practice.title}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDateId(practice.sessionDate, "EEEE, d MMM")} ·{" "}
+                      {formatDateId(practice.date, "EEEE, d MMM")} ·{" "}
                       {practice.startTime ?? "Jam belum ditentukan"}
                       {practice.location ? ` · ${practice.location}` : ""}
                     </p>
                   </div>
-                  <span aria-hidden="true" className="text-muted-foreground">
-                    ›
-                  </span>
-                </Link>
+                  <span className="text-xs text-muted-foreground">Terjadwal</span>
+                </div>
               </li>
             ))}
           </ul>
@@ -151,55 +145,48 @@ function Overview({
 }
 
 function TodayCard({
-  practice,
+  trainingDay,
   canRecordAttendance,
 }: {
-  practice: Practice;
+  trainingDay: ScheduledTrainingDay;
   canRecordAttendance: boolean;
 }) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const open = useMutation({
+    mutationFn: () => openClubScheduledTrainingDay({ data: { scheduleId: trainingDay.scheduleId, date: trainingDay.date } }),
+    onSuccess: async ({ id }) => {
+      await qc.invalidateQueries({ queryKey: ["scheduled-training-days"] });
+      await navigate({ to: "/latihan/$id", params: { id: String(id) } });
+    },
+  });
   return (
     <article className="rounded-2xl bg-card p-5 shadow-border">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-card-title">{practice.title}</p>
-            {practice.status !== "scheduled" ? (
-              <Badge
-                tone={
-                  practice.status === "cancelled"
-                    ? "warn"
-                    : practice.status === "in_progress"
-                      ? "pool"
-                      : "muted"
-                }
-              >
-                {labelOf(PRACTICE_STATUSES, practice.status)}
-              </Badge>
-            ) : null}
+            <p className="text-card-title">{trainingDay.title}</p>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            {practice.startTime ?? "Jam belum ditentukan"}
-            {practice.durationMin ? `–${endTime(practice.startTime, practice.durationMin)}` : ""}
+            {trainingDay.startTime ?? "Jam belum ditentukan"}
+            {trainingDay.durationMin ? `–${endTime(trainingDay.startTime, trainingDay.durationMin)}` : ""}
           </p>
-          {practice.location ? (
+          {trainingDay.location ? (
             <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
               <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>{practice.location}</span>
+              <span>{trainingDay.location}</span>
             </p>
           ) : null}
-          {practice.rosterCount ? (
-            <p className="mt-3 text-sm">
-              {practice.presentCount}/{practice.rosterCount} atlet hadir
-            </p>
-          ) : (
-            <p className="mt-3 text-sm text-muted-foreground">Daftar atlet belum disiapkan</p>
-          )}
+          <p className="mt-3 text-sm text-muted-foreground">
+            {trainingDay.practiceId ? "Absensi sudah dibuka" : "Absensi belum dibuka"}
+          </p>
         </div>
-        <Button asChild className="w-full sm:w-auto">
-          <Link to="/latihan/$id" params={{ id: String(practice.id) }}>
-            {canRecordAttendance ? "Buka absensi" : "Lihat kehadiran"}
-          </Link>
-        </Button>
+        {trainingDay.practiceId ? (
+          <Button asChild className="w-full sm:w-auto"><Link to="/latihan/$id" params={{ id: String(trainingDay.practiceId) }}>{canRecordAttendance ? "Buka absensi" : "Lihat kehadiran"}</Link></Button>
+        ) : canRecordAttendance ? (
+          <Button type="button" className="w-full sm:w-auto" disabled={open.isPending} onClick={() => open.mutate()}>{open.isPending ? "Membuka…" : "Buka absensi"}</Button>
+        ) : null}
+        {open.isError ? <p role="alert" className="text-sm text-destructive">{open.error.message}</p> : null}
       </div>
     </article>
   );
@@ -298,15 +285,4 @@ function endTime(startTime: string | null, durationMin: number): string {
   const [hours, minutes] = startTime.split(":").map(Number);
   const total = hours! * 60 + minutes! + durationMin;
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-}
-
-export function NewPracticeButton() {
-  return (
-    <Button asChild>
-      <Link to="/latihan/baru">
-        <Plus />
-        Tambah sesi khusus
-      </Link>
-    </Button>
-  );
 }

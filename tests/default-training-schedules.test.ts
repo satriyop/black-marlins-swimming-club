@@ -11,7 +11,7 @@ test("default schedules seed idempotently and preserve on/off choices", async ()
   });
 
   const first = await ensureDefaultTrainingSchedules(query, clubId);
-  expect(first).toEqual({ seriesCreated: 10, practicesCreated: 112 });
+  expect(first).toEqual({ seriesCreated: 10, practicesCreated: 0 });
 
   const schedules = await h.sql<{
     seed_key: string;

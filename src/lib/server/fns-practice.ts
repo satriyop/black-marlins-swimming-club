@@ -23,7 +23,8 @@ import {
   createPracticeSeries,
   listPracticeIcs,
   listPracticeSeries,
-  materializePracticeSeries,
+  listScheduledTrainingDays,
+  openScheduledTrainingDay,
   setSeriesActive,
   skipSeriesRange,
 } from "@/lib/club/series";
@@ -114,16 +115,25 @@ export const listClubPracticeSeries = createServerFn({ method: "GET" }).middlewa
   return listPracticeSeries(actor);
 });
 
+export const listClubScheduledTrainingDays = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input?: {
+  fromDate?: string; days?: number;
+}) => input ?? {}).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return listScheduledTrainingDays(actor, data);
+});
+
+export const openClubScheduledTrainingDay = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  scheduleId: number; date: string;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return openScheduledTrainingDay(actor, data);
+});
+
 export const skipClubSeriesRange = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
   id: number; fromDate: string; toDate: string; reason: string;
 }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return skipSeriesRange(actor, data);
-});
-
-export const refreshClubPracticeSeries = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
-  const actor = await requireClub(context.userId);
-  return materializePracticeSeries(actor, data);
 });
 
 export const getPracticeIcs = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {

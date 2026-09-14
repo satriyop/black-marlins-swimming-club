@@ -19,7 +19,6 @@ test("coach lands on today's attendance workspace with schedule and history sepa
     );
     await expect(tabs.getByRole("link", { name: "Jadwal" })).toBeVisible();
     await expect(tabs.getByRole("link", { name: "Riwayat" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Tambah sesi khusus" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Buka absensi" })).toBeVisible();
     await expect(page.getByText("0 m")).toHaveCount(0);
 

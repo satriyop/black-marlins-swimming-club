@@ -45,7 +45,7 @@ function groupSeries(rows: SeriesRow[]): SeriesGroup[] {
 function NewScheduleButton() {
   return (
     <Button asChild>
-      <Link to="/latihan/baru" search={{ copy: undefined, weekly: true }}>
+      <Link to="/latihan/baru" search={{ weekly: true }}>
         <Plus />
         Jadwal baru
       </Link>

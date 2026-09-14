@@ -35,11 +35,11 @@ const templates: Record<string, SetInput[]> = {
 export function PracticeEditor({
   source,
   mode = "create",
-  defaultWeekly = false,
+  creationMode = "session",
 }: {
   source?: PracticeDetail;
   mode?: "create" | "edit";
-  defaultWeekly?: boolean;
+  creationMode?: "session" | "schedule";
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -67,7 +67,7 @@ export function PracticeEditor({
       : [blankSet()],
   );
   const [template, setTemplate] = useState("");
-  const [weekly, setWeekly] = useState(defaultWeekly);
+  const weekly = creationMode === "schedule";
   const [weekdays, setWeekdays] = useState<WeekdayId[]>(() => [
     isoWeekday(editing ? source.sessionDate : todayIso()),
   ]);
@@ -94,10 +94,9 @@ export function PracticeEditor({
             kind: form.kind,
             focus: form.focus,
             notes: form.notes,
-            weeks: 16,
             fromDate: form.sessionDate,
             active,
-            sets,
+            sets: [],
           },
         });
         const soloPracticeId = active && results.length === 1 ? results[0]!.practiceIds[0] : undefined;
@@ -137,9 +136,9 @@ export function PracticeEditor({
         disabled={mut.isPending}
         className="grid gap-4 rounded-2xl bg-card p-5 shadow-border"
       >
-        <legend className="sr-only">Jadwal sesi</legend>
-        <h2 className="font-display text-2xl">Jadwal & tujuan</h2>
-        <Field label="Judul sesi">
+        <legend className="sr-only">{weekly ? "Jadwal latihan" : "Jadwal sesi"}</legend>
+        <h2 className="font-display text-2xl">{weekly ? "Jadwal latihan" : "Jadwal & tujuan"}</h2>
+        <Field label={weekly ? "Nama jadwal" : "Judul sesi"}>
           <Input
             required
             maxLength={160}
@@ -148,16 +147,6 @@ export function PracticeEditor({
             placeholder="Teknik gaya bebas"
           />
         </Field>
-        {!editing ? (
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={weekly}
-              onChange={(e) => setWeekly(e.target.checked)}
-            />
-            Jadwal berulang setiap minggu
-          </label>
-        ) : null}
         {editing && source.seriesId ? (
           <Field label="Cakupan">
             <SelectNative value={editScope} onChange={(e) => setEditScope(e.target.value as "this" | "future")}>
@@ -193,14 +182,7 @@ export function PracticeEditor({
                   : "Pilih lebih dari satu hari untuk membuat beberapa jadwal sekaligus."}
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid min-w-0 gap-1.5 text-sm">
-                <p className="font-semibold text-foreground">Berjalan terus</p>
-                <p className="text-xs text-muted-foreground">
-                  Jadwal tidak kedaluwarsa. Sistem selalu menyiapkan 16 minggu ke depan.
-                </p>
-              </div>
-              <div className="grid min-w-0 gap-1.5 text-sm">
+            <div className="grid min-w-0 gap-1.5 text-sm">
                 <p className="font-semibold text-foreground">Status saat dibuat</p>
                 <div className="flex min-h-11 items-center gap-4">
                   <label className="flex items-center gap-2">
@@ -212,7 +194,6 @@ export function PracticeEditor({
                     Simpan, nonaktif dulu
                   </label>
                 </div>
-              </div>
             </div>
           </div>
         ) : null}
@@ -249,7 +230,7 @@ export function PracticeEditor({
             placeholder="Nama kolam atau tempat latihan"
           />
         </Field>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className={weekly ? "grid gap-3" : "grid gap-3 sm:grid-cols-2"}>
           <Field label="Jenis latihan">
             <SelectNative
               value={form.kind}
@@ -262,16 +243,16 @@ export function PracticeEditor({
               ))}
             </SelectNative>
           </Field>
-          <Field label="Fokus sesi">
+          {!weekly ? <Field label="Fokus sesi">
             <Input
               value={form.focus}
               onChange={(e) => setForm({ ...form, focus: e.target.value })}
               placeholder="Contoh: posisi tubuh dan pernapasan"
             />
-          </Field>
+          </Field> : null}
         </div>
       </fieldset>
-      <fieldset disabled={mut.isPending} className="grid gap-4">
+      {!weekly ? <fieldset disabled={mut.isPending} className="grid gap-4">
         <legend className="sr-only">Program set</legend>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-2xl">Program set</h2>
@@ -418,7 +399,7 @@ export function PracticeEditor({
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
           />
         </Field>
-      </fieldset>
+      </fieldset> : null}
       {mut.isError && (
         <p
           role="alert"
@@ -429,7 +410,7 @@ export function PracticeEditor({
       )}
       <div className="sticky bottom-[calc(var(--mobile-nav-height,4rem)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 md:bottom-2">
         <p className="text-sm">
-          Total rencana <strong>{volume.toLocaleString("id-ID")} m</strong>
+          {weekly ? "Jadwal menentukan hari latihan klub." : <>Total rencana <strong>{volume.toLocaleString("id-ID")} m</strong></>}
         </p>
         <div className="flex gap-2">
           <Button asChild variant="outline">
@@ -447,7 +428,7 @@ export function PracticeEditor({
             </Link>
           </Button>
           <Button type="submit" disabled={mut.isPending}>
-            {mut.isPending ? "Menyimpan…" : editing ? "Simpan perubahan" : "Simpan sesi"}
+            {mut.isPending ? "Menyimpan…" : editing ? "Simpan perubahan" : weekly ? "Simpan jadwal" : "Simpan sesi"}
           </Button>
         </div>
       </div>
