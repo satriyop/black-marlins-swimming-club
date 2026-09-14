@@ -32,7 +32,7 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
       // "Jadwal baru" opens a schedule-only form.
       await page.getByRole("link", { name: "Jadwal baru" }).first().click();
       await expect(page).toHaveURL(/\/latihan\/baru/);
-      await expect(page.getByText("Jadwal latihan", { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Jadwal latihan", exact: true })).toBeVisible();
       await expect(page.getByText("Program set")).toHaveCount(0);
 
       await page.getByLabel("Nama jadwal").fill("Latihan Sore");

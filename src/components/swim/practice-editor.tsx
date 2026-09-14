@@ -136,7 +136,7 @@ export function PracticeEditor({
         disabled={mut.isPending}
         className="grid gap-4 rounded-2xl bg-card p-5 shadow-border"
       >
-        <legend className="sr-only">{weekly ? "Jadwal latihan" : "Jadwal sesi"}</legend>
+        <legend className="sr-only">{weekly ? "Jadwal berulang" : "Jadwal sesi"}</legend>
         <h2 className="font-display text-2xl">{weekly ? "Jadwal latihan" : "Jadwal & tujuan"}</h2>
         <Field label={weekly ? "Nama jadwal" : "Judul sesi"}>
           <Input
