@@ -35,8 +35,9 @@ function StatusCard({
     danger: "text-destructive",
     info: "text-info",
   }[tone];
+  const role = tone === "warn" || tone === "danger" ? "alert" : "status";
   return (
-    <div role={tone === "ok" ? "status" : undefined} className={cn("grid gap-3 rounded-2xl p-5", surface)}>
+    <div role={role} className={cn("grid gap-3 rounded-2xl p-5", surface)}>
       <div className="flex items-start gap-2.5">
         <Icon className={cn("mt-0.5 size-5 shrink-0", fg)} aria-hidden="true" />
         <h2 className="text-card-title">{title}</h2>
@@ -245,14 +246,15 @@ function Page() {
         </>
       ) : null}
       {mut.isError && (
-        <div role="alert" className="flex items-start gap-2.5 rounded-2xl bg-warning-surface p-4">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
-          <p className="text-sm">
-            {mut.error.message.includes("tidak berlaku") && user
+        <StatusCard
+          tone="warn"
+          icon={AlertTriangle}
+          title={
+            mut.error.message.includes("tidak berlaku") && user
               ? "Akun ini tidak cocok dengan undangan. Keluar, lalu masuk dengan akun Google yang diundang."
-              : mut.error.message}
-          </p>
-        </div>
+              : mut.error.message
+          }
+        />
       )}
       {signInError && (
         <p role="alert" className="text-sm text-destructive">
