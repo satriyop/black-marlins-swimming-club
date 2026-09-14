@@ -46,6 +46,8 @@ async function createTodaySchedule(harness: Awaited<ReturnType<typeof createClub
     durationMin: 90,
     location: "Tirtomulyono",
     kind: "teknik",
+    focus: "Posisi tubuh dan pernapasan",
+    notes: "Jelaskan drill sebelum atlet masuk air.",
     fromDate: today,
     active,
     sets,
@@ -92,7 +94,22 @@ test("staff open today's scheduled training once and receive its attendance shee
   const training = await loadPractice(harness.actor(SATRIYO_ID), first.id);
   expect(training.seriesId).toBe(schedule.id);
   expect(training.sessionDate).toBe(today);
-  expect(training.sets).toHaveLength(1);
+  expect(training.focus).toBe("Posisi tubuh dan pernapasan");
+  expect(training.notes).toBe("Jelaskan drill sebelum atlet masuk air.");
+  expect(training.totalMeters).toBe(200);
+  expect(training.sets).toEqual([
+    expect.objectContaining({ block: "utama", reps: 4, distanceM: 50, stroke: "bebas" }),
+  ]);
+  const listed = await listPracticeSeries(harness.actor(SATRIYO_ID));
+  expect(listed[0]).toMatchObject({
+    id: schedule.id,
+    focus: "Posisi tubuh dan pernapasan",
+    notes: "Jelaskan drill sebelum atlet masuk air.",
+    total_meters: 200,
+  });
+  expect(listed[0]?.sets).toEqual([
+    expect.objectContaining({ block: "utama", reps: 4, distance_m: 50, stroke: "bebas" }),
+  ]);
   const active = await harness.sql<{ count: number }>`select count(*)::int as count from swimmers where club_id = ${clubId} and status = 'aktif'`;
   expect(training.attendance).toHaveLength(active[0]!.count);
 });
@@ -124,9 +141,22 @@ test("multi-day schedule creation is atomic and creates no sessions", async () =
   const today = jakartaNowParts().date;
   const weekdays = [isoWeekday(today), isoWeekday(addDays(today, 1))] as WeekdayId[];
   const schedules = await createPracticeSeriesBatch(harness.actor(SATRIYO_ID), {
-    title: "Dua hari", weekdays, startTime: "15:30", kind: "teknik", fromDate: today, sets: [],
+    title: "Dua hari", weekdays, startTime: "15:30", kind: "teknik", focus: "Streamline",
+    notes: "Panduan yang sama", fromDate: today, sets,
   });
   expect(schedules).toHaveLength(2);
+  const programs = await harness.sql<{
+    id: number; focus: string | null; notes: string | null; total_meters: number;
+  }>`
+    select s.id, s.focus, s.notes, coalesce(sum(ps.reps * ps.distance_m), 0)::int as total_meters
+    from practice_series s left join practice_series_sets ps on ps.series_id = s.id
+    where s.id in (${schedules[0]!.id}, ${schedules[1]!.id})
+    group by s.id, s.focus, s.notes order by s.id
+  `;
+  expect(programs).toEqual([
+    expect.objectContaining({ focus: "Streamline", notes: "Panduan yang sama", total_meters: 200 }),
+    expect.objectContaining({ focus: "Streamline", notes: "Panduan yang sama", total_meters: 200 }),
+  ]);
   const rows = await harness.sql<{ count: number }>`select count(*)::int as count from practices where club_id = ${clubId}`;
   expect(rows[0]!.count).toBe(0);
   await expect(createPracticeSeriesBatch(harness.actor(SATRIYO_ID), {
