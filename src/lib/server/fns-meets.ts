@@ -87,39 +87,41 @@ export const getMeet = createServerFn({ method: "GET" })
       }>`select * from meets where id = ${data.id} and club_id = ${clubId} limit 1 for share`;
       const m = rows[0];
       if (!m) throw new Error("Event tidak ditemukan");
-      const entries = await sql<{
-        id: number;
-        meet_id: number;
-        swimmer_id: number;
-        swimmer_name: string;
-        stroke: string;
-        distance_m: number;
-        age_group: string | null;
-        seed_time_ms: number | null;
-        registration_status: RegistrationStatus;
-        registration_reason: string | null;
-        status: string;
-        lane: number | null;
-        heat: string | null;
-      }>`select e.*, s.full_name as swimmer_name from meet_entries e join swimmers s on s.id = e.swimmer_id where e.meet_id = ${data.id} and e.club_id = ${clubId} order by s.full_name, e.distance_m, e.stroke`;
-      const results = await sql<{
-        id: number;
-        swimmer_id: number;
-        swimmer_name: string;
-        meet_id: number | null;
-        meet_name: string | null;
-        result_date: string;
-        stroke: string;
-        distance_m: number;
-        course: string;
-        time_ms: number | null;
-        place: number | null;
-        round: string | null;
-        status: string;
-        kind: "official" | "test";
-        is_pb: boolean;
-        notes: string | null;
-      }>`select r.*, s.full_name as swimmer_name, ${m.name} as meet_name from results r join swimmers s on s.id = r.swimmer_id where r.meet_id = ${data.id} and r.club_id = ${clubId} order by r.place nulls last, r.stroke, r.distance_m`;
+      const [entries, results] = await Promise.all([
+        sql<{
+          id: number;
+          meet_id: number;
+          swimmer_id: number;
+          swimmer_name: string;
+          stroke: string;
+          distance_m: number;
+          age_group: string | null;
+          seed_time_ms: number | null;
+          registration_status: RegistrationStatus;
+          registration_reason: string | null;
+          status: string;
+          lane: number | null;
+          heat: string | null;
+        }>`select e.*, s.full_name as swimmer_name from meet_entries e join swimmers s on s.id = e.swimmer_id where e.meet_id = ${data.id} and e.club_id = ${clubId} order by s.full_name, e.distance_m, e.stroke`,
+        sql<{
+          id: number;
+          swimmer_id: number;
+          swimmer_name: string;
+          meet_id: number | null;
+          meet_name: string | null;
+          result_date: string;
+          stroke: string;
+          distance_m: number;
+          course: string;
+          time_ms: number | null;
+          place: number | null;
+          round: string | null;
+          status: string;
+          kind: "official" | "test";
+          is_pb: boolean;
+          notes: string | null;
+        }>`select r.*, s.full_name as swimmer_name, ${m.name} as meet_name from results r join swimmers s on s.id = r.swimmer_id where r.meet_id = ${data.id} and r.club_id = ${clubId} order by r.place nulls last, r.stroke, r.distance_m`,
+      ]);
       const meet: Meet = {
         id: m.id,
         name: m.name,
