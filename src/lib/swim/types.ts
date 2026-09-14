@@ -1,3 +1,4 @@
+import type { RegistrationStatus } from "./registration";
 export type Club = {
   id: number;
   name: string;
@@ -116,6 +117,8 @@ export type Meet = {
 };
 
 export type MeetEntry = {
+  registrationStatus?: RegistrationStatus;
+  registrationReason?: string | null;
   id: number;
   meetId: number;
   swimmerId: number;

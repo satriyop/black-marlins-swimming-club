@@ -1,3 +1,4 @@
+import { registrationLabels } from "@/lib/swim/registration";
 import { useAccess } from "@/lib/club/use-access";
 import { canWriteRoster, canDeleteSwimmer } from "@/lib/club/permissions";
 import { ResourceQueryError } from "@/components/ui/query-error";
@@ -217,7 +218,7 @@ function Page() {
       </div>
       {upcomingEntries.length > 0 ? (
         <section className="mt-6">
-          <h2 className="font-display mb-3 text-2xl">Nomor terdaftar</h2>
+          <h2 className="font-display mb-3 text-2xl">Pendaftaran kejuaraan</h2>
           <ul className="grid gap-2">
             {upcomingEntries.map((e) => (
               <li
@@ -225,7 +226,9 @@ function Page() {
                 className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 shadow-border"
               >
                 <div>
-                  <p className="font-medium">{e.meetName}</p>
+                  <Link to="/event/$id" params={{ id: String(e.meetId) }} className="font-medium underline">{e.meetName}</Link>
+                  <p className="text-sm">{registrationLabels[e.registrationStatus]}</p>
+                  {e.registrationReason && <p className="text-sm text-muted-foreground">{e.registrationReason}</p>}
                   <p className="text-xs text-muted-foreground">
                     {eventCode(e.distanceM, e.stroke)} · {e.ageGroup} · seed{" "}
                     {formatTime(e.seedTimeMs)}

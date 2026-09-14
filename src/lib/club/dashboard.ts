@@ -65,9 +65,9 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
   const upcomingMeets = await sql<{
     id: number; name: string; level: string; course: string; venue: string | null; city: string | null;
     start_date: string; end_date: string | null; organizer: string | null; status: string; notes: string | null;
-  }>`select * from meets where club_id = ${clubId} and start_date >= current_date and status <> 'batal' order by start_date limit 4`;
+  }>`select * from meets where club_id = ${clubId} and coalesce(end_date,start_date) >= current_date and status <> 'batal' order by start_date limit 4`;
   const meetCount = await sql<{ n: number }>`
-    select count(*)::int as n from meets where club_id = ${clubId} and start_date >= current_date and status <> 'batal'`;
+    select count(*)::int as n from meets where club_id = ${clubId} and coalesce(end_date,start_date) >= current_date and status <> 'batal'`;
   let recentRows: ResultRow[] = [];
   if (visibleIds.length) {
     const ph = visibleIds.map((_, i) => `$${i + 2}`).join(", ");
