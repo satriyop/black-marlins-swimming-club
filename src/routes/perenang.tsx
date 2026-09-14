@@ -124,6 +124,7 @@ function Page() {
 export function SwimmerDialog({
   initial,
   asChild = false,
+  variant = "default",
 }: {
   initial?: {
     id: number;
@@ -137,6 +138,7 @@ export function SwimmerDialog({
     notes: string | null;
   };
   asChild?: boolean;
+  variant?: "default" | "outline";
 }) {
   const [open, setOpen] = useState(false);
   const [confirmSimilar, setConfirmSimilar] = useState(false);
@@ -191,7 +193,7 @@ export function SwimmerDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={variant}>
           <Plus className="size-4" />
           {initial ? "Ubah data" : asChild ? "Daftarkan anak" : "Tambah perenang"}
         </Button>

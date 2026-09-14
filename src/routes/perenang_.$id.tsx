@@ -93,9 +93,11 @@ function Page() {
             {swimmer.notes ? <p className="mt-3 max-w-xl text-sm">{swimmer.notes}</p> : null}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-start gap-2">
           <ResultDialog swimmerId={swimmer.id} />
-          {canWriteRoster(hats, swimmer.id) && <SwimmerDialog initial={swimmer} />}
+          {canWriteRoster(hats, swimmer.id) && (
+            <SwimmerDialog initial={swimmer} variant="outline" />
+          )}
           {canDeleteSwimmer(hats) && (
             <DeleteButton
               label="Hapus perenang"
@@ -105,75 +107,31 @@ function Page() {
           )}
         </div>
       </div>
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <MiniStat
-          label="Kehadiran"
-          value={attendance.total ? `${attendance.rate}%` : "—"}
-          hint={`${attendance.present}/${attendance.total} sesi (kehadiran akhir pelatih)`}
-        />
-        <MiniStat
-          label="Volume"
-          value={`${(totalMeters / 1000).toFixed(1)} km`}
-          hint="Akumulasi latihan"
-        />
-        <MiniStat
-          label="PB tercatat"
-          value={String(pbs.length)}
-          hint="Semua nomor & panjang kolam"
-        />
-      </div>
-      <section className="mb-6">
-        <h2 className="font-display mb-2 text-2xl">Riwayat kehadiran</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Izin wali tidak mengubah persentase kehadiran. Angka di atas hanya dari catatan akhir pelatih.
-        </p>
-        {!attendanceHistory?.length ? (
-          <p className="rounded-2xl bg-card px-4 py-6 text-sm text-muted-foreground shadow-border">
-            Belum ada sesi.
-          </p>
-        ) : (
-          <div className="overflow-hidden rounded-2xl bg-card shadow-border">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Tanggal</th>
-                  <th className="px-4 py-2 font-medium">Sesi</th>
-                  <th className="px-4 py-2 font-medium">Izin wali</th>
-                  <th className="px-4 py-2 font-medium">Kehadiran akhir</th>
-                  <th className="px-4 py-2 font-medium">Jarak</th>
-                  <th className="px-4 py-2 font-medium">Koreksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceHistory.map((row) => (
-                  <tr key={row.attendanceId} className="border-t border-border">
-                    <td className="px-4 py-2">{formatDateId(row.sessionDate, "d MMM yyyy")}</td>
-                    <td className="px-4 py-2">
-                      <Link to="/latihan/$id" params={{ id: String(row.practiceId) }} className="text-primary hover:underline">
-                        {row.title}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2">
-                      {row.noticeKind
-                        ? `${row.noticeKind}${row.noticeStatus === "withdrawn" ? " (dibatalkan)" : ""}`
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-2">{row.status}</td>
-                    <td className="px-4 py-2">
-                      {row.metersCompleted != null ? `${row.metersCompleted} m` : "—"}
-                    </td>
-                    <td className="px-4 py-2">
-                      {row.correctionStatus
-                        ? `${row.correctionStatus}${row.correctionResolution ? ` — ${row.correctionResolution}` : ""}`
-                        : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <ProfileSummary attendance={attendance} totalMeters={totalMeters} pbs={pbs} />
+      {upcomingEntries.length > 0 ? (
+        <section className="mb-6">
+          <h2 className="font-display mb-3 text-2xl">Pendaftaran kejuaraan</h2>
+          <ul className="grid gap-2">
+            {upcomingEntries.map((e) => (
+              <li
+                key={e.id}
+                className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 shadow-border"
+              >
+                <div>
+                  <Link to="/event/$id" params={{ id: String(e.meetId) }} className="font-medium underline">{e.meetName}</Link>
+                  <p className="text-sm">{registrationLabels[e.registrationStatus]}</p>
+                  {e.registrationReason && <p className="text-sm text-muted-foreground">{e.registrationReason}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    {eventCode(e.distanceM, e.stroke)} · {e.ageGroup} · seed{" "}
+                    {formatTime(e.seedTimeMs)}
+                  </p>
+                </div>
+                <Badge>{formatDateId(e.startDate, "d MMM")}</Badge>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-5">
         <section className="lg:col-span-2">
           <h2 className="font-display mb-3 text-2xl">Rekor pribadi (Personal Best)</h2>
@@ -216,44 +174,121 @@ function Page() {
           <ProgressChart results={results} />
         </section>
       </div>
-      {upcomingEntries.length > 0 ? (
-        <section className="mt-6">
-          <h2 className="font-display mb-3 text-2xl">Pendaftaran kejuaraan</h2>
-          <ul className="grid gap-2">
-            {upcomingEntries.map((e) => (
-              <li
-                key={e.id}
-                className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 shadow-border"
-              >
-                <div>
-                  <Link to="/event/$id" params={{ id: String(e.meetId) }} className="font-medium underline">{e.meetName}</Link>
-                  <p className="text-sm">{registrationLabels[e.registrationStatus]}</p>
-                  {e.registrationReason && <p className="text-sm text-muted-foreground">{e.registrationReason}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    {eventCode(e.distanceM, e.stroke)} · {e.ageGroup} · seed{" "}
-                    {formatTime(e.seedTimeMs)}
-                  </p>
-                </div>
-                <Badge>{formatDateId(e.startDate, "d MMM")}</Badge>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
       <section className="mt-6">
         <h2 className="font-display mb-3 text-2xl">Riwayat waktu</h2>
         <ResultTable results={results} />
       </section>
+      <details className="mt-6 rounded-2xl bg-card shadow-border">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+          <span className="font-display text-xl">Riwayat kehadiran</span>
+          <span className="text-sm text-muted-foreground">
+            {attendanceHistory?.length ?? 0} sesi
+          </span>
+        </summary>
+        <div className="border-t border-border px-5 py-4">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Izin wali tidak mengubah persentase kehadiran. Angka ini hanya dari catatan akhir pelatih.
+          </p>
+          {!attendanceHistory?.length ? (
+            <p className="text-sm text-muted-foreground">Belum ada sesi.</p>
+          ) : (
+            <div className="-mx-5 overflow-x-auto px-5">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead className="text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="py-2 pr-4 font-medium">Tanggal</th>
+                    <th className="py-2 pr-4 font-medium">Sesi</th>
+                    <th className="py-2 pr-4 font-medium">Izin wali</th>
+                    <th className="py-2 pr-4 font-medium">Kehadiran akhir</th>
+                    <th className="py-2 pr-4 font-medium">Jarak</th>
+                    <th className="py-2 font-medium">Koreksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceHistory.map((row) => (
+                    <tr key={row.attendanceId} className="border-t border-border">
+                      <td className="py-2 pr-4">{formatDateId(row.sessionDate, "d MMM yyyy")}</td>
+                      <td className="py-2 pr-4">
+                        <Link to="/latihan/$id" params={{ id: String(row.practiceId) }} className="text-primary hover:underline">
+                          {row.title}
+                        </Link>
+                      </td>
+                      <td className="py-2 pr-4">
+                        {row.noticeKind
+                          ? `${row.noticeKind}${row.noticeStatus === "withdrawn" ? " (dibatalkan)" : ""}`
+                          : "—"}
+                      </td>
+                      <td className="py-2 pr-4">{row.status}</td>
+                      <td className="py-2 pr-4">
+                        {row.metersCompleted != null ? `${row.metersCompleted} m` : "—"}
+                      </td>
+                      <td className="py-2">
+                        {row.correctionStatus
+                          ? `${row.correctionStatus}${row.correctionResolution ? ` — ${row.correctionResolution}` : ""}`
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </details>
     </AppShell>
   );
 }
 
-function MiniStat({ label, value, hint }: { label: string; value: string; hint: string }) {
+function ProfileSummary({
+  attendance,
+  totalMeters,
+  pbs,
+}: {
+  attendance: Awaited<ReturnType<typeof getSwimmer>>["attendance"];
+  totalMeters: number;
+  pbs: Awaited<ReturnType<typeof getSwimmer>>["pbs"];
+}) {
+  const latestPb = pbs.reduce<(typeof pbs)[number] | null>(
+    (best, p) => (!best || p.resultDate > best.resultDate ? p : best),
+    null,
+  );
   return (
-    <div className="rounded-2xl bg-card p-4 shadow-border">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-display mt-1 text-3xl tabular-nums leading-none">{value}</p>
-      <p className="mt-2 text-xs text-muted-foreground">{hint}</p>
+    <div className="mb-6 rounded-2xl bg-card p-4 shadow-border">
+      <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+        <span className="text-muted-foreground">Kehadiran</span>
+        <span className="font-mono font-semibold tabular-nums">
+          {attendance.total ? `${attendance.rate}%` : "—"}
+        </span>
+        <span className="text-muted-foreground">
+          ({attendance.present}/{attendance.total})
+        </span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-muted-foreground">Volume</span>
+        <span className="font-mono font-semibold tabular-nums">
+          {(totalMeters / 1000).toFixed(1)} km
+        </span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-muted-foreground">PB tercatat</span>
+        <span className="font-mono font-semibold tabular-nums">{pbs.length}</span>
+        <span className="text-muted-foreground">nomor</span>
+      </p>
+      {latestPb ? (
+        <p className="mt-2 text-sm">
+          PB terbaru:{" "}
+          <span className="font-semibold">
+            {eventCode(latestPb.distanceM, latestPb.stroke, latestPb.course)}
+          </span>{" "}
+          <span className="font-mono tabular-nums text-primary">
+            {formatTime(latestPb.timeMs)}
+          </span>{" "}
+          <span className="text-muted-foreground">
+            · {formatDateId(latestPb.resultDate)}
+          </span>
+        </p>
+      ) : null}
+      <p className="mt-2 text-xs text-muted-foreground">
+        Izin wali tidak mengubah persentase kehadiran; kehadiran akhir pelatih di Riwayat kehadiran.
+      </p>
     </div>
   );
 }
