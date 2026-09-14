@@ -1,15 +1,50 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { AlertTriangle, CheckCircle2, Info, type LucideIcon } from "lucide-react";
 import { acceptClubInvite, getInvitePreview, getPublicClubContact } from "@/lib/server/fns";
 import { ADULT_PROVIDERS, signIn, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { QueryError } from "@/components/ui/query-error";
-import { formatDateId } from "@/lib/utils";
+import { cn, formatDateId } from "@/lib/utils";
 
 import { AppearanceSelect } from "@/components/settings/appearance-select";
+
+function StatusCard({
+  tone,
+  icon: Icon,
+  title,
+  children,
+}: {
+  tone: "ok" | "warn" | "danger" | "info";
+  icon: LucideIcon;
+  title: string;
+  children?: ReactNode;
+}) {
+  const surface = {
+    ok: "bg-success-surface",
+    warn: "bg-warning-surface",
+    danger: "bg-danger-surface",
+    info: "bg-info-surface",
+  }[tone];
+  const fg = {
+    ok: "text-success",
+    warn: "text-warning",
+    danger: "text-destructive",
+    info: "text-info",
+  }[tone];
+  return (
+    <div role={tone === "ok" ? "status" : undefined} className={cn("grid gap-3 rounded-2xl p-5", surface)}>
+      <div className="flex items-start gap-2.5">
+        <Icon className={cn("mt-0.5 size-5 shrink-0", fg)} aria-hidden="true" />
+        <h2 className="text-card-title">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/terima")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -57,14 +92,17 @@ function Page() {
         alt="Black Marlins Swimming Club"
         className="size-16 rounded-full"
       />
-      <h1 className="font-display text-4xl">Terima undangan</h1>
+      <h1 className="text-page-title">Terima undangan</h1>
       {mut.isSuccess ? (
-        <div role="status" className="grid gap-3 rounded-2xl bg-card p-5">
-          <h2 className="font-semibold">
-            {data?.state === "pending" && data.kind === "swimmer_account"
+        <StatusCard
+          tone="ok"
+          icon={CheckCircle2}
+          title={
+            data?.state === "pending" && data.kind === "swimmer_account"
               ? "Akun perenang siap digunakan"
-              : "Undangan diterima"}
-          </h2>
+              : "Undangan diterima"
+          }
+        >
           <p className="text-sm text-muted-foreground">
             {mut.variables?.password
               ? "Masuk dengan email pada undangan dan password yang baru Anda buat."
@@ -79,19 +117,22 @@ function Page() {
               {mut.variables?.password ? "Masuk ke akun perenang" : "Buka klub"}
             </Link>
           </Button>
-        </div>
+        </StatusCard>
       ) : !/^[a-f0-9]{48}$/.test(token) ||
         data?.state === "invalid" ||
         data?.state === "expired" ||
         data?.state === "revoked" ? (
-        <>
-          <p>
-            {data?.state === "expired"
-              ? "Undangan sudah kedaluwarsa."
+        <StatusCard
+          tone={data?.state === "expired" ? "warn" : "danger"}
+          icon={AlertTriangle}
+          title={
+            data?.state === "expired"
+              ? "Undangan sudah kedaluwarsa"
               : data?.state === "revoked"
-                ? "Undangan ini sudah dicabut."
-                : "Tautan undangan tidak berlaku."}
-          </p>
+                ? "Undangan ini sudah dicabut"
+                : "Tautan undangan tidak berlaku"
+          }
+        >
           <p className="text-sm text-muted-foreground">
             Minta pengundang membuat tautan baru, atau hubungi admin klub.
           </p>
@@ -108,26 +149,22 @@ function Page() {
               Ke halaman masuk
             </Link>
           )}
-        </>
+        </StatusCard>
       ) : preview.isError ? (
         <QueryError retry={() => preview.refetch()} />
       ) : preview.isPending || sessionPending ? (
         <p role="status">Memeriksa undangan…</p>
       ) : data?.state === "accepted" ? (
-        <>
-          <p>Undangan ini sudah diterima.</p>
+        <StatusCard tone="info" icon={Info} title="Undangan ini sudah diterima">
           <Button asChild>
             <Link to={user ? "/" : "/login"}>{user ? "Buka klub" : "Masuk ke klub"}</Link>
           </Button>
-        </>
+        </StatusCard>
       ) : data?.state === "pending" ? (
         <>
           <div className="rounded-2xl bg-card p-5">
-            <p className="font-semibold">{data.clubName}</p>
-            <p className="mt-2">{role}</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Untuk {data.emailHint} · Berlaku sampai {formatDateId(data.expiresAt)}
-            </p>
+            <p className="text-card-title">{data.clubName}</p>
+            <p className="mt-1 text-sm font-semibold text-primary">{role}</p>
           </div>
           {data.kind === "swimmer_account" ? (
             <form
@@ -202,14 +239,20 @@ function Page() {
               )}
             </>
           )}
+          <p className="text-xs text-muted-foreground">
+            Untuk {data.emailHint} · Berlaku sampai {formatDateId(data.expiresAt)}
+          </p>
         </>
       ) : null}
       {mut.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {mut.error.message.includes("tidak berlaku") && user
-            ? "Akun ini tidak cocok dengan undangan. Keluar, lalu masuk dengan akun Google yang diundang."
-            : mut.error.message}
-        </p>
+        <div role="alert" className="flex items-start gap-2.5 rounded-2xl bg-warning-surface p-4">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
+          <p className="text-sm">
+            {mut.error.message.includes("tidak berlaku") && user
+              ? "Akun ini tidak cocok dengan undangan. Keluar, lalu masuk dengan akun Google yang diundang."
+              : mut.error.message}
+          </p>
+        </div>
       )}
       {signInError && (
         <p role="alert" className="text-sm text-destructive">
