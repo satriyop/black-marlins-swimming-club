@@ -205,33 +205,51 @@ function Page() {
           </p>
           {staff && !closed ? <ParticipantBar practice={data} /> : null}
           {staff && (
-            <div className="mb-4 flex flex-wrap gap-2" aria-label="Filter kehadiran">
-              {[{ id: "semua", label: "Semua" }, ...ATTENDANCE].map((item) => (
-                <Button
-                  type="button"
-                  key={item.id}
-                  variant={filter === item.id ? "secondary" : "outline"}
-                  aria-pressed={filter === item.id}
-                  onClick={() => setFilter(item.id)}
-                >
-                  {item.label} (
-                  {item.id === "semua"
-                    ? onRoll.length
-                    : onRoll.filter((a) => a.status === item.id).length}
-                  )
-                </Button>
-              ))}
+            <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Filter kehadiran">
+              <Button
+                type="button"
+                variant={filter === "semua" ? "secondary" : "outline"}
+                aria-pressed={filter === "semua"}
+                onClick={() => setFilter("semua")}
+              >
+                Semua ({onRoll.length})
+              </Button>
+              <Button
+                type="button"
+                variant={filter === "belum" ? "secondary" : "outline"}
+                aria-pressed={filter === "belum"}
+                onClick={() => setFilter("belum")}
+              >
+                Belum dicatat ({onRoll.filter((a) => a.status === "belum").length})
+              </Button>
+              <SelectNative
+                aria-label="Filter status lain"
+                className="w-auto"
+                value={["hadir", "izin", "sakit", "alfa"].includes(filter) ? filter : ""}
+                onChange={(e) => setFilter(e.target.value || "semua")}
+              >
+                <option value="">Status lain…</option>
+                {ATTENDANCE.filter((item) => item.id !== "belum").map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label} ({onRoll.filter((a) => a.status === item.id).length})
+                  </option>
+                ))}
+              </SelectNative>
             </div>
           )}
           <div className="grid gap-3 lg:grid-cols-2">
-            {visible.map((attendance) => (
-              <AttendanceCard
+            {onRoll.map((attendance) => (
+              <div
                 key={attendance.id}
-                attendance={attendance}
-                hats={hats}
-                locked={closed}
-                canRemove={staff && !closed}
-              />
+                className={filter === "semua" || attendance.status === filter ? undefined : "hidden"}
+              >
+                <AttendanceCard
+                  attendance={attendance}
+                  hats={hats}
+                  locked={closed}
+                  canRemove={staff && !closed}
+                />
+              </div>
             ))}
           </div>
           {!visible.length && (
@@ -498,6 +516,13 @@ function ParticipantBar({ practice }: { practice: PracticeDetail }) {
   );
 }
 
+function attendanceTone(status: Attendance["status"]): "ok" | "warn" | "danger" | "muted" {
+  if (status === "hadir") return "ok";
+  if (status === "izin" || status === "sakit") return "warn";
+  if (status === "alfa") return "danger";
+  return "muted";
+}
+
 function AttendanceCard({
   attendance: a,
   hats,
@@ -511,10 +536,13 @@ function AttendanceCard({
 }) {
   const qc = useQueryClient();
   const [meters, setMeters] = useState(a.metersCompleted == null ? "" : String(a.metersCompleted));
+  const [metersEditing, setMetersEditing] = useState(a.metersCompleted == null);
   const [reason, setReason] = useState(a.notice?.reason ?? "");
   const [correctionMsg, setCorrectionMsg] = useState("");
   const [resolution, setResolution] = useState("");
   const family = canSubmitAbsenceNotice(hats, a.swimmerId);
+  const canHadir = !locked && canMarkAttendance(hats, a.swimmerId, "hadir") && a.status !== "hadir";
+  const otherStatuses = ATTENDANCE.filter((status) => canMarkAttendance(hats, a.swimmerId, status.id));
   const refresh = async () => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["practice", a.practiceId] }),
@@ -556,58 +584,69 @@ function AttendanceCard({
     onError: (e: Error) => toast.error(e.message),
   });
   return (
-    <article className="rounded-2xl bg-card p-4 shadow-border">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="font-semibold">{a.swimmerName}</p>
-        <div className="flex items-center gap-2">
-          <Badge tone={a.status === "hadir" ? "pool" : "muted"}>
-            {labelOf(ATTENDANCE, a.status)}
-          </Badge>
+    <article className="rounded-2xl bg-card p-3.5 shadow-border">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="text-base font-semibold">{a.swimmerName}</p>
+          <Badge tone={attendanceTone(a.status)}>{labelOf(ATTENDANCE, a.status)}</Badge>
           {a.notice?.status === "active" ? (
             <Badge tone="warn">Izin wali: {a.notice.kind}</Badge>
           ) : null}
-          {canRemove ? (
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                try {
-                  await removeClubPracticeParticipant({
-                    data: { practiceId: a.practiceId, swimmerId: a.swimmerId },
-                  });
-                  await qc.invalidateQueries({ queryKey: ["practice", a.practiceId] });
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Gagal menghapus");
-                }
-              }}
-            >
-              Lepas
-            </Button>
-          ) : null}
         </div>
+        {canRemove ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              try {
+                await removeClubPracticeParticipant({
+                  data: { practiceId: a.practiceId, swimmerId: a.swimmerId },
+                });
+                await qc.invalidateQueries({ queryKey: ["practice", a.practiceId] });
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Gagal menghapus");
+              }
+            }}
+          >
+            Lepas
+          </Button>
+        ) : null}
       </div>
       {a.notice?.status === "active" && a.notice.reason ? (
-        <p className="mb-3 text-sm text-muted-foreground">Catatan wali: {a.notice.reason}</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">Catatan wali: {a.notice.reason}</p>
       ) : null}
       {hats.staff ? (
-        <div className="flex flex-wrap gap-2">
-          {ATTENDANCE.filter((status) => canMarkAttendance(hats, a.swimmerId, status.id)).map(
-            (status) => (
-              <Button
-                key={status.id}
-                variant={a.status === status.id ? "secondary" : "outline"}
-                aria-label={`${status.label}: ${a.swimmerName}`}
-                aria-pressed={a.status === status.id}
-                disabled={locked || update.isPending}
-                onClick={() => update.mutate({ status: status.id })}
-              >
-                {status.label}
-              </Button>
-            ),
-          )}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {canHadir ? (
+            <Button
+              type="button"
+              size="sm"
+              aria-label={`Hadir: ${a.swimmerName}`}
+              disabled={update.isPending}
+              onClick={() => update.mutate({ status: "hadir" })}
+            >
+              Hadir
+            </Button>
+          ) : null}
+          <Field label="Ubah status">
+            <SelectNative
+              className="w-auto"
+              aria-label={`Ubah status: ${a.swimmerName}`}
+              value={a.status}
+              disabled={locked || update.isPending}
+              onChange={(e) => update.mutate({ status: e.target.value as Attendance["status"] })}
+            >
+              {otherStatuses.map((status) => (
+                <option key={status.id} value={status.id}>
+                  {status.label}
+                </option>
+              ))}
+            </SelectNative>
+          </Field>
         </div>
       ) : null}
       {family ? (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-2 grid gap-2 border-t border-border pt-2">
           <p className="text-xs text-muted-foreground">{a.cutoffLabel}</p>
           {a.noticeEditable ? (
             <>
@@ -674,46 +713,74 @@ function AttendanceCard({
           ) : null}
         </div>
       ) : null}
-      {hats.staff && a.status === "hadir" && !locked && (
-        <form
-          className="mt-4 flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (meters === "") return;
-            update.mutate({
-              status: "hadir",
-              metersCompleted: Number(meters),
-            });
-          }}
-        >
-          <Field label="Jarak selesai (m)">
-            <Input
-              type="number"
-              min={0}
-              max={100000}
-              value={meters}
-              placeholder="Belum dicatat"
-              onChange={(e) => setMeters(e.target.value)}
-            />
-          </Field>
-          <Button variant="outline" disabled={locked || update.isPending || meters === ""}>
-            Simpan jarak
-          </Button>
-          {a.metersCompleted != null ? (
+      {hats.staff && a.status === "hadir" && !locked ? (
+        metersEditing ? (
+          <form
+            className="mt-2 flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (meters === "") return;
+              update.mutate(
+                { status: "hadir", metersCompleted: Number(meters) },
+                { onSuccess: () => setMetersEditing(false) },
+              );
+            }}
+          >
+            <Field label="Jarak selesai (m)">
+              <Input
+                type="number"
+                min={0}
+                max={100000}
+                value={meters}
+                placeholder="Belum dicatat"
+                onChange={(e) => setMeters(e.target.value)}
+              />
+            </Field>
+            <Button size="sm" variant="outline" disabled={update.isPending || meters === ""}>
+              Simpan jarak
+            </Button>
+            {a.metersCompleted != null ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setMeters(String(a.metersCompleted));
+                  setMetersEditing(false);
+                }}
+              >
+                Batal
+              </Button>
+            ) : null}
+          </form>
+        ) : (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">
+              Jarak selesai: <span className="font-mono text-foreground">{a.metersCompleted} m</span>
+            </span>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setMetersEditing(true)}>
+              Ubah jarak
+            </Button>
             <Button
               type="button"
+              size="sm"
               variant="ghost"
               disabled={update.isPending}
-              onClick={() => update.mutate({ status: "hadir", metersCompleted: null })}
+              onClick={() =>
+                update.mutate(
+                  { status: "hadir", metersCompleted: null },
+                  { onSuccess: () => setMetersEditing(true) },
+                )
+              }
             >
               Hapus jarak
             </Button>
-          ) : null}
-        </form>
-      )}
+          </div>
+        )
+      ) : null}
       {hats.staff && a.correctionStatus === "pending" && a.correctionId ? (
         <form
-          className="mt-3 grid gap-2"
+          className="mt-2 grid gap-2 border-t border-border pt-2"
           onSubmit={(e) => e.preventDefault()}
         >
           <p className="text-sm">Koreksi wali: {a.correctionMessage}</p>
@@ -730,7 +797,7 @@ function AttendanceCard({
           </div>
         </form>
       ) : null}
-      <div aria-live="polite" className="mt-2 text-sm">
+      <div aria-live="polite" className="mt-1.5 text-sm">
         {update.isPending || notice.isPending ? (
           <p>Menyimpan…</p>
         ) : update.isError ? (
