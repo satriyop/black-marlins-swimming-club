@@ -18,6 +18,7 @@ import { formatDateId } from "@/lib/utils";
 import { useAccess } from "@/lib/club/use-access";
 import { canDeleteResult, canEditResult } from "@/lib/club/permissions";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, SelectNative } from "@/components/ui/input";
 import { ResultDialog } from "@/components/swim/result-dialog";
@@ -51,8 +52,6 @@ export function ResultList({
     [visible, results, history],
   );
   const filterMiss = meetFilter !== "all" || nomorFilter !== "all";
-  const time = (r: Result) =>
-    r.status !== "selesai" ? r.status.toUpperCase() : formatTime(r.timeMs);
   const actions = (r: Result) => {
     const edit = canEditResult(hats, r);
     const remove =
@@ -146,11 +145,21 @@ export function ResultList({
                               <p>{formatDateId(r.resultDate)}</p>
                               <p className="text-sm text-muted-foreground">
                                 {resultSourceLabel(r)}
-                                {isPb ? " · PB" : ""}
                                 {!history && r.place != null ? ` · Peringkat ${r.place}` : ""}
                               </p>
                             </div>
-                            <p className="shrink-0 font-mono text-lg">{time(r)}</p>
+                            <div className="flex shrink-0 items-center gap-2">
+                              {isPb ? <Badge tone="ok">PB</Badge> : null}
+                              {r.status !== "selesai" ? (
+                                <Badge tone={r.status === "dq" ? "danger" : "warn"}>
+                                  {r.status.toUpperCase()}
+                                </Badge>
+                              ) : (
+                                <p className="font-mono text-xl font-bold tabular-nums sm:text-2xl">
+                                  {formatTime(r.timeMs)}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           {actions(r)}
                         </li>
