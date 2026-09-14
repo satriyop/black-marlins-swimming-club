@@ -51,7 +51,7 @@ export const createClubInvite = createServerFn({ method: "POST" })
     if (input.kind === "swimmer_account" && !input.swimmerIds?.length) {
       throw new Error("Pilih perenang");
     }
-    return { ...input, email: input.email.trim() };
+    return { ...input, email: input.email.trim(), confirmedEmail: input.confirmedEmail?.trim() };
   })
   .handler(async ({ context, data }) => {
     const actor = await requireClub(context.userId);
