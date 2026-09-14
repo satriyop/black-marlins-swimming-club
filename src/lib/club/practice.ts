@@ -347,8 +347,16 @@ export async function loadPractice(actor: Actor, id: number): Promise<PracticeDe
     where a.practice_id = ${id} and a.club_id = ${clubId}
     order by a.on_roll desc, s.full_name
   `;
+  const mapUrl = row.series_id
+    ? (
+        await actor.sql<{ map_url: string | null }>`
+          select map_url from practice_series where id = ${row.series_id} and club_id = ${clubId} limit 1
+        `
+      )[0]?.map_url ?? null
+    : null;
   return {
     ...mapPractice(row),
+    mapUrl,
     sets: sets.map((s) => ({
       id: s.id,
       practiceId: s.practice_id,

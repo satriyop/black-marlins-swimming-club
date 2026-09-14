@@ -32,8 +32,8 @@ export async function ensureDefaultTrainingSchedules(query, clubId) {
     const result = await query(
       `insert into practice_series (
          club_id, seed_key, title, weekday, start_time, duration_min, location, kind, notes,
-         horizon_weeks, start_date, active
-       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::date,$12)
+         map_url, horizon_weeks, start_date, active
+       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::date,$13)
        on conflict (club_id, seed_key) where seed_key is not null do update set
          title = excluded.title,
          weekday = excluded.weekday,
@@ -42,6 +42,7 @@ export async function ensureDefaultTrainingSchedules(query, clubId) {
          location = excluded.location,
          kind = excluded.kind,
          notes = excluded.notes,
+         map_url = excluded.map_url,
          horizon_weeks = excluded.horizon_weeks
        returning id, active, (xmax = 0) as inserted`,
       [
@@ -53,7 +54,8 @@ export async function ensureDefaultTrainingSchedules(query, clubId) {
         schedule.durationMin,
         schedule.location,
         schedule.kind,
-        schedule.notes,
+        schedule.notes ?? null,
+        schedule.mapUrl ?? null,
         HORIZON_WEEKS,
         fromDate,
         schedule.active,

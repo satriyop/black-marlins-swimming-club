@@ -220,6 +220,7 @@ test("navigation and account reflow with enlarged text and reserve bottom space"
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => (document.documentElement.style.fontSize = "100%"));
     await page.goto(`/latihan/${fixture.practiceId}`);
+    await page.getByRole("button", { name: /^Tampilkan detail/ }).first().click();
     const field = page.getByLabel("Jarak selesai (m)");
     await field.fill("1250");
     const nav = page.getByRole("navigation", { name: "Navigasi seluler", exact: true });

@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Pencil } from "lucide-react";
+import { ChevronDown, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   addClubPracticeParticipant,
@@ -40,7 +40,7 @@ import {
   strokeLabel,
 } from "@/lib/swim/constants";
 import { formatInterval } from "@/lib/swim/time";
-import { formatDateId } from "@/lib/utils";
+import { cn, formatDateId } from "@/lib/utils";
 
 export const Route = createFileRoute("/latihan_/$id")({ component: Page });
 function Page() {
@@ -49,6 +49,7 @@ function Page() {
   const qc = useQueryClient();
   const { hats } = useAccess();
   const [filter, setFilter] = useState("semua");
+  const [search, setSearch] = useState("");
   const query = useQuery({
     queryKey: ["practice", id],
     queryFn: () => getPractice({ data: { id } }),
@@ -86,7 +87,10 @@ function Page() {
     const block = s.block ?? "lain";
     grouped.set(block, [...(grouped.get(block) ?? []), s]);
   }
-  const visible = onRoll.filter((a) => filter === "semua" || a.status === filter);
+  const matchesStatusFilter = (a: Attendance) => filter === "semua" || a.status === filter;
+  const matchesSearch = (a: Attendance) =>
+    search.trim() === "" || a.swimmerName.toLowerCase().includes(search.trim().toLowerCase());
+  const visible = onRoll.filter((a) => matchesStatusFilter(a) && matchesSearch(a));
   return (
     <AppShell>
       <Link to="/latihan" className="mb-4 inline-flex min-h-11 items-center text-sm">
@@ -108,7 +112,21 @@ function Page() {
             {data.startTime || "Jam belum ditentukan"}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {data.location || "Lokasi belum ditentukan"} · Rencana{" "}
+            {data.location || "Lokasi belum ditentukan"}
+            {data.mapUrl ? (
+              <>
+                {" · "}
+                <a
+                  href={data.mapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary underline underline-offset-2"
+                >
+                  Buka peta ↗
+                </a>
+              </>
+            ) : null}
+            {" · Rencana "}
             {data.totalMeters.toLocaleString("id-ID")} m
           </p>
           {(data.originalSessionDate != null ||
@@ -199,7 +217,7 @@ function Page() {
           </p>
           {staff && !closed ? <ParticipantBar practice={data} /> : null}
           {staff && (
-            <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Filter kehadiran">
+            <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filter kehadiran">
               <Button
                 type="button"
                 variant={filter === "semua" ? "secondary" : "outline"}
@@ -229,13 +247,26 @@ function Page() {
                   </option>
                 ))}
               </SelectNative>
+              <Input
+                type="search"
+                placeholder="Cari nama…"
+                aria-label="Cari perenang"
+                className="w-auto min-w-40 flex-1"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           )}
-          <div className="grid gap-3 lg:grid-cols-2">
+          {staff && !closed ? (
+            <div className="mb-3">
+              <MarkAllPresentButton practiceId={id} attendances={onRoll} />
+            </div>
+          ) : null}
+          <div className="grid gap-2">
             {onRoll.map((attendance) => (
               <div
                 key={attendance.id}
-                className={filter === "semua" || attendance.status === filter ? undefined : "hidden"}
+                className={matchesStatusFilter(attendance) && matchesSearch(attendance) ? undefined : "hidden"}
               >
                 <AttendanceCard
                   attendance={attendance}
@@ -248,9 +279,11 @@ function Page() {
           </div>
           {!visible.length && (
             <p className="rounded-xl bg-card p-5 text-sm text-muted-foreground">
-              {filter === "belum"
-                ? "Semua kehadiran sudah dicatat."
-                : "Tidak ada perenang pada daftar ini."}
+              {search.trim() !== ""
+                ? "Tidak ada perenang dengan nama itu."
+                : filter === "belum"
+                  ? "Semua kehadiran sudah dicatat."
+                  : "Tidak ada perenang pada daftar ini."}
             </p>
           )}
           {staff && offRoll.length > 0 ? (
@@ -517,6 +550,52 @@ function attendanceTone(status: Attendance["status"]): "ok" | "warn" | "danger" 
   return "muted";
 }
 
+function attendanceDotClass(status: Attendance["status"]): string {
+  if (status === "hadir") return "bg-success";
+  if (status === "izin" || status === "sakit") return "bg-warning";
+  if (status === "alfa") return "bg-destructive";
+  return "bg-muted-foreground/40";
+}
+
+function MarkAllPresentButton({
+  practiceId,
+  attendances,
+}: {
+  practiceId: number;
+  attendances: Attendance[];
+}) {
+  const qc = useQueryClient();
+  const pending = attendances.filter((a) => a.status === "belum");
+  const bulk = useMutation({
+    mutationFn: async () => {
+      await Promise.all(
+        pending.map((a) => updateAttendance({ data: { id: a.id, status: "hadir" } })),
+      );
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["practice", practiceId] }),
+        qc.invalidateQueries({ queryKey: ["practices"] }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      toast.success("Semua ditandai hadir");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  if (!pending.length) return null;
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={bulk.isPending}
+      onClick={() => bulk.mutate()}
+    >
+      {bulk.isPending ? "Menandai…" : `Tandai semua hadir (${pending.length})`}
+    </Button>
+  );
+}
+
 function AttendanceCard({
   attendance: a,
   hats,
@@ -534,6 +613,7 @@ function AttendanceCard({
   const [reason, setReason] = useState(a.notice?.reason ?? "");
   const [correctionMsg, setCorrectionMsg] = useState("");
   const [resolution, setResolution] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const family = canSubmitAbsenceNotice(hats, a.swimmerId);
   const canHadir = !locked && canMarkAttendance(hats, a.swimmerId, "hadir") && a.status !== "hadir";
   const otherStatuses = ATTENDANCE.filter((status) => canMarkAttendance(hats, a.swimmerId, status.id));
@@ -577,54 +657,47 @@ function AttendanceCard({
     onSuccess: refresh,
     onError: (e: Error) => toast.error(e.message),
   });
+  const hasDetail =
+    Boolean(a.notice?.status === "active") ||
+    (hats.staff && a.status === "hadir" && !locked) ||
+    family ||
+    (hats.staff && a.correctionStatus === "pending" && Boolean(a.correctionId)) ||
+    canRemove;
   return (
-    <article className="rounded-2xl bg-card p-3.5 shadow-border">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="text-base font-semibold">{a.swimmerName}</p>
-          <Badge tone={attendanceTone(a.status)}>{labelOf(ATTENDANCE, a.status)}</Badge>
-          {a.notice?.status === "active" ? (
-            <Badge tone="warn">Izin wali: {a.notice.kind}</Badge>
-          ) : null}
-        </div>
-        {canRemove ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              try {
-                await removeClubPracticeParticipant({
-                  data: { practiceId: a.practiceId, swimmerId: a.swimmerId },
-                });
-                await qc.invalidateQueries({ queryKey: ["practice", a.practiceId] });
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Gagal menghapus");
-              }
-            }}
-          >
-            Lepas
-          </Button>
+    <article className="rounded-2xl bg-card shadow-border">
+      <div className="flex items-center gap-2 px-3.5 py-2.5">
+        <span
+          aria-hidden="true"
+          className={cn("size-2.5 shrink-0 rounded-full", attendanceDotClass(a.status))}
+        />
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <span className="block truncate text-base font-medium">{a.swimmerName}</span>
+        </button>
+        {a.notice?.status === "active" ? (
+          <Badge tone="warn" className="shrink-0">
+            Izin: {a.notice.kind}
+          </Badge>
         ) : null}
-      </div>
-      {a.notice?.status === "active" && a.notice.reason ? (
-        <p className="mt-1.5 text-sm text-muted-foreground">Catatan wali: {a.notice.reason}</p>
-      ) : null}
-      {hats.staff ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {canHadir ? (
-            <Button
-              type="button"
-              size="sm"
-              aria-label={`Hadir: ${a.swimmerName}`}
-              disabled={update.isPending}
-              onClick={() => update.mutate({ status: "hadir" })}
-            >
-              Hadir
-            </Button>
-          ) : null}
-          <Field label="Ubah status">
+        {hats.staff ? (
+          <>
+            {canHadir ? (
+              <Button
+                type="button"
+                size="sm"
+                className="shrink-0"
+                aria-label={`Hadir: ${a.swimmerName}`}
+                disabled={update.isPending}
+                onClick={() => update.mutate({ status: "hadir" })}
+              >
+                Hadir
+              </Button>
+            ) : null}
             <SelectNative
-              className="w-auto"
+              className="w-auto shrink-0"
               aria-label={`Ubah status: ${a.swimmerName}`}
               value={a.status}
               disabled={locked || update.isPending}
@@ -636,172 +709,215 @@ function AttendanceCard({
                 </option>
               ))}
             </SelectNative>
-          </Field>
-        </div>
-      ) : null}
-      {family ? (
-        <div className="mt-2 grid gap-2 border-t border-border pt-2">
-          <p className="text-xs text-muted-foreground">{a.cutoffLabel}</p>
-          {a.noticeEditable ? (
-            <>
-              <Field label="Alasan (opsional, hanya staf dan keluarga)">
-                <Input value={reason} onChange={(e) => setReason(e.target.value)} />
-              </Field>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={a.notice?.status === "active" && a.notice.kind === "izin" ? "secondary" : "outline"}
-                  disabled={notice.isPending}
-                  onClick={() => notice.mutate("izin")}
-                >
-                  Izin
+          </>
+        ) : (
+          <Badge tone={attendanceTone(a.status)} className="shrink-0">
+            {labelOf(ATTENDANCE, a.status)}
+          </Badge>
+        )}
+        {hasDetail ? (
+          <button
+            type="button"
+            className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted"
+            aria-label={expanded ? `Sembunyikan detail ${a.swimmerName}` : `Tampilkan detail ${a.swimmerName}`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
+          </button>
+        ) : null}
+      </div>
+      {expanded ? (
+        <div className="grid gap-3 border-t border-border px-3.5 py-3">
+          {a.notice?.status === "active" && a.notice.reason ? (
+            <p className="text-sm text-muted-foreground">Catatan wali: {a.notice.reason}</p>
+          ) : null}
+          {hats.staff && a.status === "hadir" && !locked ? (
+            metersEditing ? (
+              <form
+                className="flex flex-wrap items-end gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (meters === "") return;
+                  update.mutate(
+                    { status: "hadir", metersCompleted: Number(meters) },
+                    { onSuccess: () => setMetersEditing(false) },
+                  );
+                }}
+              >
+                <Field label="Jarak selesai (m)">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100000}
+                    value={meters}
+                    placeholder="Belum dicatat"
+                    onChange={(e) => setMeters(e.target.value)}
+                  />
+                </Field>
+                <Button size="sm" variant="outline" disabled={update.isPending || meters === ""}>
+                  Simpan jarak
                 </Button>
-                <Button
-                  variant={a.notice?.status === "active" && a.notice.kind === "sakit" ? "secondary" : "outline"}
-                  disabled={notice.isPending}
-                  onClick={() => notice.mutate("sakit")}
-                >
-                  Sakit
-                </Button>
-                {a.notice?.status === "active" ? (
-                  <Button variant="ghost" disabled={withdraw.isPending} onClick={() => withdraw.mutate()}>
-                    Batalkan izin
+                {a.metersCompleted != null ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setMeters(String(a.metersCompleted));
+                      setMetersEditing(false);
+                    }}
+                  >
+                    Batal
                   </Button>
                 ) : null}
+              </form>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">
+                  Jarak selesai: <span className="font-mono text-foreground">{a.metersCompleted} m</span>
+                </span>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setMetersEditing(true)}>
+                  Ubah jarak
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={update.isPending}
+                  onClick={() =>
+                    update.mutate(
+                      { status: "hadir", metersCompleted: null },
+                      { onSuccess: () => setMetersEditing(true) },
+                    )
+                  }
+                >
+                  Hapus jarak
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Menyimpan izin tidak mengganti kehadiran akhir pelatih.
-              </p>
-            </>
-          ) : a.canRequestCorrection ? (
+            )
+          ) : null}
+          {family ? (
+            <div className="grid gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
+              <p className="text-xs text-muted-foreground">{a.cutoffLabel}</p>
+              {a.noticeEditable ? (
+                <>
+                  <Field label="Alasan (opsional, hanya staf dan keluarga)">
+                    <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+                  </Field>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={a.notice?.status === "active" && a.notice.kind === "izin" ? "secondary" : "outline"}
+                      disabled={notice.isPending}
+                      onClick={() => notice.mutate("izin")}
+                    >
+                      Izin
+                    </Button>
+                    <Button
+                      variant={a.notice?.status === "active" && a.notice.kind === "sakit" ? "secondary" : "outline"}
+                      disabled={notice.isPending}
+                      onClick={() => notice.mutate("sakit")}
+                    >
+                      Sakit
+                    </Button>
+                    {a.notice?.status === "active" ? (
+                      <Button variant="ghost" disabled={withdraw.isPending} onClick={() => withdraw.mutate()}>
+                        Batalkan izin
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Menyimpan izin tidak mengganti kehadiran akhir pelatih.
+                  </p>
+                </>
+              ) : a.canRequestCorrection ? (
+                <form
+                  className="grid gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    correct.mutate();
+                  }}
+                >
+                  <Field label="Ajukan koreksi">
+                    <Input
+                      required
+                      value={correctionMsg}
+                      onChange={(e) => setCorrectionMsg(e.target.value)}
+                      placeholder="Jelaskan ke pelatih"
+                    />
+                  </Field>
+                  <Button type="submit" variant="outline" disabled={correct.isPending || a.correctionStatus === "pending"}>
+                    {a.correctionStatus === "pending" ? "Koreksi menunggu" : "Kirim koreksi"}
+                  </Button>
+                </form>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {a.notice?.status === "active"
+                    ? `Izin tercatat (${a.notice.kind}). Sesi dibatalkan, izin tidak dapat diubah.`
+                    : "Sesi dibatalkan. Izin tidak dapat diubah."}
+                </p>
+              )}
+              {a.correctionStatus && a.correctionStatus !== "pending" ? (
+                <p className="text-sm">
+                  Koreksi {a.correctionStatus === "resolved" ? "diterima" : "ditolak"}
+                  {a.correctionResolution ? `: ${a.correctionResolution}` : ""}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {hats.staff && a.correctionStatus === "pending" && a.correctionId ? (
             <form
-              className="grid gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                correct.mutate();
-              }}
+              className="grid gap-2 border-t border-border pt-2 first:border-0 first:pt-0"
+              onSubmit={(e) => e.preventDefault()}
             >
-              <Field label="Ajukan koreksi">
-                <Input
-                  required
-                  value={correctionMsg}
-                  onChange={(e) => setCorrectionMsg(e.target.value)}
-                  placeholder="Jelaskan ke pelatih"
-                />
+              <p className="text-sm">Koreksi wali: {a.correctionMessage}</p>
+              <Field label="Penjelasan">
+                <Input value={resolution} onChange={(e) => setResolution(e.target.value)} />
               </Field>
-              <Button type="submit" variant="outline" disabled={correct.isPending || a.correctionStatus === "pending"}>
-                {a.correctionStatus === "pending" ? "Koreksi menunggu" : "Kirim koreksi"}
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" disabled={resolve.isPending} onClick={() => resolve.mutate("resolved")}>
+                  Terima
+                </Button>
+                <Button type="button" variant="outline" disabled={resolve.isPending} onClick={() => resolve.mutate("rejected")}>
+                  Tolak
+                </Button>
+              </div>
             </form>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {a.notice?.status === "active"
-                ? `Izin tercatat (${a.notice.kind}). Sesi dibatalkan, izin tidak dapat diubah.`
-                : "Sesi dibatalkan. Izin tidak dapat diubah."}
-            </p>
-          )}
-          {a.correctionStatus && a.correctionStatus !== "pending" ? (
-            <p className="text-sm">
-              Koreksi {a.correctionStatus === "resolved" ? "diterima" : "ditolak"}
-              {a.correctionResolution ? `: ${a.correctionResolution}` : ""}
-            </p>
+          ) : null}
+          <div aria-live="polite" className="text-sm empty:hidden">
+            {update.isPending || notice.isPending ? (
+              <p>Menyimpan…</p>
+            ) : update.isError ? (
+              <p role="alert" className="text-destructive">
+                {update.error.message} Silakan coba lagi.
+              </p>
+            ) : update.isSuccess || notice.isSuccess ? (
+              <p className="text-muted-foreground">Tersimpan.</p>
+            ) : null}
+          </div>
+          {canRemove ? (
+            <div className="flex justify-end border-t border-border pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await removeClubPracticeParticipant({
+                      data: { practiceId: a.practiceId, swimmerId: a.swimmerId },
+                    });
+                    await qc.invalidateQueries({ queryKey: ["practice", a.practiceId] });
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Gagal menghapus");
+                  }
+                }}
+              >
+                Lepas dari sesi
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : null}
-      {hats.staff && a.status === "hadir" && !locked ? (
-        metersEditing ? (
-          <form
-            className="mt-2 flex flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (meters === "") return;
-              update.mutate(
-                { status: "hadir", metersCompleted: Number(meters) },
-                { onSuccess: () => setMetersEditing(false) },
-              );
-            }}
-          >
-            <Field label="Jarak selesai (m)">
-              <Input
-                type="number"
-                min={0}
-                max={100000}
-                value={meters}
-                placeholder="Belum dicatat"
-                onChange={(e) => setMeters(e.target.value)}
-              />
-            </Field>
-            <Button size="sm" variant="outline" disabled={update.isPending || meters === ""}>
-              Simpan jarak
-            </Button>
-            {a.metersCompleted != null ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setMeters(String(a.metersCompleted));
-                  setMetersEditing(false);
-                }}
-              >
-                Batal
-              </Button>
-            ) : null}
-          </form>
-        ) : (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">
-              Jarak selesai: <span className="font-mono text-foreground">{a.metersCompleted} m</span>
-            </span>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setMetersEditing(true)}>
-              Ubah jarak
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={update.isPending}
-              onClick={() =>
-                update.mutate(
-                  { status: "hadir", metersCompleted: null },
-                  { onSuccess: () => setMetersEditing(true) },
-                )
-              }
-            >
-              Hapus jarak
-            </Button>
-          </div>
-        )
-      ) : null}
-      {hats.staff && a.correctionStatus === "pending" && a.correctionId ? (
-        <form
-          className="mt-2 grid gap-2 border-t border-border pt-2"
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <p className="text-sm">Koreksi wali: {a.correctionMessage}</p>
-          <Field label="Penjelasan">
-            <Input value={resolution} onChange={(e) => setResolution(e.target.value)} />
-          </Field>
-          <div className="flex gap-2">
-            <Button type="button" disabled={resolve.isPending} onClick={() => resolve.mutate("resolved")}>
-              Terima
-            </Button>
-            <Button type="button" variant="outline" disabled={resolve.isPending} onClick={() => resolve.mutate("rejected")}>
-              Tolak
-            </Button>
-          </div>
-        </form>
-      ) : null}
-      <div aria-live="polite" className="mt-1.5 text-sm">
-        {update.isPending || notice.isPending ? (
-          <p>Menyimpan…</p>
-        ) : update.isError ? (
-          <p role="alert" className="text-destructive">
-            {update.error.message} Silakan coba lagi.
-          </p>
-        ) : update.isSuccess || notice.isSuccess ? (
-          <p className="text-muted-foreground">Tersimpan.</p>
-        ) : null}
-      </div>
     </article>
   );
 }

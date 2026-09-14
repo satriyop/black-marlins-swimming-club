@@ -99,6 +99,7 @@ export type Practice = {
 export type PracticeDetail = Practice & {
   sets: PracticeSet[];
   attendance: Attendance[];
+  mapUrl: string | null;
 };
 
 export type Meet = {
