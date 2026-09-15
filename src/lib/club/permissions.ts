@@ -28,6 +28,11 @@ export function canWriteTestTime(hats: Hats, swimmerId: number): boolean {
   return hats.guardianSwimmerIds.includes(swimmerId);
 }
 
+/** Goals are a shared coach/club plan; guardians and swimmer accounts can read them. */
+export function canWriteSwimmerGoal(hats: Hats): boolean {
+  return hats.staff != null;
+}
+
 export function canEditResult(
   hats: Hats,
   result: { kind: "official" | "test"; swimmerId: number },

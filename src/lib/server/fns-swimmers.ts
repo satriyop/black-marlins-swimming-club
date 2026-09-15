@@ -8,6 +8,7 @@ import { loadClub, requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
 import { listAttendanceHistory } from "@/lib/club/attendance";
 import { listSwimmers as listSwimmersFor, saveSwimmer as saveSwimmerFor } from "@/lib/club/swimmers";
+import { listSwimmerGoals, saveSwimmerGoal as saveSwimmerGoalFor, type SaveSwimmerGoalInput } from "@/lib/club/goals";
 import { getDashboardData } from "@/lib/club/dashboard";
 import { deleteSwimmer as deleteSwimmerFor } from "@/lib/club/writes";
 import { listFeedbackPracticeOptions, listSwimmerFeedback } from "@/lib/club/feedback";
@@ -65,7 +66,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
   if (!row || !canSeeSwimmer(hats, data.id)) throw new Error("Perenang tidak ditemukan");
   const swimmer = mapSwimmer(row);
   if (!staffView) swimmer.notes = null;
-  const [results, pbs, att, volume, attendanceHistory, entries, feedback, feedbackPractices] = await Promise.all([
+  const [results, pbs, att, volume, attendanceHistory, entries, goals, feedback, feedbackPractices] = await Promise.all([
     sql<ResultRow>`
       select r.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name
       from results r left join meets m on m.id = r.meet_id
@@ -89,11 +90,14 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
       from meet_entries e join meets m on m.id = e.meet_id
       where e.club_id = ${clubId} and e.swimmer_id = ${data.id} and coalesce(m.end_date,m.start_date) >= current_date
       order by m.start_date, e.distance_m`,
+    listSwimmerGoals(actor, data.id),
     listSwimmerFeedback(actor, data.id, staffView ? "role" : "family"),
     staffView ? listFeedbackPracticeOptions(actor, data.id) : Promise.resolve([]),
   ]);
   return {
     swimmer, results: results.map(mapResult),
+    goals,
+    goalCanManage: staffView,
     pbs: pbs.map((p): PersonalBest => ({ stroke: p.stroke, distanceM: p.distance_m, course: p.course, timeMs: p.time_ms, resultDate: p.result_date, meetName: p.meet_name })),
     attendance: { present: att[0]?.hadir ?? 0, total: att[0]?.total ?? 0, rate: (att[0]?.total ?? 0) === 0 ? 0 : Math.round(((att[0]?.hadir ?? 0) / (att[0]?.total ?? 1)) * 100) },
     attendanceHistory,
@@ -104,6 +108,14 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
     upcomingEntries: entries.map((e) => ({ id: e.id, meetId: e.meet_id, swimmerId: e.swimmer_id, swimmerName: e.swimmer_name, stroke: e.stroke, distanceM: e.distance_m, ageGroup: e.age_group, seedTimeMs: e.seed_time_ms, status: e.status, registrationStatus: e.registration_status, registrationReason: e.registration_reason, lane: e.lane, heat: e.heat, meetName: e.meet_name, startDate: e.start_date })),
   };
 });
+
+export const saveSwimmerGoal = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: SaveSwimmerGoalInput) => input)
+  .handler(async ({ context, data }) => {
+    const actor = await requireClub(context.userId);
+    return saveSwimmerGoalFor(actor, data);
+  });
 
 export const saveSwimmer = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
   id?: number; fullName: string; nickname?: string; dateOfBirth: string; gender: "putra" | "putri";
