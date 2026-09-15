@@ -7,6 +7,7 @@ export {
   getClub,
   listSwimmers,
   getSwimmer,
+  saveSwimmerGoal,
   saveSwimmer,
   deleteSwimmer,
 } from "./fns-swimmers";

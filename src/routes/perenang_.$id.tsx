@@ -5,6 +5,7 @@ import { ResourceQueryError } from "@/components/ui/query-error";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { ResultList } from "@/components/swim/result-list";
 import { ResultDialog } from "@/components/swim/result-dialog";
+import { GoalSection } from "@/components/swim/goal-section";
 import { progressSeries, progressDescription } from "@/lib/swim/progress";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -70,7 +71,7 @@ function Page() {
         <ResourceQueryError error={error} retry={() => refetch()} />
       </AppShell>
     );
-  const { swimmer, results, pbs, attendance, attendanceHistory, totalMeters, upcomingEntries, feedback, feedbackPractices, feedbackCanManage } = data;
+  const { swimmer, results, pbs, goals, goalCanManage, attendance, attendanceHistory, totalMeters, upcomingEntries, feedback, feedbackPractices, feedbackCanManage } = data;
   return (
     <AppShell>
       <Link
@@ -109,6 +110,7 @@ function Page() {
         </div>
       </div>
       <ProfileSummary attendance={attendance} totalMeters={totalMeters} pbs={pbs} />
+      <GoalSection swimmerId={swimmer.id} goals={goals} canManage={goalCanManage} />
       {upcomingEntries.length > 0 ? (
         <section className="mb-6">
           <h2 className="font-display mb-3 text-2xl">Pendaftaran kejuaraan</h2>
