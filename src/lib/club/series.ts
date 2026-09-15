@@ -1,8 +1,11 @@
 import type { Actor } from "./actor";
 import { hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
-import { canWritePractice } from "./permissions";
+import { canSubmitAbsenceNotice, canWritePractice } from "./permissions";
+import type { PracticeStatus } from "@/lib/swim/types";
 import { cancelPractice, savePracticeRecord, type PracticeSetInput } from "./practice";
+import { saveAbsenceNotice, withdrawAbsenceNotice } from "./attendance";
+import { absenceCutoffLabel, isBeforeAbsenceCutoff } from "./absence-window";
 import { jakartaNowParts } from "@/lib/utils";
 import type { WeekdayId } from "@/lib/swim/constants";
 
@@ -24,11 +27,22 @@ export type SeriesInput = {
 export type ScheduledTrainingDay = {
   scheduleId: number;
   practiceId: number | null;
+  practiceStatus: PracticeStatus | null;
   date: string;
   title: string;
   startTime: string | null;
   durationMin: number | null;
   location: string | null;
+  familySwimmers: {
+    id: number;
+    name: string;
+    notice: {
+      kind: "izin" | "sakit";
+      reason: string | null;
+      status: "active" | "withdrawn";
+    } | null;
+  }[];
+  noticeEditable: boolean;
 };
 
 export function isoWeekday(isoDate: string): WeekdayId {
@@ -228,8 +242,13 @@ export async function listScheduledTrainingDays(
   to.setUTCDate(to.getUTCDate() + days - 1);
   const toDate = to.toISOString().slice(0, 10);
   const schedules = await actor.sql<{
-    id: number; title: string; weekday: WeekdayId; start_time: string | null;
-    duration_min: number | null; location: string | null; start_date: string;
+    id: number;
+    title: string;
+    weekday: WeekdayId;
+    start_time: string | null;
+    duration_min: number | null;
+    location: string | null;
+    start_date: string;
   }>`
     select id, title, weekday, start_time, duration_min, location, start_date::text as start_date
     from practice_series
@@ -242,12 +261,48 @@ export async function listScheduledTrainingDays(
     where skip_date between ${fromDate}::date and ${toDate}::date
   `;
   const skipped = new Set(skips.map((row) => `${row.series_id}:${row.skip_date.slice(0, 10)}`));
-  const practices = await actor.sql<{ id: number; series_id: number; occurrence_date: string }>`
-    select id, series_id, occurrence_date::text as occurrence_date from practices
+  const practices = await actor.sql<{
+    id: number;
+    series_id: number;
+    occurrence_date: string;
+    status: PracticeStatus;
+  }>`
+    select id, series_id, occurrence_date::text as occurrence_date, status from practices
     where club_id = ${clubId} and series_id is not null
       and occurrence_date between ${fromDate}::date and ${toDate}::date
   `;
-  const practiceByDay = new Map(practices.map((row) => [`${row.series_id}:${row.occurrence_date.slice(0, 10)}`, row.id]));
+  const practiceByDay = new Map(
+    practices.map((row) => [`${row.series_id}:${row.occurrence_date.slice(0, 10)}`, row]),
+  );
+  const hats = await hatsFor(actor);
+  const family = hats.guardianSwimmerIds.length
+    ? await actor.sql<{ id: number; name: string }>`
+    select s.id, s.full_name as name from swimmers s
+    join guardians g on g.swimmer_id = s.id and g.user_id = ${actor.userId}
+    where s.club_id = ${clubId} and s.status = 'aktif' order by s.full_name
+  `
+    : [];
+  const notices = family.length
+    ? await actor.sql<{
+        series_id: number;
+        occurrence_date: string;
+        swimmer_id: number;
+        kind: "izin" | "sakit";
+        reason: string | null;
+        status: "active" | "withdrawn";
+      }>`
+    select series_id, occurrence_date::text as occurrence_date, swimmer_id, kind, reason, status
+    from absence_notices where club_id = ${clubId} and series_id is not null
+      and swimmer_id = any(${hats.guardianSwimmerIds}::int[])
+      and occurrence_date between ${fromDate}::date and ${toDate}::date
+  `
+    : [];
+  const noticeByDay = new Map(
+    notices.map((row) => [
+      `${row.series_id}:${row.occurrence_date.slice(0, 10)}:${row.swimmer_id}`,
+      row,
+    ]),
+  );
   const result: ScheduledTrainingDay[] = [];
   for (let offset = 0; offset < days; offset += 1) {
     const date = new Date(`${fromDate}T00:00:00Z`);
@@ -255,19 +310,123 @@ export async function listScheduledTrainingDays(
     const day = date.toISOString().slice(0, 10);
     for (const schedule of schedules) {
       const key = `${schedule.id}:${day}`;
-      if (day < schedule.start_date.slice(0, 10) || isoWeekday(day) !== schedule.weekday || skipped.has(key)) continue;
+      if (
+        day < schedule.start_date.slice(0, 10) ||
+        isoWeekday(day) !== schedule.weekday ||
+        skipped.has(key)
+      )
+        continue;
       result.push({
         scheduleId: schedule.id,
-        practiceId: practiceByDay.get(key) ?? null,
+        practiceId: practiceByDay.get(key)?.id ?? null,
+        practiceStatus: practiceByDay.get(key)?.status ?? null,
         date: day,
         title: schedule.title,
         startTime: schedule.start_time,
         durationMin: schedule.duration_min,
         location: schedule.location,
+        familySwimmers: family.map((swimmer) => {
+          const notice = noticeByDay.get(`${key}:${swimmer.id}`);
+          return {
+            ...swimmer,
+            notice: notice
+              ? { kind: notice.kind, reason: notice.reason, status: notice.status }
+              : null,
+          };
+        }),
+        noticeEditable: isBeforeAbsenceCutoff(day, schedule.start_time),
       });
     }
   }
   return result;
+}
+
+async function plannedNoticeGate(
+  actor: Actor,
+  input: { scheduleId: number; date: string; swimmerId: number },
+) {
+  const clubId = await clubIdFor(actor);
+  if (clubId == null) throw new Error("Tidak diizinkan");
+  const hats = await hatsFor(actor);
+  if (!canSubmitAbsenceNotice(hats, input.swimmerId)) throw new Error("Tidak diizinkan");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error("Tanggal tidak valid");
+  const rows = await actor.sql<{ id: number; weekday: WeekdayId; start_time: string | null }>`
+    select id, weekday, start_time from practice_series
+    where id = ${input.scheduleId} and club_id = ${clubId} and active = true
+      and start_date <= ${input.date}::date and (until_date is null or until_date >= ${input.date}::date)
+    for update
+  `;
+  const schedule = rows[0];
+  if (!schedule || isoWeekday(input.date) !== schedule.weekday)
+    throw new Error("Jadwal latihan tidak tersedia");
+  const roster = await actor.sql`select 1 from swimmers
+    where id = ${input.swimmerId} and club_id = ${clubId} and status = 'aktif' limit 1`;
+  if (!roster.length) throw new Error("Perenang tidak aktif di skuad ini");
+  const skips = await actor.sql`select 1 from practice_series_skips
+    where series_id = ${schedule.id} and skip_date = ${input.date}::date limit 1`;
+  if (skips.length) throw new Error("Jadwal latihan pada tanggal ini diliburkan");
+  if (!isBeforeAbsenceCutoff(input.date, schedule.start_time)) {
+    throw new Error(
+      `Batas waktu izin sudah lewat. ${absenceCutoffLabel(input.date, schedule.start_time)}`,
+    );
+  }
+  const practices = await actor.sql<{ id: number }>`
+    select id from practices where club_id = ${clubId} and series_id = ${schedule.id}
+      and occurrence_date = ${input.date}::date limit 1
+  `;
+  return { clubId, practiceId: practices[0]?.id ?? null };
+}
+
+export async function savePlannedAbsenceNotice(
+  actor: Actor,
+  input: {
+    scheduleId: number;
+    date: string;
+    swimmerId: number;
+    kind: "izin" | "sakit";
+    reason?: string;
+  },
+): Promise<{ id: number }> {
+  return actor.sql.transaction(async (sql) => {
+    const a = { ...actor, sql };
+    const { clubId, practiceId } = await plannedNoticeGate(a, input);
+    if (practiceId)
+      return saveAbsenceNotice(a, {
+        practiceId,
+        swimmerId: input.swimmerId,
+        kind: input.kind,
+        reason: input.reason,
+      });
+    const rows = await sql<{ id: number }>`
+      insert into absence_notices (club_id, series_id, occurrence_date, swimmer_id, kind, reason, status, created_by)
+      values (${clubId}, ${input.scheduleId}, ${input.date}::date, ${input.swimmerId}, ${input.kind}, ${input.reason?.trim() || null}, 'active', ${actor.userId})
+      on conflict (series_id, occurrence_date, swimmer_id) where series_id is not null do update set
+        kind = excluded.kind, reason = excluded.reason, status = 'active', updated_at = now(),
+        withdrawn_at = null, withdrawn_by = null, revision = absence_notices.revision + 1
+      returning id
+    `;
+    return { id: rows[0]!.id };
+  });
+}
+
+export async function withdrawPlannedAbsenceNotice(
+  actor: Actor,
+  input: { scheduleId: number; date: string; swimmerId: number },
+): Promise<{ ok: true }> {
+  return actor.sql.transaction(async (sql) => {
+    const a = { ...actor, sql };
+    const { clubId, practiceId } = await plannedNoticeGate(a, input);
+    if (practiceId) return withdrawAbsenceNotice(a, { practiceId, swimmerId: input.swimmerId });
+    const rows = await sql<{ id: number }>`
+      update absence_notices set status = 'withdrawn', withdrawn_at = now(),
+        withdrawn_by = ${actor.userId}, updated_at = now(), revision = revision + 1
+      where club_id = ${clubId} and series_id = ${input.scheduleId}
+        and occurrence_date = ${input.date}::date and swimmer_id = ${input.swimmerId}
+        and status = 'active' returning id
+    `;
+    if (!rows[0]) throw new Error("Tidak ada izin aktif");
+    return { ok: true };
+  });
 }
 
 export async function openScheduledTrainingDay(
@@ -275,62 +434,99 @@ export async function openScheduledTrainingDay(
   input: { scheduleId: number; date: string },
 ): Promise<{ id: number }> {
   const clubId = await requireCoach(actor);
-  if (input.date > jakartaNowParts().date) throw new Error("Absensi belum dapat dibuka sebelum hari latihan.");
-  const schedules = await actor.sql<{
-    id: number; title: string; weekday: WeekdayId; start_time: string | null; duration_min: number | null;
-    location: string | null; kind: string; focus: string | null; notes: string | null;
-  }>`
+  if (input.date > jakartaNowParts().date)
+    throw new Error("Absensi belum dapat dibuka sebelum hari latihan.");
+  return actor.sql.transaction(async (sql) => {
+    const a = { ...actor, sql };
+    const schedules = await sql<{
+      id: number;
+      title: string;
+      weekday: WeekdayId;
+      start_time: string | null;
+      duration_min: number | null;
+      location: string | null;
+      kind: string;
+      focus: string | null;
+      notes: string | null;
+    }>`
     select id, title, weekday, start_time, duration_min, location, kind, focus, notes
     from practice_series where id = ${input.scheduleId} and club_id = ${clubId} and active = true
       and start_date <= ${input.date}::date and (until_date is null or until_date >= ${input.date}::date)
-    limit 1
+    for update
   `;
-  const schedule = schedules[0];
-  if (!schedule || isoWeekday(input.date) !== schedule.weekday) throw new Error("Tanggal bukan hari latihan pada jadwal ini.");
-  const skipped = await actor.sql<{ found: boolean }>`
+    const schedule = schedules[0];
+    if (!schedule || isoWeekday(input.date) !== schedule.weekday)
+      throw new Error("Tanggal bukan hari latihan pada jadwal ini.");
+    const skipped = await sql<{ found: boolean }>`
     select true as found from practice_series_skips where series_id = ${schedule.id} and skip_date = ${input.date}::date limit 1
   `;
-  if (skipped[0]) throw new Error("Jadwal latihan pada tanggal ini diliburkan.");
-  const existing = await actor.sql<{ id: number }>`
+    if (skipped[0]) throw new Error("Jadwal latihan pada tanggal ini diliburkan.");
+    const existing = await sql<{ id: number }>`
     select id from practices where club_id = ${clubId} and series_id = ${schedule.id}
       and occurrence_date = ${input.date}::date limit 1
   `;
-  if (existing[0]) return existing[0];
-  const sets = await actor.sql<{
-    block: string | null; reps: number; distance_m: number; stroke: string;
-    interval_sec: number | null; description: string | null;
-  }>`
+    if (existing[0]) {
+      await sql`update absence_notices set practice_id = ${existing[0].id}, updated_at = now()
+      where club_id = ${clubId} and series_id = ${schedule.id}
+        and occurrence_date = ${input.date}::date and practice_id is null`;
+      return existing[0];
+    }
+    const sets = await sql<{
+      block: string | null;
+      reps: number;
+      distance_m: number;
+      stroke: string;
+      interval_sec: number | null;
+      description: string | null;
+    }>`
     select block, reps, distance_m, stroke, interval_sec, description
     from practice_series_sets where series_id = ${schedule.id} and club_id = ${clubId} order by sort_order, id
   `;
-  const saved = await savePracticeRecord(actor, {
-    sessionDate: input.date,
-    startTime: schedule.start_time ?? undefined,
-    durationMin: schedule.duration_min ?? undefined,
-    location: schedule.location ?? undefined,
-    kind: schedule.kind,
-    title: schedule.title,
-    focus: schedule.focus ?? undefined,
-    notes: schedule.notes ?? undefined,
-    seriesId: schedule.id,
-    occurrenceDate: input.date,
-    sets: sets.map((set) => ({
-      block: set.block ?? "utama", reps: set.reps, distanceM: set.distance_m, stroke: set.stroke,
-      intervalSec: set.interval_sec, description: set.description ?? undefined,
-    })),
+    const saved = await savePracticeRecord(a, {
+      sessionDate: input.date,
+      startTime: schedule.start_time ?? undefined,
+      durationMin: schedule.duration_min ?? undefined,
+      location: schedule.location ?? undefined,
+      kind: schedule.kind,
+      title: schedule.title,
+      focus: schedule.focus ?? undefined,
+      notes: schedule.notes ?? undefined,
+      seriesId: schedule.id,
+      occurrenceDate: input.date,
+      sets: sets.map((set) => ({
+        block: set.block ?? "utama",
+        reps: set.reps,
+        distanceM: set.distance_m,
+        stroke: set.stroke,
+        intervalSec: set.interval_sec,
+        description: set.description ?? undefined,
+      })),
+    });
+    await sql`
+    update absence_notices set practice_id = ${saved.id}, updated_at = now()
+    where club_id = ${clubId} and series_id = ${schedule.id}
+      and occurrence_date = ${input.date}::date and practice_id is null
+  `;
+    return { id: saved.id };
   });
-  return { id: saved.id };
 }
 
 function icsEscape(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
 }
 
 function icsUtc(date: string, time: string | null, extraMin = 0): string {
   const clock = time && /^\d{1,2}:\d{2}/.test(time) ? time : "15:30";
   const start = new Date(`${date}T${clock.length === 5 ? `${clock}:00` : clock}+07:00`);
   const at = new Date(start.getTime() + extraMin * 60_000);
-  return at.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  return at
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}/, "");
 }
 
 export async function listPracticeIcs(actor: Actor): Promise<string> {

@@ -17,7 +17,7 @@ import { homePracticeCta, isDualRole, roleLabels } from "@/lib/club/nav";
 import { eventCode, labelOf, MEET_STATUSES } from "@/lib/swim/constants";
 import { progressDescription, progressSeries } from "@/lib/swim/progress";
 import { formatTime } from "@/lib/swim/time";
-import type { Meet, Practice, Result, Swimmer } from "@/lib/swim/types";
+import type { Dashboard, Meet, Practice, Result, Swimmer } from "@/lib/swim/types";
 import { formatDateId, greetingId, todayIso } from "@/lib/utils";
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
@@ -25,6 +25,16 @@ const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   const u = await getSessionUser();
   return u ? { id: u.id } : null;
 });
+
+function deadlineLabel(iso: string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
 
 export const Route = createFileRoute("/")({ loader: () => fetchSessionUser(), component: Home });
 
@@ -63,6 +73,7 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
     club,
     swimmers,
     upcomingPractices,
+    nextScheduledTraining,
     noticePractices,
     upcomingMeets,
     recentResults,
@@ -70,8 +81,24 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
     unreadCount,
     stats,
   } = data;
-  const next = upcomingPractices[0];
   const clubView = taskView === "club";
+  const actionablePractices = clubView
+    ? upcomingPractices
+    : upcomingPractices.filter((practice) => practice.sessionDate >= todayIso());
+  const scheduledPractice = actionablePractices.find(
+    (practice) => practice.id === nextScheduledTraining?.practiceId,
+  );
+  const scheduledCandidate = scheduledPractice ?? nextScheduledTraining;
+  const standalone = actionablePractices.find(
+    (practice) => !nextScheduledTraining || practice.id !== nextScheduledTraining.practiceId,
+  );
+  const next =
+    !scheduledCandidate ||
+    (standalone &&
+      `${standalone.sessionDate}T${standalone.startTime ?? "00:00"}` <
+        `${nextScheduledTraining!.date}T${nextScheduledTraining!.startTime ?? "00:00"}`)
+      ? standalone
+      : scheduledCandidate;
   const guardian = isFamilyMember(hats);
   const dual = isDualRole(hats);
   const practiceCta = homePracticeCta(hats, taskView);
@@ -109,13 +136,65 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
       ))}
 
       {data.pendingAcknowledgementCount > 0 && (
-        <section className="rounded-xl border border-border p-4" aria-label="Pengumuman perlu konfirmasi">
-          <p className="font-semibold">{data.pendingAcknowledgementCount} pengumuman perlu konfirmasi</p>
-          <p className="mt-1 text-sm text-muted-foreground">Membuka pengumuman belum berarti memberi konfirmasi.</p>
-          <ul className="mt-2">{data.pendingAcknowledgements.slice(0,3).map(post => (
-            <li key={post.id}><Link className="inline-flex min-h-11 items-center text-sm font-semibold text-primary" to="/pengumuman/$id" params={{ id:String(post.id) }}>{post.title}</Link></li>
-          ))}</ul>
-          {data.pendingAcknowledgementCount > 3 && <Link to="/pengumuman" className="inline-flex min-h-11 items-center text-sm underline">Lihat semua konfirmasi</Link>}
+        <section
+          className="rounded-xl border border-border p-4"
+          aria-label="Pengumuman perlu konfirmasi"
+        >
+          <p className="font-semibold">
+            {data.pendingAcknowledgementCount} pengumuman perlu konfirmasi
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Membuka pengumuman belum berarti memberi konfirmasi.
+          </p>
+          <ul className="mt-2">
+            {data.pendingAcknowledgements.slice(0, 3).map((post) => (
+              <li key={post.id}>
+                <Link
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-primary"
+                  to="/pengumuman/$id"
+                  params={{ id: String(post.id) }}
+                >
+                  {post.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {data.pendingAcknowledgementCount > 3 && (
+            <Link to="/pengumuman" className="inline-flex min-h-11 items-center text-sm underline">
+              Lihat semua konfirmasi
+            </Link>
+          )}
+        </section>
+      )}
+      {data.pendingRegistrationTasks.length > 0 && (
+        <section
+          className="rounded-xl border border-primary/30 bg-card p-4"
+          aria-label="Pendaftaran perlu tindakan"
+        >
+          <h2 className="font-semibold">Pendaftaran perlu tindakan</h2>
+          <ul className="mt-2 grid gap-2">
+            {data.pendingRegistrationTasks.map((task) => (
+              <li key={`${task.kind}:${task.meetId}:${task.swimmerName ?? "staff"}`}>
+                <Link
+                  className="block rounded-lg px-2 py-2 text-sm hover:bg-muted"
+                  to="/event/$id"
+                  params={{ id: String(task.meetId) }}
+                >
+                  <span className="block font-semibold text-primary">
+                    {task.kind === "guardian_response"
+                      ? `Tanggapi keikutsertaan ${task.swimmerName}`
+                      : `Tinjau ${task.count} nomor menunggu persetujuan`}
+                  </span>
+                  <span className="block text-muted-foreground">
+                    {task.meetName}
+                    {task.kind === "guardian_response" && task.deadline
+                      ? ` · sebelum ${deadlineLabel(task.deadline)} WIB`
+                      : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       {important.length > 0 || unreadCount > 0 ? (
@@ -229,20 +308,23 @@ function NextPractice({
   guardian,
   familyCount,
 }: {
-  next: Practice | undefined;
+  next: Practice | Dashboard["nextScheduledTraining"] | undefined;
   clubView: boolean;
   practiceCta: ReturnType<typeof homePracticeCta>;
   guardian: boolean;
   familyCount: number;
 }) {
-  const today = next?.sessionDate === todayIso();
+  const scheduled = next != null && "scheduleId" in next;
+  const date = next ? (scheduled ? next.date : next.sessionDate) : null;
+  const today = date === todayIso();
+  const overdue = date != null && date < todayIso();
   return (
     <section
       aria-labelledby="next-session"
       className="rounded-2xl border border-primary/30 bg-card p-4 sm:p-5"
     >
       <p id="next-session" className="text-sm font-semibold text-primary">
-        {today ? "Latihan hari ini" : "Latihan berikutnya"}
+        {overdue ? "Latihan perlu dituntaskan" : today ? "Latihan hari ini" : "Latihan berikutnya"}
       </p>
       {next ? (
         <>
@@ -250,19 +332,22 @@ function NextPractice({
           <p className="mt-2 flex items-start gap-2 text-sm">
             <CalendarDays className="mt-0.5 size-4 shrink-0" />
             <span>
-              {formatDateId(next.sessionDate, "EEEE, d MMM")} ·{" "}
-              {next.startTime || "Jam belum ditentukan"}
+              {formatDateId(date, "EEEE, d MMM")} · {next.startTime || "Jam belum ditentukan"}
             </span>
           </p>
           <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">
             <MapPin className="mt-0.5 size-4 shrink-0" />
             <span>{next.location || "Lokasi belum ditentukan"}</span>
           </p>
-          {next.focus ? <p className="mt-2 text-sm text-muted-foreground">{next.focus}</p> : null}
+          {!scheduled && next.focus ? (
+            <p className="mt-2 text-sm text-muted-foreground">{next.focus}</p>
+          ) : null}
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <PracticeCta next={next} practiceCta={practiceCta} />
             <span className="text-sm text-muted-foreground">
-              Rencana {next.totalMeters.toLocaleString("id-ID")} m
+              {!scheduled
+                ? `Rencana ${next.totalMeters.toLocaleString("id-ID")} m`
+                : "Jadwal rutin"}
               {next.durationMin ? ` · ${next.durationMin} menit` : ""}
             </span>
           </div>
@@ -297,9 +382,18 @@ function PracticeCta({
   next,
   practiceCta,
 }: {
-  next: Practice;
+  next: Practice | NonNullable<Dashboard["nextScheduledTraining"]>;
   practiceCta: ReturnType<typeof homePracticeCta>;
 }) {
+  if ("scheduleId" in next && next.practiceId == null) {
+    return (
+      <Button asChild>
+        <Link to="/latihan">
+          Lihat jadwal <ArrowRight />
+        </Link>
+      </Button>
+    );
+  }
   if (practiceCta === "enroll") {
     return (
       <Button asChild>
@@ -318,7 +412,10 @@ function PracticeCta({
         : "Lihat program";
   return (
     <Button asChild>
-      <Link to="/latihan/$id" params={{ id: String(next.id) }}>
+      <Link
+        to="/latihan/$id"
+        params={{ id: String("scheduleId" in next ? next.practiceId : next.id) }}
+      >
         {label}
         <ArrowRight />
       </Link>

@@ -6,19 +6,43 @@ import { canSeeSwimmer, hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
 import { loadPrefs } from "./prefs";
 import { mapPractice, type PracticeRow } from "./practice";
+import { listScheduledTrainingDays } from "./series";
 import { listSwimmers } from "./swimmers";
 
 type ResultRow = {
-  id: number; swimmer_id: number; swimmer_name: string; meet_id: number | null; meet_name: string | null;
-  result_date: string; stroke: string; distance_m: number; course: string; time_ms: number | null;
-  place: number | null; round: string | null; status: string; kind: "official" | "test"; notes: string | null;
+  id: number;
+  swimmer_id: number;
+  swimmer_name: string;
+  meet_id: number | null;
+  meet_name: string | null;
+  result_date: string;
+  stroke: string;
+  distance_m: number;
+  course: string;
+  time_ms: number | null;
+  place: number | null;
+  round: string | null;
+  status: string;
+  kind: "official" | "test";
+  notes: string | null;
 };
 
 function mapResult(r: ResultRow, bestMs: number | null): Result {
   return {
-    id: r.id, swimmerId: r.swimmer_id, swimmerName: r.swimmer_name, meetId: r.meet_id, meetName: r.meet_name,
-    resultDate: r.result_date, stroke: r.stroke, distanceM: r.distance_m, course: r.course, timeMs: r.time_ms,
-    place: r.place, round: r.round, status: r.status, kind: r.kind,
+    id: r.id,
+    swimmerId: r.swimmer_id,
+    swimmerName: r.swimmer_name,
+    meetId: r.meet_id,
+    meetName: r.meet_name,
+    resultDate: r.result_date,
+    stroke: r.stroke,
+    distanceM: r.distance_m,
+    course: r.course,
+    timeMs: r.time_ms,
+    place: r.place,
+    round: r.round,
+    status: r.status,
+    kind: r.kind,
     isPb: r.time_ms != null && bestMs != null && r.time_ms === bestMs,
     notes: r.notes,
   };
@@ -39,6 +63,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
         .map((s) => s.id)
     : swimmers.map((s) => s.id);
   const { date: jakartaDate } = jakartaNowParts();
+  const scheduledDays = await listScheduledTrainingDays(actor, { fromDate: jakartaDate, days: 31 });
   const upcomingPractices = await sql<PracticeRow>`
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
            total_meters, notes, status, cancel_reason, reopen_reason,
@@ -63,11 +88,76 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     limit 4
   `;
   const upcomingMeets = await sql<{
-    id: number; name: string; level: string; course: string; venue: string | null; city: string | null;
-    start_date: string; end_date: string | null; organizer: string | null; status: string; notes: string | null;
+    id: number;
+    name: string;
+    level: string;
+    course: string;
+    venue: string | null;
+    city: string | null;
+    start_date: string;
+    end_date: string | null;
+    organizer: string | null;
+    status: string;
+    notes: string | null;
   }>`select * from meets where club_id = ${clubId} and coalesce(end_date,start_date) >= current_date and status <> 'batal' order by start_date limit 4`;
   const meetCount = await sql<{ n: number }>`
     select count(*)::int as n from meets where club_id = ${clubId} and coalesce(end_date,start_date) >= current_date and status <> 'batal'`;
+  const pendingRegistrationTasks: Dashboard["pendingRegistrationTasks"] = [];
+  if (familyOnly && hats.guardianSwimmerIds.length) {
+    const rows = await sql<{
+      meet_id: number;
+      meet_name: string;
+      swimmer_name: string;
+      deadline: Date;
+    }>`
+      select m.id as meet_id, m.name as meet_name, s.full_name as swimmer_name,
+             m.registration_deadline as deadline
+      from meet_eligibility e
+      join meets m on m.id = e.meet_id and m.club_id = e.club_id
+      join swimmers s on s.id = e.swimmer_id and s.club_id = e.club_id
+      join guardians g on g.swimmer_id = e.swimmer_id and g.user_id = ${actor.userId}
+      where e.club_id = ${clubId} and e.response = 'pending'
+        and m.registration_state = 'open' and m.registration_deadline > clock_timestamp()
+        and m.status not in ('batal', 'selesai')
+        and coalesce(m.end_date,m.start_date) >= ${jakartaDate}::date
+      order by m.registration_deadline, s.full_name limit 8
+    `;
+    pendingRegistrationTasks.push(
+      ...rows.map((row) => ({
+        meetId: row.meet_id,
+        meetName: row.meet_name,
+        swimmerName: row.swimmer_name,
+        deadline: row.deadline.toISOString(),
+        kind: "guardian_response" as const,
+        count: 1,
+      })),
+    );
+  } else if (!familyOnly && hats.staff) {
+    const rows = await sql<{
+      meet_id: number;
+      meet_name: string;
+      deadline: Date | null;
+      count: number;
+    }>`
+      select m.id as meet_id, m.name as meet_name, m.registration_deadline as deadline,
+             count(*)::int as count
+      from meet_entries e join meets m on m.id = e.meet_id and m.club_id = e.club_id
+      where e.club_id = ${clubId} and e.registration_status = 'requested'
+        and m.registration_state = 'open' and m.status not in ('batal', 'selesai')
+        and coalesce(m.end_date,m.start_date) >= ${jakartaDate}::date
+      group by m.id order by m.registration_deadline nulls last limit 8
+    `;
+    pendingRegistrationTasks.push(
+      ...rows.map((row) => ({
+        meetId: row.meet_id,
+        meetName: row.meet_name,
+        swimmerName: null,
+        deadline: row.deadline?.toISOString() ?? null,
+        kind: "coach_review" as const,
+        count: row.count,
+      })),
+    );
+  }
   let recentRows: ResultRow[] = [];
   if (visibleIds.length) {
     const ph = visibleIds.map((_, i) => `$${i + 2}`).join(", ");
@@ -81,17 +171,32 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     );
   }
   const visibleRecent = recentRows;
-  const bests = await sql<{ swimmer_id: number; stroke: string; distance_m: number; course: string; t: number }>`
+  const bests = await sql<{
+    swimmer_id: number;
+    stroke: string;
+    distance_m: number;
+    course: string;
+    t: number;
+  }>`
     select swimmer_id, stroke, distance_m, course, min(time_ms) as t
     from results
     where club_id = ${clubId} and status = 'selesai' and time_ms is not null
     group by swimmer_id, stroke, distance_m, course`;
-  const bestMap = new Map(bests.map((b) => [`${b.swimmer_id}:${b.stroke}:${b.distance_m}:${b.course}`, b.t]));
-  const recentResults = visibleRecent.slice(0, 8).map((r) =>
-    mapResult(r, bestMap.get(`${r.swimmer_id}:${r.stroke}:${r.distance_m}:${r.course}`) ?? null),
+  const bestMap = new Map(
+    bests.map((b) => [`${b.swimmer_id}:${b.stroke}:${b.distance_m}:${b.course}`, b.t]),
   );
+  const recentResults = visibleRecent
+    .slice(0, 8)
+    .map((r) =>
+      mapResult(r, bestMap.get(`${r.swimmer_id}:${r.stroke}:${r.distance_m}:${r.course}`) ?? null),
+    );
   const recentPbs = visibleRecent
-    .filter((r) => r.time_ms != null && r.status === "selesai" && bestMap.get(`${r.swimmer_id}:${r.stroke}:${r.distance_m}:${r.course}`) === r.time_ms)
+    .filter(
+      (r) =>
+        r.time_ms != null &&
+        r.status === "selesai" &&
+        bestMap.get(`${r.swimmer_id}:${r.stroke}:${r.distance_m}:${r.course}`) === r.time_ms,
+    )
     .slice(0, 6)
     .map((r) => mapResult(r, r.time_ms));
   const monthKey = new Date().toISOString().slice(0, 7);
@@ -130,7 +235,10 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     where a.club_id = ${clubId} and a.archived_at is null and r.user_id is null
   `;
   const unreadAnnouncements = await sql<{
-    id: number; title: string; important: boolean; created_at: string;
+    id: number;
+    title: string;
+    important: boolean;
+    created_at: string;
   }>`
     select a.id, a.title, a.important, a.created_at::text as created_at
     from announcements a
@@ -148,16 +256,32 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     where a.club_id=${clubId} and a.important and a.archived_at is null and k.user_id is null
     order by a.updated_at desc,a.id desc`;
   return {
-    pendingAcknowledgements: pendingAcks.slice(0,8),
+    pendingRegistrationTasks,
+    pendingAcknowledgements: pendingAcks.slice(0, 8),
     pendingAcknowledgementCount: pendingAcks.length,
-    club, swimmers,
+    club,
+    swimmers,
     upcomingPractices: upcomingPractices.map(mapPractice),
+    nextScheduledTraining:
+      scheduledDays.find(
+        (day) => day.practiceStatus !== "completed" && day.practiceStatus !== "cancelled",
+      ) ?? null,
     noticePractices: noticePractices.map(mapPractice),
     upcomingMeets: upcomingMeets.map((m): Meet => ({
-      id: m.id, name: m.name, level: m.level, course: m.course, venue: m.venue, city: m.city,
-      startDate: m.start_date, endDate: m.end_date, organizer: m.organizer, status: m.status, notes: m.notes,
+      id: m.id,
+      name: m.name,
+      level: m.level,
+      course: m.course,
+      venue: m.venue,
+      city: m.city,
+      startDate: m.start_date,
+      endDate: m.end_date,
+      organizer: m.organizer,
+      status: m.status,
+      notes: m.notes,
     })),
-    recentResults, recentPbs,
+    recentResults,
+    recentPbs,
     unreadAnnouncements: unreadAnnouncements.map((a) => ({
       id: a.id,
       title: a.title,

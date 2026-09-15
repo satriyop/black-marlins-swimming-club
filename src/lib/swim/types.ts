@@ -175,9 +175,26 @@ export type Activity = {
 export type Dashboard = {
   pendingAcknowledgements: { id: number; title: string }[];
   pendingAcknowledgementCount: number;
+  pendingRegistrationTasks: {
+    meetId: number;
+    meetName: string;
+    swimmerName: string | null;
+    deadline: string | null;
+    kind: "guardian_response" | "coach_review";
+    count: number;
+  }[];
   club: Club;
   swimmers: Swimmer[];
   upcomingPractices: Practice[];
+  nextScheduledTraining: {
+    scheduleId: number;
+    practiceId: number | null;
+    date: string;
+    title: string;
+    startTime: string | null;
+    durationMin: number | null;
+    location: string | null;
+  } | null;
   noticePractices: Practice[];
   upcomingMeets: Meet[];
   recentResults: Result[];
