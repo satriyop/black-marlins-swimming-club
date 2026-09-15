@@ -2,8 +2,21 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus } from "lucide-react";
-import { createClubPracticeSeriesBatch, savePractice, type SetInput } from "@/lib/server/fns";
+import { createClubPracticeSeriesBatch, savePractice, updateClubScheduleProgram, type SetInput } from "@/lib/server/fns";
 import type { PracticeDetail } from "@/lib/swim/types";
+
+/** The shared program of one or more grouped schedule rows (see updateScheduleProgram). */
+export type ScheduleProgramSource = {
+  seriesIds: number[];
+  title: string;
+  startTime: string | null;
+  durationMin: number | null;
+  location: string | null;
+  kind: string;
+  focus: string | null;
+  notes: string | null;
+  sets: { block: string | null; reps: number; distanceM: number; stroke: string; intervalSec: number | null; description: string | null }[];
+};
 import { Button } from "@/components/ui/button";
 import { Field, Input, SelectNative, Textarea } from "@/components/ui/input";
 import { isoWeekday } from "@/lib/club/series";
@@ -34,29 +47,34 @@ const templates: Record<string, SetInput[]> = {
 
 export function PracticeEditor({
   source,
+  scheduleSource,
   mode = "create",
   creationMode = "session",
 }: {
   source?: PracticeDetail;
+  scheduleSource?: ScheduleProgramSource;
   mode?: "create" | "edit";
   creationMode?: "session" | "schedule";
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const editing = mode === "edit" && source;
+  const editingSession = mode === "edit" && creationMode !== "schedule" && Boolean(source);
+  const editingSchedule = mode === "edit" && creationMode === "schedule" && Boolean(scheduleSource);
+  const editing = editingSession || editingSchedule;
+  const seed = editingSession && source ? source : editingSchedule && scheduleSource ? scheduleSource : undefined;
   const [form, setForm] = useState({
-    title: editing ? source.title : source ? `${source.title} (salinan)` : "",
-    sessionDate: editing ? source.sessionDate : todayIso(),
-    startTime: source?.startTime ?? "15:30",
-    durationMin: String(source?.durationMin ?? 90),
-    location: source?.location ?? "",
-    kind: source?.kind ?? "teknik",
-    focus: source?.focus ?? "",
-    notes: source?.notes ?? "",
+    title: seed ? seed.title : source ? `${source.title} (salinan)` : "",
+    sessionDate: editingSession && source ? source.sessionDate : todayIso(),
+    startTime: seed?.startTime ?? "15:30",
+    durationMin: String(seed?.durationMin ?? 90),
+    location: seed?.location ?? "",
+    kind: seed?.kind ?? "teknik",
+    focus: seed?.focus ?? "",
+    notes: seed?.notes ?? "",
   });
   const [sets, setSets] = useState<SetInput[]>(
-    source?.sets.length
-      ? source.sets.map((s) => ({
+    seed?.sets.length
+      ? seed.sets.map((s) => ({
           block: s.block ?? "utama",
           reps: s.reps,
           distanceM: s.distanceM,
@@ -69,7 +87,7 @@ export function PracticeEditor({
   const [template, setTemplate] = useState("");
   const weekly = creationMode === "schedule";
   const [weekdays, setWeekdays] = useState<WeekdayId[]>(() => [
-    isoWeekday(editing ? source.sessionDate : todayIso()),
+    isoWeekday(editingSession && source ? source.sessionDate : todayIso()),
   ]);
   const [active, setActive] = useState(true);
   const [editScope, setEditScope] = useState<"this" | "future">("this");
@@ -104,13 +122,29 @@ export function PracticeEditor({
           ? { to: "/latihan/$id" as const, params: { id: String(soloPracticeId) } }
           : { to: "/latihan/jadwal" as const, params: undefined };
       }
+      if (editingSchedule && scheduleSource) {
+        await updateClubScheduleProgram({
+          data: {
+            seriesIds: scheduleSource.seriesIds,
+            title: form.title,
+            startTime: form.startTime,
+            durationMin: form.durationMin ? Number(form.durationMin) : undefined,
+            location: form.location,
+            kind: form.kind,
+            focus: form.focus,
+            notes: form.notes,
+            sets,
+          },
+        });
+        return { to: "/latihan/jadwal" as const, params: undefined };
+      }
       const saved = await savePractice({
         data: {
           ...form,
-          id: editing ? source.id : undefined,
-          expectedRevision: editing ? source.revision : undefined,
+          id: editingSession ? source?.id : undefined,
+          expectedRevision: editingSession ? source?.revision : undefined,
           durationMin: form.durationMin ? Number(form.durationMin) : undefined,
-          scope: editing && source.seriesId ? editScope : undefined,
+          scope: editingSession && source?.seriesId ? editScope : undefined,
           sets,
         },
       });
@@ -147,7 +181,7 @@ export function PracticeEditor({
             placeholder="Teknik gaya bebas"
           />
         </Field>
-        {editing && source.seriesId ? (
+        {editingSession && source?.seriesId ? (
           <Field label="Cakupan">
             <SelectNative value={editScope} onChange={(e) => setEditScope(e.target.value as "this" | "future")}>
               <option value="this">Hanya sesi ini</option>
@@ -197,15 +231,17 @@ export function PracticeEditor({
             </div>
           </div>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={weekly ? "Mulai dari tanggal" : "Tanggal"}>
-            <Input
-              type="date"
-              required
-              value={form.sessionDate}
-              onChange={(e) => setForm({ ...form, sessionDate: e.target.value })}
-            />
-          </Field>
+        <div className={editingSchedule ? "grid gap-3 sm:grid-cols-2" : "grid gap-3 sm:grid-cols-3"}>
+          {!editingSchedule ? (
+            <Field label={weekly ? "Mulai dari tanggal" : "Tanggal"}>
+              <Input
+                type="date"
+                required
+                value={form.sessionDate}
+                onChange={(e) => setForm({ ...form, sessionDate: e.target.value })}
+              />
+            </Field>
+          ) : null}
           <Field label="Jam mulai">
             <Input
               type="time"
@@ -415,7 +451,7 @@ export function PracticeEditor({
         <div className="flex gap-2">
           <Button asChild variant="outline">
             <Link
-              to="/latihan"
+              to={weekly ? "/latihan/jadwal" : "/latihan"}
               onClick={(e) => {
                 if (
                   mut.isPending ||

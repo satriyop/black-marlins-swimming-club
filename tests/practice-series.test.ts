@@ -15,6 +15,7 @@ import {
   openScheduledTrainingDay,
   setSeriesActive,
   skipSeriesRange,
+  updateScheduleProgram,
 } from "../src/lib/club/series";
 import { RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
 import { jakartaNowParts } from "../src/lib/utils";
@@ -196,12 +197,134 @@ test("multi-day schedule creation is atomic and creates no sessions", async () =
   })).rejects.toThrow(/duplikat/);
 });
 
+test("updating a schedule's program applies to every weekday in the group at once", async () => {
+  const { harness } = await setup();
+  const today = jakartaNowParts().date;
+  const weekdays = [isoWeekday(today), isoWeekday(addDays(today, 1))] as WeekdayId[];
+  const schedules = await createPracticeSeriesBatch(harness.actor(SATRIYO_ID), {
+    title: "Dua hari", weekdays, startTime: "15:30", kind: "teknik", focus: "Streamline",
+    notes: "Panduan lama", fromDate: today, sets,
+  });
+  const seriesIds = schedules.map((s) => s.id);
+
+  await updateScheduleProgram(harness.actor(SATRIYO_ID), {
+    seriesIds,
+    title: "Dua hari (revisi)",
+    startTime: "16:00",
+    durationMin: 60,
+    location: "Kolam baru",
+    kind: "sprint",
+    focus: "Kecepatan",
+    notes: "Panduan baru",
+    sets: [{ block: "sprint", reps: 8, distanceM: 25, stroke: "bebas" }],
+  });
+
+  const listed = await listPracticeSeries(harness.actor(SATRIYO_ID));
+  for (const id of seriesIds) {
+    const row = listed.find((r) => r.id === id);
+    expect(row).toMatchObject({
+      title: "Dua hari (revisi)",
+      start_time: "16:00",
+      duration_min: 60,
+      location: "Kolam baru",
+      kind: "sprint",
+      focus: "Kecepatan",
+      notes: "Panduan baru",
+      total_meters: 200,
+    });
+    expect(row?.sets).toEqual([
+      expect.objectContaining({ block: "sprint", reps: 8, distance_m: 25, stroke: "bebas" }),
+    ]);
+  }
+});
+
+test("updating a schedule's program patches an already-opened future occurrence", async () => {
+  const { harness } = await setup();
+  const today = jakartaNowParts().date;
+  const schedule = await createTodaySchedule(harness);
+  const opened = await openScheduledTrainingDay(harness.actor(SATRIYO_ID), { scheduleId: schedule.id, date: today });
+
+  await updateScheduleProgram(harness.actor(SATRIYO_ID), {
+    seriesIds: [schedule.id],
+    title: "Latihan Hari Ini",
+    startTime: "15:30",
+    durationMin: 90,
+    location: "Tirtomulyono",
+    kind: "teknik",
+    focus: "Fokus baru",
+    notes: "Catatan baru",
+    sets: [{ block: "teknik", reps: 6, distanceM: 25, stroke: "dada" }],
+  });
+
+  const training = await loadPractice(harness.actor(SATRIYO_ID), opened.id);
+  expect(training.focus).toBe("Fokus baru");
+  expect(training.notes).toBe("Catatan baru");
+  expect(training.totalMeters).toBe(150);
+  expect(training.sets).toEqual([
+    expect.objectContaining({ block: "teknik", reps: 6, distanceM: 25, stroke: "dada" }),
+  ]);
+});
+
+test("updating a schedule's program still applies when one weekday in the group is paused", async () => {
+  const { harness } = await setup();
+  const today = jakartaNowParts().date;
+  const weekdays = [isoWeekday(today), isoWeekday(addDays(today, 1))] as WeekdayId[];
+  const schedules = await createPracticeSeriesBatch(harness.actor(SATRIYO_ID), {
+    title: "Dua hari", weekdays, startTime: "15:30", kind: "teknik", fromDate: today, sets,
+  });
+  await setSeriesActive(harness.actor(SATRIYO_ID), { id: schedules[1]!.id, active: false });
+
+  await updateScheduleProgram(harness.actor(SATRIYO_ID), {
+    seriesIds: schedules.map((s) => s.id),
+    title: "Dua hari",
+    startTime: "15:30",
+    kind: "teknik",
+    focus: "Fokus baru",
+    sets,
+  });
+
+  const listed = await listPracticeSeries(harness.actor(SATRIYO_ID));
+  const paused = listed.find((r) => r.id === schedules[1]!.id);
+  expect(paused?.focus).toBe("Fokus baru");
+  expect(paused?.active).toBe(false);
+});
+
+test("updating a schedule's program rejects a series id from another club and changes nothing", async () => {
+  const { harness } = await setup();
+  const today = jakartaNowParts().date;
+  const schedule = await createTodaySchedule(harness);
+  const other = await harness.sql<{ id: number }>`
+    insert into clubs (name, short_name, city, province, coach_name)
+    values ('Klub Lain', 'LAIN', 'Solo', 'Jateng', 'Pelatih Lain') returning id
+  `;
+  const foreign = await harness.sql<{ id: number }>`
+    insert into practice_series (club_id, title, weekday, kind, horizon_weeks, start_date, active)
+    values (${other[0]!.id}, 'Punya klub lain', ${isoWeekday(today)}, 'teknik', 8, ${today}::date, true)
+    returning id
+  `;
+
+  await expect(
+    updateScheduleProgram(harness.actor(SATRIYO_ID), {
+      seriesIds: [schedule.id, foreign[0]!.id],
+      title: "Harus gagal",
+      kind: "teknik",
+      sets: [],
+    }),
+  ).rejects.toThrow(/tidak ditemukan/);
+
+  const listed = await listPracticeSeries(harness.actor(SATRIYO_ID));
+  expect(listed.find((r) => r.id === schedule.id)?.title).toBe("Latihan Hari Ini");
+});
+
 test("guardians cannot configure schedules or open staff attendance", async () => {
   const { harness } = await setup();
   const today = jakartaNowParts().date;
   const schedule = await createTodaySchedule(harness);
   await expect(setSeriesActive(harness.actor(RATIH_ID), { id: schedule.id, active: false })).rejects.toThrow(/Tidak diizinkan/);
   await expect(openScheduledTrainingDay(harness.actor(RATIH_ID), { scheduleId: schedule.id, date: today })).rejects.toThrow(/Tidak diizinkan/);
+  await expect(
+    updateScheduleProgram(harness.actor(RATIH_ID), { seriesIds: [schedule.id], title: "Coba ubah", kind: "teknik", sets: [] }),
+  ).rejects.toThrow(/Tidak diizinkan/);
 });
 
 test("opened scheduled training remains compatible with calendar and lifecycle", async () => {

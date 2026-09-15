@@ -32,6 +32,7 @@ export {
   openClubScheduledTrainingDay,
   skipClubSeriesRange,
   setClubPracticeSeriesActive,
+  updateClubScheduleProgram,
   getPracticeIcs,
   type SetInput,
 } from "./fns-practice";

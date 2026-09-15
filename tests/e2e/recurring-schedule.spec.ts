@@ -113,4 +113,51 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
       await fixture.cleanup();
     }
   });
+
+  test("editing a schedule's program updates every weekday in the group and preserves independent toggles", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const fixture = await createClubFixture("coach", { childCount: 0, practice: "none" });
+    try {
+      await fixture.signIn(context, baseURL!);
+      await page.goto("/latihan/baru?weekly=true");
+      await page.getByLabel("Nama jadwal").fill("Latihan Sore");
+      await selectOnlyWeekdays(page, ["Sel", "Rab"]);
+      await page.getByLabel("Lokasi").fill("Umbul Tirtomulyono Pluneng");
+      await page.getByLabel("Fokus latihan").fill("Posisi tubuh dan pernapasan");
+      await page.getByRole("button", { name: "Simpan jadwal" }).click();
+      await expect(page).toHaveURL(/\/latihan\/jadwal/);
+
+      // Turn Wednesday off before editing the program, to prove the edit still reaches it.
+      const card = page.locator("li", { hasText: "Latihan Sore" });
+      await card.getByRole("button", { name: /^Rabu:/ }).click();
+      await expect(card.getByRole("button", { name: /^Rabu:/ })).toHaveAttribute("aria-pressed", "false");
+
+      await card.getByRole("link", { name: "Ubah program" }).click();
+      await expect(page).toHaveURL(/\/latihan\/jadwal\/ubah/);
+      // A schedule-level edit has no date to set -- only fields that actually belong to the program.
+      await expect(page.getByLabel("Tanggal", { exact: true })).toHaveCount(0);
+      await expect(page.getByLabel("Mulai dari tanggal")).toHaveCount(0);
+      await expect(page.getByLabel("Nama jadwal")).toHaveValue("Latihan Sore");
+      await expect(page.getByLabel("Fokus latihan")).toHaveValue("Posisi tubuh dan pernapasan");
+
+      await page.getByLabel("Fokus latihan").fill("Kecepatan dan power");
+      await page.getByLabel("Catatan untuk pelatih").fill("Fokus ke start dan pembalikan.");
+      await page.getByRole("button", { name: "Simpan perubahan" }).click();
+
+      await expect(page).toHaveURL(/\/latihan\/jadwal$/);
+      const updated = page.locator("li", { hasText: "Latihan Sore" });
+      await expect(updated.getByText(/Fokus: Kecepatan dan power/)).toBeVisible();
+      await updated.getByText(/Lihat panduan latihan/).click();
+      await expect(updated.getByText(/Catatan: Fokus ke start dan pembalikan/)).toBeVisible();
+
+      // Content changed for both days; Wednesday's paused state survived the program edit.
+      await expect(updated.getByRole("button", { name: /^Selasa:/ })).toHaveAttribute("aria-pressed", "true");
+      await expect(updated.getByRole("button", { name: /^Rabu:/ })).toHaveAttribute("aria-pressed", "false");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
 });
