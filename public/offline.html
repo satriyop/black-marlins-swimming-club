@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#061018" />
+    <title>Tidak ada koneksi · Black Marlins</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #061018;
+        color: #d7e6ea;
+      }
+      body {
+        box-sizing: border-box;
+        display: grid;
+        min-height: 100dvh;
+        margin: 0;
+        padding: max(1.5rem, env(safe-area-inset-top)) 1.25rem
+          max(1.5rem, env(safe-area-inset-bottom));
+        place-items: center;
+      }
+      main {
+        width: min(100%, 28rem);
+        padding: 1.5rem;
+        border: 1px solid #29404b;
+        border-radius: 1rem;
+        background: #0a2029;
+        box-shadow: 0 18px 40px -24px #000;
+      }
+      .mark {
+        color: #2ec4b6;
+        font-size: 2rem;
+      }
+      h1 {
+        margin: 0.75rem 0 0.5rem;
+        font-size: 1.75rem;
+      }
+      p {
+        margin: 0 0 1.25rem;
+        color: #91a6ad;
+        line-height: 1.55;
+      }
+      button {
+        min-height: 3rem;
+        width: 100%;
+        border: 0;
+        border-radius: 0.75rem;
+        background: #2ec4b6;
+        color: #061018;
+        font: inherit;
+        font-weight: 700;
+      }
+      button:focus-visible {
+        outline: 3px solid #d7e6ea;
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">◉</div>
+      <h1>Tidak ada koneksi</h1>
+      <p>
+        Halaman klub belum bisa dibuka. Sambungkan perangkat ke internet, lalu coba lagi. Data
+        pribadi tidak disimpan di halaman offline ini.
+      </p>
+      <button type="button" onclick="location.reload()">Coba lagi</button>
+    </main>
+  </body>
+</html>

@@ -20,6 +20,7 @@ import { formatTime, parseTimeToMs } from "@/lib/swim/time";
 import { kindFromSumber, sumberValue } from "@/lib/swim/result-filters";
 import { todayIso } from "@/lib/utils";
 import type { Result } from "@/lib/swim/types";
+import { useReloadGuard } from "@/components/pwa/use-reload-guard";
 
 function formFrom(result: Result | null) {
   return {
@@ -67,6 +68,7 @@ export function ResultDialog({
   useEffect(() => {
     if (isOpen) setForm(formFrom(initial ?? null));
   }, [isOpen, initial]);
+  useReloadGuard(isOpen && JSON.stringify(form) !== JSON.stringify(formFrom(initial)));
   const mut = useMutation({
     mutationFn: () => {
       const timeMs = form.time ? parseTimeToMs(form.time) : null;

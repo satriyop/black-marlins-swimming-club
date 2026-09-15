@@ -12,6 +12,8 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=release-assets.sh
+source "${APP_DIR}/scripts/release-assets.sh"
 APP_ROOT="${APP_ROOT:-$APP_DIR}"
 APP_USER="${APP_USER:-bmsc}"
 APP_HOST="${APP_HOST:-bmsc.klaten.org}"
@@ -301,6 +303,13 @@ write_caddy() {
   cat >"$CADDY_SITE" <<EOF
 ${APP_HOST} {
 	encode gzip zstd
+	@service_worker path /sw.js
+	header @service_worker {
+		Cache-Control "no-cache, no-store, must-revalidate"
+		Service-Worker-Allowed "/"
+	}
+	@immutable_assets path /assets/*
+	header @immutable_assets Cache-Control "public, max-age=31536000, immutable"
 	reverse_proxy 127.0.0.1:${APP_PORT}
 }
 EOF
@@ -503,6 +512,8 @@ cmd_apply_release() {
   rm -rf "$dest"
   mkdir -p "$dest"
   tar -xzf "$tarball" -C "$dest"
+  record_release_assets "$dest"
+  preserve_retained_client_assets "$RELEASES_DIR" "$dest"
   printf '%s\n' "$sha" >"${dest}/RELEASE_SHA"
   (cd "$dest" && npm ci --omit=dev)
   run_migrate "$dest"
