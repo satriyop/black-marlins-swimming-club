@@ -140,6 +140,7 @@ export function SwimmerDialog({
   asChild?: boolean;
   variant?: "default" | "outline";
 }) {
+  const { hats } = useAccess();
   const [open, setOpen] = useState(false);
   const [confirmSimilar, setConfirmSimilar] = useState(false);
   const qc = useQueryClient();
@@ -294,12 +295,14 @@ export function SwimmerDialog({
                   />
                 </Field>
               </div>
-              <Field label="Catatan pelatih">
-                <Textarea
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                />
-              </Field>
+              {hats.staff ? (
+                <Field label="Catatan internal staf">
+                  <Textarea
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  />
+                </Field>
+              ) : null}
             </>
           )}
           <Button type="submit" disabled={mut.isPending}>

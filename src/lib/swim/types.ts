@@ -161,6 +161,26 @@ export type PersonalBest = {
   meetName: string | null;
 };
 
+export type CoachFeedbackStatus = "draft" | "private" | "shared" | "retracted";
+
+export type CoachFeedback = {
+  id: number;
+  swimmerId: number;
+  swimmerName: string;
+  practiceId: number | null;
+  practiceTitle: string;
+  practiceDate: string;
+  focus: string | null;
+  improvement: string | null;
+  nextStep: string | null;
+  status: CoachFeedbackStatus;
+  authorName: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+};
+
 export type Activity = {
   id: number;
   title: string;
@@ -199,6 +219,7 @@ export type Dashboard = {
   upcomingMeets: Meet[];
   recentResults: Result[];
   recentPbs: Result[];
+  recentFeedback: CoachFeedback[];
   unreadAnnouncements: {
     id: number;
     title: string;

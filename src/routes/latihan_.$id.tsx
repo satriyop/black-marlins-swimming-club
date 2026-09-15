@@ -273,6 +273,7 @@ function Page() {
                   hats={hats}
                   locked={closed}
                   canRemove={staff && !closed}
+                  feedbackEnabled={staff && data.status === "completed"}
                 />
               </div>
             ))}
@@ -603,11 +604,13 @@ function AttendanceCard({
   hats,
   locked,
   canRemove,
+  feedbackEnabled,
 }: {
   attendance: Attendance;
   hats: Hats;
   locked: boolean;
   canRemove: boolean;
+  feedbackEnabled: boolean;
 }) {
   const qc = useQueryClient();
   const [meters, setMeters] = useState(a.metersCompleted == null ? "" : String(a.metersCompleted));
@@ -664,7 +667,8 @@ function AttendanceCard({
     (hats.staff && a.status === "hadir" && !locked) ||
     family ||
     (hats.staff && a.correctionStatus === "pending" && Boolean(a.correctionId)) ||
-    canRemove;
+    canRemove ||
+    feedbackEnabled;
   return (
     <article className="rounded-2xl bg-card shadow-border">
       <div className="flex items-center gap-2 px-3.5 py-2.5">
@@ -743,6 +747,13 @@ function AttendanceCard({
       </div>
       {expanded ? (
         <div className="grid gap-3 border-t border-border px-3.5 py-3">
+          {feedbackEnabled ? (
+            <Button asChild variant="outline" className="justify-self-start">
+              <Link to="/perenang/$id" params={{ id: String(a.swimmerId) }}>
+                Tulis catatan pelatih
+              </Link>
+            </Button>
+          ) : null}
           {a.notice?.status === "active" && a.notice.reason ? (
             <p className="text-sm text-muted-foreground">Catatan wali: {a.notice.reason}</p>
           ) : null}
