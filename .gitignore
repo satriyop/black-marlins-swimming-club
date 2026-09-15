@@ -18,3 +18,5 @@ bmsc-release.tgz
 .grok
 *.log
 .DS_Store
+.claude/
+.vscode/

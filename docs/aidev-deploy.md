@@ -1,6 +1,6 @@
 # Aidev deploy (no Docker)
 
-Host: **aidev** (`146.190.87.122`). App: Node 22 + existing PostgreSQL 16. Public HTTPS: Caddy. Hostname: **https://bmsc.klaten.org**.
+Host: **aidev** (see `~/.ssh/config` for the address — a shared VPS, not dedicated to this app). App: Node 22 + existing PostgreSQL 16. Public HTTPS: Caddy. Hostname: **https://bmsc.klaten.org**.
 
 Do **not** use Docker Compose or Cloudflare Tunnel for this site. DNS is an A record to the VPS.
 
@@ -22,8 +22,8 @@ Repo secrets:
 | `BMSC_DEPLOY_SSH_KEY` | Private ed25519 for **root@aidev** (not the Mini `AIDEV_SSH_PRIVATE_KEY`) |
 | `BMSC_DEPLOY_HOST` | Tailscale name, default `aidev` (public `:22` is not reachable from GitHub-hosted runners) |
 | `BMSC_DEPLOY_USER` | Optional, default `root` |
-| `TS_OAUTH_CLIENT_ID` | Same Tailscale OAuth client as kiko-web (`tag:ci`) |
-| `TS_OAUTH_SECRET` | Same Tailscale OAuth secret as kiko-web |
+| `TS_OAUTH_CLIENT_ID` | Shared Tailscale OAuth client already used for CI on this tailnet (`tag:ci`) |
+| `TS_OAUTH_SECRET` | Matching secret for that same OAuth client |
 
 GitHub-hosted runners join the tailnet, then SSH to `aidev` over Tailscale. Do not point `BMSC_DEPLOY_HOST` at the public VPS IP.
 
@@ -69,6 +69,8 @@ On your laptop, create the Google OAuth web client:
 
 - Origin: `https://bmsc.klaten.org`
 - Redirect: `https://bmsc.klaten.org/api/auth/callback/google`
+
+Google's download for this is a `client_secret_*.json` file. Save it outside the repo (e.g. `~/.config/google-oauth/`), not in the project root — only the `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` values belong in `.env`. `client_secret*.json` is gitignored as a backstop, but don't rely on that alone.
 
 On aidev:
 
@@ -130,7 +132,7 @@ Restore a database dump (separate recovery):
 sudo -u postgres psql bmsc < /var/backups/bmsc-YYYYMMDDTHHMMSSZ.sql
 ```
 
-Never restore into `enter365`.
+This is a shared host running other applications' databases too — never restore into one of those. Check `sudo -u postgres psql -l` first if unsure which database is `bmsc`.
 
 ## Ops
 
