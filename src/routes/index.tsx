@@ -77,6 +77,7 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
     noticePractices,
     upcomingMeets,
     recentResults,
+    recentFeedback,
     unreadAnnouncements,
     unreadCount,
     stats,
@@ -202,7 +203,10 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
       ) : null}
 
       {!clubView ? (
-        <FamilyStrip family={family} canEnroll={guardian} />
+        <>
+          <FamilyStrip family={family} canEnroll={guardian} />
+          <FamilyFeedback feedback={recentFeedback} />
+        </>
       ) : dual && family.length > 0 ? (
         <FamilyShortcuts family={family} />
       ) : null}
@@ -224,6 +228,37 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
 
       {clubView ? <ClubStats stats={stats} /> : null}
     </div>
+  );
+}
+
+function FamilyFeedback({ feedback }: { feedback: Dashboard["recentFeedback"] }) {
+  if (feedback.length === 0) return null;
+  return (
+    <section aria-labelledby="family-feedback-heading" className="min-w-0">
+      <h2 id="family-feedback-heading" className="text-card-title mb-3">
+        Catatan terbaru dari pelatih
+      </h2>
+      <ul className="grid gap-2">
+        {feedback.map((entry) => (
+          <li key={entry.id}>
+            <Link
+              to="/perenang/$id"
+              params={{ id: String(entry.swimmerId) }}
+              className="block rounded-2xl bg-card p-4 shadow-border"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold">{entry.swimmerName}</p>
+                <Badge tone="ok">Dibagikan ke wali</Badge>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {formatDateId(entry.practiceDate)} · {entry.practiceTitle}
+              </p>
+              <p className="mt-2 text-sm">{entry.nextStep || entry.improvement || entry.focus}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

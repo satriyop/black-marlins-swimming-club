@@ -37,7 +37,7 @@ export async function listSwimmers(actor: Actor): Promise<Swimmer[]> {
   const rows = await actor.sql<SwimmerRow>`
     select * from swimmers where club_id = ${clubId} order by date_of_birth, full_name
   `;
-  return rows.filter((r) => allowed.has(r.id)).map(mapSwimmer);
+  return rows.filter((r) => allowed.has(r.id)).map((row) => ({ ...mapSwimmer(row), notes: null }));
 }
 
 export async function saveSwimmer(actor: Actor, data: SaveSwimmerInput): Promise<{ id: number }> {
@@ -46,7 +46,11 @@ export async function saveSwimmer(actor: Actor, data: SaveSwimmerInput): Promise
   const hats = await hatsFor(actor);
   if (data.id) {
     if (!canWriteRoster(hats, data.id)) throw new Error("Tidak diizinkan");
-    await actor.sql`update swimmers set full_name = ${data.fullName}, nickname = ${data.nickname?.trim() || null}, date_of_birth = ${data.dateOfBirth}, gender = ${data.gender}, city = ${data.city?.trim() || null}, status = ${data.status}, join_date = ${data.joinDate || null}, notes = ${data.notes?.trim() || null} where id = ${data.id} and club_id = ${clubId}`;
+    if (hats.staff) {
+      await actor.sql`update swimmers set full_name = ${data.fullName}, nickname = ${data.nickname?.trim() || null}, date_of_birth = ${data.dateOfBirth}, gender = ${data.gender}, city = ${data.city?.trim() || null}, status = ${data.status}, join_date = ${data.joinDate || null}, notes = ${data.notes?.trim() || null} where id = ${data.id} and club_id = ${clubId}`;
+    } else {
+      await actor.sql`update swimmers set full_name = ${data.fullName}, nickname = ${data.nickname?.trim() || null}, date_of_birth = ${data.dateOfBirth}, gender = ${data.gender}, city = ${data.city?.trim() || null}, status = ${data.status}, join_date = ${data.joinDate || null} where id = ${data.id} and club_id = ${clubId}`;
+    }
     return { id: data.id };
   }
   const asChild = data.asChild === true;
@@ -66,7 +70,9 @@ export async function saveSwimmer(actor: Actor, data: SaveSwimmerInput): Promise
       throw new Error("Ada perenang dengan nama dan tanggal lahir mirip. Hubungi admin.");
     }
     if (!data.confirmSimilar) {
-      throw new Error("Ada perenang dengan nama dan tanggal lahir mirip. Simpan lagi untuk tetap menambahkan.");
+      throw new Error(
+        "Ada perenang dengan nama dan tanggal lahir mirip. Simpan lagi untuk tetap menambahkan.",
+      );
     }
   }
   const insertSwimmer = () =>

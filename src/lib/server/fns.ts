@@ -51,6 +51,11 @@ export {
 export { listActivities, saveActivity, deleteActivity } from "./fns-activities";
 export { listAnnouncements, getAnnouncement, createAnnouncement } from "./fns-announcements";
 export {
+  createClubCoachFeedback,
+  updateClubCoachFeedback,
+  retractClubCoachFeedback,
+} from "./fns-feedback";
+export {
   listClubInvites,
   createClubInvite,
   acceptClubInvite,

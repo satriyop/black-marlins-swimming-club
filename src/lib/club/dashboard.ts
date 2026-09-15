@@ -8,6 +8,7 @@ import { loadPrefs } from "./prefs";
 import { mapPractice, type PracticeRow } from "./practice";
 import { listScheduledTrainingDays } from "./series";
 import { listSwimmers } from "./swimmers";
+import { listRecentSharedFeedback } from "./feedback";
 
 type ResultRow = {
   id: number;
@@ -171,6 +172,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     );
   }
   const visibleRecent = recentRows;
+  const recentFeedback = familyOnly ? await listRecentSharedFeedback(actor, visibleIds) : [];
   const bests = await sql<{
     swimmer_id: number;
     stroke: string;
@@ -282,6 +284,7 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     })),
     recentResults,
     recentPbs,
+    recentFeedback,
     unreadAnnouncements: unreadAnnouncements.map((a) => ({
       id: a.id,
       title: a.title,
