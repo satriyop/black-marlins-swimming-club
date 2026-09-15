@@ -130,5 +130,8 @@ describe("monthly swimmer report", () => {
     });
     expect(() => monthBounds("2026-13")).toThrow("Bulan tidak valid");
     expect(() => monthBounds("2026-1")).toThrow("Bulan tidak valid");
+    expect(() => monthBounds("0000-01")).toThrow("Bulan tidak valid");
+    expect(() => monthBounds("0099-12")).toThrow("Bulan tidak valid");
+    expect(() => monthBounds("9999-12")).toThrow("Bulan tidak valid");
   });
 });

@@ -31,6 +31,7 @@ export type MonthlyReport = {
 export function monthBounds(month: string) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("Bulan tidak valid");
   const [year, number] = month.split("-").map(Number);
+  if (year! < 1900 || year! > 9998) throw new Error("Bulan tidak valid");
   const previous = new Date(Date.UTC(year!, number! - 2, 1));
   const next = new Date(Date.UTC(year!, number!, 1));
   return {
