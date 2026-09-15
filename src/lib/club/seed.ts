@@ -10,7 +10,80 @@ export const SATRIYO_EMAIL = "superadmin@example.com";
 export const AZKIYA_EMAIL = "admin.klub@example.com";
 export const RATIH_EMAIL = "wali@example.com";
 
-async function ensureUser(sql: Sql, fallbackId: string, name: string, email: string): Promise<string> {
+type SeedSwimmer = {
+  fullName: string;
+  nickname: string;
+  dateOfBirth: string;
+  gender: "putra" | "putri";
+  status: "aktif" | "cuti" | "alumni";
+  joinDate: string;
+  notes: string;
+};
+
+const BASE_SWIMMERS: SeedSwimmer[] = [
+  {
+    fullName: "Perenang Satu",
+    nickname: "Kak Satu",
+    dateOfBirth: "2012-05-15",
+    gender: "putri",
+    status: "aktif",
+    joinDate: "2022-01-10",
+    notes: "Bebas & punggung · contoh",
+  },
+  {
+    fullName: "Perenang Dua",
+    nickname: "Kak Dua",
+    dateOfBirth: "2014-03-20",
+    gender: "putra",
+    status: "aktif",
+    joinDate: "2023-02-06",
+    notes: "Bebas & kupu · contoh",
+  },
+  {
+    fullName: "Perenang Tiga",
+    nickname: "Kak Tiga",
+    dateOfBirth: "2014-09-10",
+    gender: "putra",
+    status: "aktif",
+    joinDate: "2023-07-17",
+    notes: "Punggung · contoh",
+  },
+];
+
+function configuredDemoSwimmerCount(): number {
+  if (typeof process === "undefined") return BASE_SWIMMERS.length;
+  const parsed = Number.parseInt(process.env.VITE_DEMO_SWIMMER_COUNT ?? "", 10);
+  if (!Number.isFinite(parsed)) return BASE_SWIMMERS.length;
+  return Math.min(200, Math.max(BASE_SWIMMERS.length, parsed));
+}
+
+function seedSwimmers(): SeedSwimmer[] {
+  return Array.from({ length: configuredDemoSwimmerCount() }, (_, index) => {
+    if (index < BASE_SWIMMERS.length) return BASE_SWIMMERS[index]!;
+    const number = index + 1;
+    const month = (index % 12) + 1;
+    const day = (index % 27) + 1;
+    const year = 2007 + (index % 12);
+    const status: SeedSwimmer["status"] =
+      number % 17 === 0 ? "alumni" : number % 11 === 0 ? "cuti" : "aktif";
+    return {
+      fullName: `Perenang Demo ${String(number).padStart(2, "0")}`,
+      nickname: `Demo ${String(number).padStart(2, "0")}`,
+      dateOfBirth: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+      gender: number % 2 === 0 ? "putri" : "putra",
+      status,
+      joinDate: `${2021 + (index % 5)}-${String(month).padStart(2, "0")}-01`,
+      notes: "Data sintetis untuk uji tampilan roster besar",
+    };
+  });
+}
+
+async function ensureUser(
+  sql: Sql,
+  fallbackId: string,
+  name: string,
+  email: string,
+): Promise<string> {
   const existing = await sql<{ id: string }>`select id from "user" where email = ${email} limit 1`;
   if (existing[0]) return existing[0].id;
   await sql`
@@ -50,17 +123,33 @@ export async function seedClub(sql: Sql): Promise<number> {
       (${clubId}, ${azkiyaId}, 'club_admin')
   `;
 
-  const haveSwimmers = await sql<{ n: number }>`select count(*)::int as n from swimmers where club_id = ${clubId}`;
+  const haveSwimmers = await sql<{
+    n: number;
+  }>`select count(*)::int as n from swimmers where club_id = ${clubId}`;
   if ((haveSwimmers[0]?.n ?? 0) === 0) {
-    const swimmers = await sql<{ id: number }>`
-      insert into swimmers (club_id, full_name, nickname, date_of_birth, gender, nationality, city, status, notes)
-      values
-        (${clubId}, 'Perenang Satu', 'Kak Satu', '2012-05-15', 'putri', 'Indonesia', 'Klaten', 'aktif', 'Bebas & punggung · contoh'),
-        (${clubId}, 'Perenang Dua', 'Kak Dua', '2014-03-20', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Bebas & kupu · contoh'),
-        (${clubId}, 'Perenang Tiga', 'Kak Tiga', '2014-09-10', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Punggung · contoh')
-      returning id
-    `;
-    for (const s of swimmers) {
+    const params: unknown[] = [clubId];
+    const values = seedSwimmers().map((swimmer) => {
+      const first = params.length + 1;
+      params.push(
+        swimmer.fullName,
+        swimmer.nickname,
+        swimmer.dateOfBirth,
+        swimmer.gender,
+        swimmer.status,
+        swimmer.joinDate,
+        swimmer.notes,
+      );
+      return `($1, $${first}, $${first + 1}, $${first + 2}, $${first + 3}, 'Indonesia', 'Klaten', $${first + 4}, $${first + 5}, $${first + 6})`;
+    });
+    const swimmers = await sql.query<{ id: number; full_name: string }>(
+      `insert into swimmers (club_id, full_name, nickname, date_of_birth, gender, nationality, city, status, join_date, notes)
+       values ${values.join(", ")}
+       returning id, full_name`,
+      params,
+    );
+    for (const s of swimmers.filter((swimmer) =>
+      BASE_SWIMMERS.some((base) => base.fullName === swimmer.full_name),
+    )) {
       await sql`
         insert into guardians (user_id, swimmer_id) values
           (${satriyoId}, ${s.id}),
