@@ -97,18 +97,23 @@ async function requireStaff(actor: Actor) {
   return hats;
 }
 
-export async function listSwimmerFeedback(actor: Actor, swimmerId: number) {
+export async function listSwimmerFeedback(
+  actor: Actor,
+  swimmerId: number,
+  audience: "role" | "family" = "role",
+) {
   const clubId = await requireClubId(actor);
   const hats = await hatsFor(actor);
   if (!canSeeSwimmer(hats, swimmerId)) throw new Error("Perenang tidak ditemukan");
-  if (!hats.staff && !hats.guardianSwimmerIds.includes(swimmerId)) return [];
-  const visibility = hats.staff
+  const familyAudience = audience === "family" || !hats.staff;
+  if (familyAudience && !hats.guardianSwimmerIds.includes(swimmerId)) return [];
+  const visibility = !familyAudience
     ? `(f.status <> 'draft' or f.created_by=$3)`
     : `f.status = 'shared'`;
   const rows = await actor.sql.query<FeedbackRow>(
     `${feedbackSelect} where f.club_id=$1 and f.swimmer_id=$2 and ${visibility}
      order by f.practice_date desc,f.id desc`,
-    hats.staff ? [clubId, swimmerId, actor.userId] : [clubId, swimmerId],
+    !familyAudience ? [clubId, swimmerId, actor.userId] : [clubId, swimmerId],
   );
   return rows.map((row) => mapFeedback(row, actor.userId));
 }

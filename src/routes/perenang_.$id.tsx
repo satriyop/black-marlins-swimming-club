@@ -34,12 +34,12 @@ import { CoachFeedbackJournal } from "@/components/swim/coach-feedback-journal";
 export const Route = createFileRoute("/perenang_/$id")({ component: Page });
 
 function Page() {
-  const { hats } = useAccess();
+  const { hats, taskView } = useAccess();
   const swimmerId = Number(Route.useParams().id);
   const nav = useNavigate();
   const qc = useQueryClient();
   const { data, isPending, error, refetch } = useQuery({
-    queryKey: ["swimmer", swimmerId],
+    queryKey: ["swimmer", swimmerId, taskView],
     queryFn: () => getSwimmer({ data: { id: swimmerId } }),
     enabled: Number.isFinite(swimmerId),
   });
@@ -70,7 +70,7 @@ function Page() {
         <ResourceQueryError error={error} retry={() => refetch()} />
       </AppShell>
     );
-  const { swimmer, results, pbs, attendance, attendanceHistory, totalMeters, upcomingEntries, feedback, feedbackPractices } = data;
+  const { swimmer, results, pbs, attendance, attendanceHistory, totalMeters, upcomingEntries, feedback, feedbackPractices, feedbackCanManage } = data;
   return (
     <AppShell>
       <Link
@@ -183,7 +183,7 @@ function Page() {
         swimmerId={swimmer.id}
         feedback={feedback}
         practices={feedbackPractices}
-        canCreate={hats.staff != null}
+        canCreate={feedbackCanManage}
       />
       <details className="mt-6 rounded-2xl bg-card shadow-border">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">

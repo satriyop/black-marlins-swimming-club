@@ -2,7 +2,7 @@ import type { RegistrationStatus } from "@/lib/swim/registration";
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { accessFor } from "@/lib/club/access";
-import { dismissOnboarding, saveTaskView } from "@/lib/club/prefs";
+import { dismissOnboarding, loadPrefs, saveTaskView } from "@/lib/club/prefs";
 import type { TaskView } from "@/lib/club/home-view";
 import { loadClub, requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
@@ -57,12 +57,14 @@ export const listSwimmers = createServerFn({ method: "GET" }).middleware([authMi
 
 export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
   const { sql, clubId, userId } = await requireClub(context.userId);
-  const hats = await hatsFor({ sql, userId });
+  const actor = { sql, userId };
+  const [hats, prefs] = await Promise.all([hatsFor(actor), loadPrefs(actor)]);
+  const staffView = hats.staff != null && prefs.taskView === "club";
   const rows = await sql<SwimmerRow>`select * from swimmers where id = ${data.id} and club_id = ${clubId} limit 1`;
   const row = rows[0];
   if (!row || !canSeeSwimmer(hats, data.id)) throw new Error("Perenang tidak ditemukan");
   const swimmer = mapSwimmer(row);
-  if (!hats.staff) swimmer.notes = null;
+  if (!staffView) swimmer.notes = null;
   const [results, pbs, att, volume, attendanceHistory, entries, feedback, feedbackPractices] = await Promise.all([
     sql<ResultRow>`
       select r.*, ${swimmer.fullName} as swimmer_name, m.name as meet_name
@@ -87,8 +89,8 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
       from meet_entries e join meets m on m.id = e.meet_id
       where e.club_id = ${clubId} and e.swimmer_id = ${data.id} and coalesce(m.end_date,m.start_date) >= current_date
       order by m.start_date, e.distance_m`,
-    listSwimmerFeedback({ sql, userId }, data.id),
-    hats.staff ? listFeedbackPracticeOptions({ sql, userId }, data.id) : Promise.resolve([]),
+    listSwimmerFeedback(actor, data.id, staffView ? "role" : "family"),
+    staffView ? listFeedbackPracticeOptions(actor, data.id) : Promise.resolve([]),
   ]);
   return {
     swimmer, results: results.map(mapResult),
@@ -97,6 +99,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
     attendanceHistory,
     feedback,
     feedbackPractices,
+    feedbackCanManage: staffView,
     totalMeters: volume[0]?.n ?? 0,
     upcomingEntries: entries.map((e) => ({ id: e.id, meetId: e.meet_id, swimmerId: e.swimmer_id, swimmerName: e.swimmer_name, stroke: e.stroke, distanceM: e.distance_m, ageGroup: e.age_group, seedTimeMs: e.seed_time_ms, status: e.status, registrationStatus: e.registration_status, registrationReason: e.registration_reason, lane: e.lane, heat: e.heat, meetName: e.meet_name, startDate: e.start_date })),
   };

@@ -255,6 +255,15 @@ describe("coach feedback privacy and history", () => {
       expect.objectContaining({ id: shared.id, nextStep: "Arahan yang boleh dibaca wali" }),
     ]);
     expect(JSON.stringify(dashboard.recentFeedback)).not.toContain("Catatan privat pelatih");
+    const familyHistory = await listSwimmerFeedback(
+      harness.actor("coach-a"),
+      swimmerId,
+      "family",
+    );
+    expect(familyHistory).toEqual([
+      expect.objectContaining({ id: shared.id, nextStep: "Arahan yang boleh dibaca wali" }),
+    ]);
+    expect(JSON.stringify(familyHistory)).not.toContain("Catatan privat pelatih");
   });
 
   test("legacy internal roster notes are neither returned to nor overwritten by guardians", async () => {
