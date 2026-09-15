@@ -1,115 +1,43 @@
 [
   {
-    "key": "weekday-monday-tirtomulyono-1530",
+    "key": "weekday-monday-contoh-1530",
     "title": "Latihan Reguler Sore",
     "weekday": 1,
     "startTime": "15:30",
     "durationMin": 90,
-    "location": "Umbul Tirtomulyono Pluneng",
+    "location": "Kolam Contoh A",
     "kind": "teknik",
-    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
-    "key": "weekday-tuesday-tirtomulyono-1530",
-    "title": "Latihan Reguler Sore",
-    "weekday": 2,
-    "startTime": "15:30",
-    "durationMin": 90,
-    "location": "Umbul Tirtomulyono Pluneng",
-    "kind": "teknik",
-    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
-    "active": true
-  },
-  {
-    "key": "weekday-wednesday-tirtomulyono-1530",
+    "key": "weekday-wednesday-contoh-1530",
     "title": "Latihan Reguler Sore",
     "weekday": 3,
     "startTime": "15:30",
     "durationMin": 90,
-    "location": "Umbul Tirtomulyono Pluneng",
+    "location": "Kolam Contoh A",
     "kind": "teknik",
-    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
-    "key": "weekday-thursday-tirtomulyono-1530",
-    "title": "Latihan Reguler Sore",
-    "weekday": 4,
-    "startTime": "15:30",
-    "durationMin": 90,
-    "location": "Umbul Tirtomulyono Pluneng",
-    "kind": "teknik",
-    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
-    "active": true
-  },
-  {
-    "key": "weekday-friday-tirtomulyono-1530",
+    "key": "weekday-friday-contoh-1530",
     "title": "Latihan Reguler Sore",
     "weekday": 5,
     "startTime": "15:30",
     "durationMin": 90,
-    "location": "Umbul Tirtomulyono Pluneng",
+    "location": "Kolam Contoh A",
     "kind": "teknik",
-    "mapUrl": "https://maps.app.goo.gl/tDAR5GqbtmqZdX8a6",
     "active": true
   },
   {
-    "key": "saturday-morning-brondong-0500",
+    "key": "saturday-morning-contoh-0500",
     "title": "Latihan Sabtu Pagi",
     "weekday": 6,
     "startTime": "05:00",
     "durationMin": 90,
-    "location": "Umbul Brondong",
+    "location": "Kolam Contoh B",
     "kind": "teknik",
     "notes": "Opsional.",
-    "mapUrl": "https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
-    "active": false
-  },
-  {
-    "key": "saturday-afternoon-brondong-1530",
-    "title": "Latihan Sabtu Sore",
-    "weekday": 6,
-    "startTime": "15:30",
-    "durationMin": 90,
-    "location": "Umbul Brondong",
-    "kind": "teknik",
-    "mapUrl": "https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
-    "active": true
-  },
-  {
-    "key": "sunday-morning-brondong-0500",
-    "title": "Latihan Minggu Pagi",
-    "weekday": 7,
-    "startTime": "05:00",
-    "durationMin": 90,
-    "location": "Umbul Brondong",
-    "kind": "teknik",
-    "mapUrl": "https://maps.app.goo.gl/EqqfYJNj3CRkRhNN7",
-    "active": true
-  },
-  {
-    "key": "saturday-morning-depo-0500",
-    "title": "Latihan Sabtu Pagi",
-    "weekday": 6,
-    "startTime": "05:00",
-    "durationMin": 90,
-    "location": "Kolam Renang Depo",
-    "kind": "teknik",
-    "notes": "Alternatif lokasi.",
-    "mapUrl": "https://maps.app.goo.gl/6nY8dcFiKv9e4Xh76",
-    "active": false
-  },
-  {
-    "key": "saturday-afternoon-depo-1530",
-    "title": "Latihan Sabtu Sore",
-    "weekday": 6,
-    "startTime": "15:30",
-    "durationMin": 90,
-    "location": "Kolam Renang Depo",
-    "kind": "teknik",
-    "notes": "Alternatif lokasi.",
-    "mapUrl": "https://maps.app.goo.gl/6nY8dcFiKv9e4Xh76",
     "active": false
   }
 ]

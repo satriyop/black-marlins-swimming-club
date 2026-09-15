@@ -1,15 +1,25 @@
-/** Parse kiko-web renang CSVs into BMSC meets/results. */
+/**
+ * Parse kiko-web renang CSVs into BMSC meets/results.
+ *
+ * ATHLETE_NAMES/NICKNAMES map the CSVs' short athlete codes to full swimmer names -- these must
+ * exactly match swimmers.full_name for import-kiko-results.mjs to find the right swimmer row.
+ * The values here are the synthetic names src/lib/club/seed.ts seeds by default; a club's real
+ * roster and matching real data/kiko/*.csv belong in a gitignored local copy instead (see
+ * docs/aidev-deploy.md) -- these tables are the one thing in this module that's genuinely about
+ * a specific person's identity, unlike the meet calendar/course tables below which are just
+ * public competition logistics.
+ */
 
 export const ATHLETE_NAMES = {
-  ken: "Ken Athaya Nirwasita",
-  bumi: "Kun Bumi Pamungkas",
-  banyu: "Luigi Banyu Pamungkas",
+  ken: "Perenang Satu",
+  bumi: "Perenang Dua",
+  banyu: "Perenang Tiga",
 };
 
 export const NICKNAMES = {
-  ken: "Kak Ken",
-  bumi: "Mas Bumi",
-  banyu: "Mas Banyu",
+  ken: "Kak Satu",
+  bumi: "Kak Dua",
+  banyu: "Kak Tiga",
 };
 
 export const STROKE = {
@@ -192,13 +202,13 @@ function courseOf(kolam, distance, meetCode) {
   return Number(distance) <= 25 ? "25" : "50";
 }
 
-export function parseEvents(csvText) {
+export function parseEvents(csvText, athleteNames = ATHLETE_NAMES) {
   const lines = csvText.trim().split(/\r?\n/).slice(1);
   const rows = [];
   for (const line of lines) {
     if (!line.trim()) continue;
     const [tanggal, atlet, jarak, gaya, waktu, pb, jenis, kolam, meet, rank, group, catatan] = splitSemi(line);
-    const fullName = ATHLETE_NAMES[atlet];
+    const fullName = athleteNames[atlet];
     const stroke = STROKE[String(gaya ?? "").toUpperCase()];
     const distanceM = Number(jarak);
     const timeMs = parseTimeToMs(waktu);

@@ -46,8 +46,8 @@ test("admitted parent still cannot see the skuad", async () => {
   await seedClub(h.sql);
   const parent = await admitParent(h, "ibu-baru@example.com", "usr_ibu_baru");
   const names = (await listSwimmers(parent)).map((s) => s.fullName);
-  expect(names).not.toContain("Ken Athaya Nirwasita");
-  expect(names).not.toContain("Luigi Banyu Pamungkas");
+  expect(names).not.toContain("Perenang Satu");
+  expect(names).not.toContain("Perenang Tiga");
 });
 
 test("loadClub auto-accept of an empty wali invite also admits the parent", async () => {
@@ -117,8 +117,8 @@ test("wali create of a matching name and date of birth is blocked", async () => 
   await expect(
     saveSwimmer(parent, {
       ...child,
-      fullName: "Ken Athaya Nirwasita",
-      dateOfBirth: "2012-06-30",
+      fullName: "Perenang Satu",
+      dateOfBirth: "2012-05-15",
       asChild: true,
     }),
   ).rejects.toThrow(/mirip/);
@@ -128,8 +128,8 @@ test("admin roster create of a matching name warns until confirmed", async () =>
   const h = await createClubHarness();
   await seedClub(h.sql);
   const dup = {
-    fullName: "Ken Athaya Nirwasita",
-    dateOfBirth: "2012-06-30",
+    fullName: "Perenang Satu",
+    dateOfBirth: "2012-05-15",
     gender: "putri" as const,
     status: "aktif" as const,
   };
@@ -143,8 +143,8 @@ test("admin Daftarkan anak of a matching name warns rather than blocking", async
   await seedClub(h.sql);
   const dup = {
     ...child,
-    fullName: "Ken Athaya Nirwasita",
-    dateOfBirth: "2012-06-30",
+    fullName: "Perenang Satu",
+    dateOfBirth: "2012-05-15",
     asChild: true as const,
   };
   await expect(saveSwimmer(h.actor(AZKIYA_ID), dup)).rejects.toThrow(/Simpan lagi/);
@@ -159,8 +159,8 @@ test("parent cannot confirm-create a matching name and date of birth", async () 
   await expect(
     saveSwimmer(parent, {
       ...child,
-      fullName: "Ken Athaya Nirwasita",
-      dateOfBirth: "2012-06-30",
+      fullName: "Perenang Satu",
+      dateOfBirth: "2012-05-15",
       asChild: true,
       confirmSimilar: true,
     }),

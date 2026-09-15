@@ -52,13 +52,13 @@ test("unlinking a guardian drops that child's access and keeps the athlete", asy
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   await unlinkGuardian(h.actor(SATRIYO_ID), { userId: RATIH_ID, swimmerId: luigi.id });
   const ratih = await hatsFor(h.actor(RATIH_ID));
   expect(ratih.guardianSwimmerIds).not.toContain(luigi.id);
   expect(ratih.guardianSwimmerIds.length).toBe(2);
   const names = (await listSwimmers(h.actor(RATIH_ID))).map((s) => s.fullName);
-  expect(names.some((n) => n.startsWith("Luigi"))).toBe(false);
+  expect(names.some((n) => n === "Perenang Tiga")).toBe(false);
   const still = await h.sql<{ n: number }>`select count(*)::int as n from swimmers where id = ${luigi.id}`;
   expect(still[0]?.n).toBe(1);
   expect((await hatsFor(h.actor(SATRIYO_ID))).guardianSwimmerIds).toContain(luigi.id);

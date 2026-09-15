@@ -72,6 +72,14 @@ On your laptop, create the Google OAuth web client:
 
 Google's download for this is a `client_secret_*.json` file. Save it outside the repo (e.g. `~/.config/google-oauth/`), not in the project root — only the `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` values belong in `.env`. `client_secret*.json` is gitignored as a backstop, but don't rely on that alone.
 
+The repo is public, so the committed `data/*.json` seed/schedule files and `data/kiko/*.csv` are synthetic placeholders — a fresh clone seeds a working demo club, never the real roster. The club's real data lives in three gitignored local files that are never committed:
+
+- `data/seed.local.json` — real adult accounts and swimmer roster (names, birthdates, emails). Shape mirrors `data/seed.example.json`; each swimmer's optional `kikoCode` maps it to the anonymous athlete codes used in the kiko CSVs.
+- `data/default-training-schedules.local.json` — real training venues, times, and map links. Shape mirrors `data/default-training-schedules.json`.
+- `data/kiko.local/renang_atlet.csv`, `data/kiko.local/renang_best.csv` — real-name kiko-web reference exports. Not read by any code; kept for reference only.
+
+Put the two `.local.json` files on `aidev` at `/var/www/bmsc/data/` and set `BMSC_DATA_LOCAL_DIR=/var/www/bmsc/data` in `.env` (see `.env.example`). That env var matters because `apply-release` runs each deploy from a fresh `releases/<sha>` directory (below) — without it, `scripts/seed-club.mjs`/`scripts/run-import-kiko.mjs` would look for the override files next to themselves inside that release directory and never find them. Without either the files or the env var, `db:seed` and `import-kiko` fall back to the committed example data.
+
 On aidev:
 
 ```bash

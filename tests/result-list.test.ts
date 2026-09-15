@@ -8,7 +8,7 @@ import type { Result } from "../src/lib/swim/types";
 function row(partial: Partial<Result> & Pick<Result, "id">): Result {
   return {
     swimmerId: 1,
-    swimmerName: "Luigi",
+    swimmerName: "Perenang Tiga",
     meetId: 10,
     meetName: "SMG Open",
     resultDate: "2025-10-03",

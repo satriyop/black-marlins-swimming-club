@@ -8,15 +8,15 @@ import { getDashboardData } from "../src/lib/club/dashboard";
 import { RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
 import { createClubHarness } from "./harness";
 
-async function linkLuigiAccount(h: Awaited<ReturnType<typeof createClubHarness>>) {
+async function linkPerenangTigaAccount(h: Awaited<ReturnType<typeof createClubHarness>>) {
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const swimmer = kids.find((s) => s.full_name === "Perenang Tiga")!;
   await h.sql`
     insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
-    values ('usr_luigi', 'Luigi', 'luigi@example.com', true, now(), now())
+    values ('usr_perenang_tiga', 'Perenang Tiga', 'perenang.tiga@example.com', true, now(), now())
   `;
-  await h.sql`update swimmers set user_id = 'usr_luigi' where id = ${luigi.id}`;
-  return luigi;
+  await h.sql`update swimmers set user_id = 'usr_perenang_tiga' where id = ${swimmer.id}`;
+  return swimmer;
 }
 
 test("wali cannot post; staff can", async () => {
@@ -58,22 +58,22 @@ test("list shows title without marking read; open marks read", async () => {
 test("perenang sees posts and is marked read only after open", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
-  await linkLuigiAccount(h);
+  await linkPerenangTigaAccount(h);
   const post = await createAnnouncement(h.actor(SATRIYO_ID), {
     title: "Pemusatan",
     body: "Bawa topi cadangan.",
   });
-  const listed = await listAnnouncements(h.actor("usr_luigi"));
+  const listed = await listAnnouncements(h.actor("usr_perenang_tiga"));
   expect(listed[0]?.unread).toBe(true);
-  await getAnnouncement(h.actor("usr_luigi"), post.id);
-  const after = await listAnnouncements(h.actor("usr_luigi"));
+  await getAnnouncement(h.actor("usr_perenang_tiga"), post.id);
+  const after = await listAnnouncements(h.actor("usr_perenang_tiga"));
   expect(after[0]?.unread).toBe(false);
 });
 
 test("author is already read; receipts count wali and perenang", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
-  await linkLuigiAccount(h);
+  await linkPerenangTigaAccount(h);
   const post = await createAnnouncement(h.actor(SATRIYO_ID), {
     title: "Tes",
     body: "Halo.",
@@ -86,14 +86,14 @@ test("author is already read; receipts count wali and perenang", async () => {
   expect(before.receipts).toBeTruthy();
   expect(before.receipts?.expected).toBeGreaterThanOrEqual(3);
   expect(before.receipts?.opened).toBe(1);
-  expect(before.receipts?.notOpened.some((n) => n.includes("Ratih"))).toBe(true);
-  expect(before.receipts?.notOpened.some((n) => n.includes("Luigi"))).toBe(true);
+  expect(before.receipts?.notOpened.some((n) => n.includes("Wali Contoh"))).toBe(true);
+  expect(before.receipts?.notOpened.some((n) => n.includes("Perenang Tiga"))).toBe(true);
 
   await getAnnouncement(h.actor(RATIH_ID), post.id);
-  await getAnnouncement(h.actor("usr_luigi"), post.id);
+  await getAnnouncement(h.actor("usr_perenang_tiga"), post.id);
   const after = await getAnnouncement(h.actor(SATRIYO_ID), post.id);
-  expect(after.receipts?.notOpened.some((n) => n.includes("Ratih"))).toBe(false);
-  expect(after.receipts?.notOpened.some((n) => n.includes("Luigi"))).toBe(false);
+  expect(after.receipts?.notOpened.some((n) => n.includes("Wali Contoh"))).toBe(false);
+  expect(after.receipts?.notOpened.some((n) => n.includes("Perenang Tiga"))).toBe(false);
 });
 
 test("uninvited user cannot list or open", async () => {

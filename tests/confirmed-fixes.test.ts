@@ -94,7 +94,7 @@ test("dashboard applies family visibility before the recent-result cap", async (
   const h = await createClubHarness();
   const clubId = await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   const extra = await h.sql<{ id: number }>`
     insert into swimmers (club_id, full_name, date_of_birth, gender, nationality, status)
     values (${clubId}, 'Anak Lain', '2015-01-01', 'putra', 'Indonesia', 'aktif')
@@ -112,7 +112,7 @@ test("dashboard applies family visibility before the recent-result cap", async (
   }
   const dash = await getDashboardData(h.actor(RATIH_ID));
   expect(
-    dash.recentResults.some((r) => r.timeMs === 40000 && r.swimmerName.startsWith("Luigi")),
+    dash.recentResults.some((r) => r.timeMs === 40000 && r.swimmerName === "Perenang Tiga"),
   ).toBe(true);
   expect(JSON.stringify(dash)).not.toContain("Anak Lain");
 });

@@ -6,7 +6,7 @@ import { createClubHarness } from "./harness";
 async function seedAttendance(h: Awaited<ReturnType<typeof createClubHarness>>) {
   const clubId = await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   const practices = await h.sql<{ id: number }>`
     insert into practices (club_id, session_date, kind, title, total_meters)
     values (${clubId}, '2026-09-11', 'teknik', 'Tes izin', 1000)

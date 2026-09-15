@@ -10,9 +10,9 @@ test("two seeded adults see the same three swimmers", async () => {
   const ratih = await listSwimmers(h.actor(RATIH_ID));
   const names = (rows: { fullName: string }[]) => rows.map((s) => s.fullName).sort();
   expect(names(satriyo)).toEqual([
-    "Ken Athaya Nirwasita",
-    "Kun Bumi Pamungkas",
-    "Luigi Banyu Pamungkas",
+    "Perenang Dua",
+    "Perenang Satu",
+    "Perenang Tiga",
   ]);
   expect(names(ratih)).toEqual(names(satriyo));
 });
