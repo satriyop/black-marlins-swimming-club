@@ -25,6 +25,8 @@ import {
   listPracticeSeries,
   listScheduledTrainingDays,
   openScheduledTrainingDay,
+  savePlannedAbsenceNotice,
+  withdrawPlannedAbsenceNotice,
   setSeriesActive,
   skipSeriesRange,
   updateScheduleProgram,
@@ -136,6 +138,20 @@ export const openClubScheduledTrainingDay = createServerFn({ method: "POST" }).m
 }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return openScheduledTrainingDay(actor, data);
+});
+
+export const saveClubPlannedAbsenceNotice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  scheduleId: number; date: string; swimmerId: number; kind: "izin" | "sakit"; reason?: string;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return savePlannedAbsenceNotice(actor, data);
+});
+
+export const withdrawClubPlannedAbsenceNotice = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  scheduleId: number; date: string; swimmerId: number;
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return withdrawPlannedAbsenceNotice(actor, data);
 });
 
 export const skipClubSeriesRange = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {

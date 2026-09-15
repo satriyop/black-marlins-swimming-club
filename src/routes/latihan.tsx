@@ -5,13 +5,23 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { MapPin } from "lucide-react";
-import { listClubScheduledTrainingDays, listPractices, openClubScheduledTrainingDay } from "@/lib/server/fns";
+import {
+  listClubScheduledTrainingDays,
+  listPractices,
+  openClubScheduledTrainingDay,
+  saveClubPlannedAbsenceNotice,
+  withdrawClubPlannedAbsenceNotice,
+} from "@/lib/server/fns";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import type { Practice } from "@/lib/swim/types";
 import type { ScheduledTrainingDay } from "@/lib/club/series";
 import { formatDateId, todayIso } from "@/lib/utils";
 import { PracticeNavigation } from "@/components/practice/practice-navigation";
+import { absenceCutoffLabel } from "@/lib/club/absence-window";
+import { Field, Input } from "@/components/ui/input";
+import { useState } from "react";
+import { toast } from "sonner";
 
 type PracticeSearch = { view?: "history"; page?: number };
 
@@ -101,7 +111,11 @@ function Overview({
         {todayRows.length ? (
           <div className="grid gap-3">
             {todayRows.map((practice) => (
-              <TodayCard key={practice.scheduleId} trainingDay={practice} canRecordAttendance={canCreate} />
+              <TodayCard
+                key={practice.scheduleId}
+                trainingDay={practice}
+                canRecordAttendance={canCreate}
+              />
             ))}
           </div>
         ) : (
@@ -112,7 +126,13 @@ function Overview({
                 ? `Latihan berikutnya ${formatDateId(upcomingRows[0].date, "EEEE, d MMMM")} pukul ${upcomingRows[0].startTime ?? "—"}.`
                 : "Belum ada sesi dalam tujuh hari ke depan."
             }
-            action={canCreate ? <Button asChild variant="outline"><Link to="/latihan/jadwal">Atur jadwal</Link></Button> : undefined}
+            action={
+              canCreate ? (
+                <Button asChild variant="outline">
+                  <Link to="/latihan/jadwal">Atur jadwal</Link>
+                </Button>
+              ) : undefined
+            }
           />
         )}
       </section>
@@ -123,7 +143,10 @@ function Overview({
           </h2>
           <ul className="overflow-hidden rounded-2xl bg-card shadow-border">
             {upcomingRows.map((practice) => (
-              <li key={`${practice.scheduleId}:${practice.date}`} className="border-b border-border last:border-0">
+              <li
+                key={`${practice.scheduleId}:${practice.date}`}
+                className="border-b border-border last:border-0"
+              >
                 <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <p className="font-medium">{practice.title}</p>
@@ -139,8 +162,15 @@ function Overview({
                       </p>
                     ) : null}
                   </div>
-                  <span className="text-xs text-muted-foreground">Terjadwal</span>
+                  <span className="text-xs text-muted-foreground">
+                    {practice.practiceStatus === "cancelled"
+                      ? "Dibatalkan"
+                      : practice.practiceStatus === "completed"
+                        ? "Selesai"
+                        : "Terjadwal"}
+                  </span>
                 </div>
+                <PlannedAbsence trainingDay={practice} />
               </li>
             ))}
           </ul>
@@ -160,7 +190,10 @@ function TodayCard({
   const navigate = useNavigate();
   const qc = useQueryClient();
   const open = useMutation({
-    mutationFn: () => openClubScheduledTrainingDay({ data: { scheduleId: trainingDay.scheduleId, date: trainingDay.date } }),
+    mutationFn: () =>
+      openClubScheduledTrainingDay({
+        data: { scheduleId: trainingDay.scheduleId, date: trainingDay.date },
+      }),
     onSuccess: async ({ id }) => {
       await qc.invalidateQueries({ queryKey: ["scheduled-training-days"] });
       await navigate({ to: "/latihan/$id", params: { id: String(id) } });
@@ -175,7 +208,9 @@ function TodayCard({
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             {trainingDay.startTime ?? "Jam belum ditentukan"}
-            {trainingDay.durationMin ? `–${endTime(trainingDay.startTime, trainingDay.durationMin)}` : ""}
+            {trainingDay.durationMin
+              ? `–${endTime(trainingDay.startTime, trainingDay.durationMin)}`
+              : ""}
           </p>
           {trainingDay.location ? (
             <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
@@ -190,17 +225,162 @@ function TodayCard({
             </p>
           ) : null}
           <p className="mt-3 text-sm text-muted-foreground">
-            {trainingDay.practiceId ? "Absensi sudah dibuka" : "Absensi belum dibuka"}
+            {trainingDay.practiceStatus === "completed"
+              ? "Latihan selesai"
+              : trainingDay.practiceStatus === "cancelled"
+                ? "Latihan dibatalkan"
+                : trainingDay.practiceId
+                  ? "Absensi sudah dibuka"
+                  : "Absensi belum dibuka"}
           </p>
         </div>
         {trainingDay.practiceId ? (
-          <Button asChild className="w-full sm:w-auto"><Link to="/latihan/$id" params={{ id: String(trainingDay.practiceId) }}>{canRecordAttendance ? "Buka absensi" : "Lihat kehadiran"}</Link></Button>
+          <Button asChild className="w-full sm:w-auto">
+            <Link to="/latihan/$id" params={{ id: String(trainingDay.practiceId) }}>
+              {trainingDay.practiceStatus === "completed" ||
+              trainingDay.practiceStatus === "cancelled"
+                ? "Lihat sesi"
+                : canRecordAttendance
+                  ? "Buka absensi"
+                  : "Lihat kehadiran"}
+            </Link>
+          </Button>
         ) : canRecordAttendance ? (
-          <Button type="button" className="w-full sm:w-auto" disabled={open.isPending} onClick={() => open.mutate()}>{open.isPending ? "Membuka…" : "Buka absensi"}</Button>
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            disabled={open.isPending}
+            onClick={() => open.mutate()}
+          >
+            {open.isPending ? "Membuka…" : "Buka absensi"}
+          </Button>
         ) : null}
-        {open.isError ? <p role="alert" className="text-sm text-destructive">{open.error.message}</p> : null}
+        {open.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {open.error.message}
+          </p>
+        ) : null}
       </div>
+      <PlannedAbsence trainingDay={trainingDay} />
     </article>
+  );
+}
+
+function PlannedAbsence({ trainingDay }: { trainingDay: ScheduledTrainingDay }) {
+  if (trainingDay.practiceId != null || trainingDay.familySwimmers.length === 0) return null;
+  const active = trainingDay.familySwimmers.filter(
+    (swimmer) => swimmer.notice?.status === "active",
+  ).length;
+  if (!trainingDay.noticeEditable && active === 0) return null;
+  return (
+    <details className="border-t border-border px-4 py-3 text-sm">
+      <summary className="min-h-11 cursor-pointer font-semibold text-primary">
+        {active ? `${active} izin sudah dikirim` : "Laporkan izin anak"}
+      </summary>
+      <p className="mb-3 text-muted-foreground">
+        {absenceCutoffLabel(trainingDay.date, trainingDay.startTime)}. Izin ini tidak mengganti
+        catatan kehadiran akhir pelatih.
+      </p>
+      <div className="grid gap-4">
+        {trainingDay.familySwimmers.map((swimmer) => (
+          <PlannedAbsenceRow key={swimmer.id} trainingDay={trainingDay} swimmer={swimmer} />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function PlannedAbsenceRow({
+  trainingDay,
+  swimmer,
+}: {
+  trainingDay: ScheduledTrainingDay;
+  swimmer: ScheduledTrainingDay["familySwimmers"][number];
+}) {
+  const qc = useQueryClient();
+  const [reason, setReason] = useState(swimmer.notice?.reason ?? "");
+  const refresh = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["scheduled-training-days"] }),
+      qc.invalidateQueries({ queryKey: ["dashboard"] }),
+    ]);
+  };
+  const save = useMutation({
+    mutationFn: (kind: "izin" | "sakit") =>
+      saveClubPlannedAbsenceNotice({
+        data: {
+          scheduleId: trainingDay.scheduleId,
+          date: trainingDay.date,
+          swimmerId: swimmer.id,
+          kind,
+          reason,
+        },
+      }),
+    onSuccess: refresh,
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const withdraw = useMutation({
+    mutationFn: () =>
+      withdrawClubPlannedAbsenceNotice({
+        data: {
+          scheduleId: trainingDay.scheduleId,
+          date: trainingDay.date,
+          swimmerId: swimmer.id,
+        },
+      }),
+    onSuccess: refresh,
+    onError: (error: Error) => toast.error(error.message),
+  });
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <p className="font-semibold">{swimmer.name}</p>
+      {swimmer.notice?.status === "active" ? (
+        <p className="mt-1 text-muted-foreground">
+          Izin terkirim: {swimmer.notice.kind}
+          {swimmer.notice.reason ? ` · ${swimmer.notice.reason}` : ""}
+        </p>
+      ) : null}
+      {trainingDay.noticeEditable ? (
+        <div className="mt-2 grid gap-2">
+          <Field label={`Alasan untuk ${swimmer.name} (opsional)`}>
+            <Input value={reason} onChange={(event) => setReason(event.target.value)} />
+          </Field>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={save.isPending || withdraw.isPending}
+              onClick={() => save.mutate("izin")}
+            >
+              Izin
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={save.isPending || withdraw.isPending}
+              onClick={() => save.mutate("sakit")}
+            >
+              Sakit
+            </Button>
+            {swimmer.notice?.status === "active" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={save.isPending || withdraw.isPending}
+                onClick={() => withdraw.mutate()}
+              >
+                Batalkan izin
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-1 text-muted-foreground">Batas waktu izin sudah lewat.</p>
+      )}
+    </div>
   );
 }
 

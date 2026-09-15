@@ -30,6 +30,8 @@ export {
   createClubPracticeSeriesBatch,
   listClubScheduledTrainingDays,
   openClubScheduledTrainingDay,
+  saveClubPlannedAbsenceNotice,
+  withdrawClubPlannedAbsenceNotice,
   skipClubSeriesRange,
   setClubPracticeSeriesActive,
   updateClubScheduleProgram,
