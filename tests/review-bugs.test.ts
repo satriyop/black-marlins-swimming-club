@@ -36,7 +36,7 @@ test("accept swimmer_account invite creates a password login linked to that pere
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   const invite = await createInvite(h.actor(RATIH_ID), {
     kind: "swimmer_account",
     email: "luigi@example.com",
@@ -58,8 +58,8 @@ test("weaker staff invite does not downgrade superadmin", async () => {
   await expect(
     createInvite(h.actor(AZKIYA_ID), {
       kind: "staff",
-      email: "satriyopamungkas@gmail.com",
-      confirmedEmail: "satriyopamungkas@gmail.com",
+      email: "superadmin@example.com",
+      confirmedEmail: "superadmin@example.com",
       role: "coach",
     }),
   ).rejects.toThrow(/sudah staf/);
@@ -155,7 +155,7 @@ test("wali saveResult tes succeeds and official fails; PB comes from time_ms", a
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   const wali = h.actor(RATIH_ID);
   await expect(
     saveResult(wali, {

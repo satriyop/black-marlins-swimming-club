@@ -83,7 +83,7 @@ test("wali can invite another wali only on linked perenang", async () => {
   const h = await createClubHarness();
   const clubId = await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   const extra = await h.sql<{ id: number }>`
     insert into swimmers (club_id, full_name, date_of_birth, gender, nationality, status)
     values (${clubId}, 'Anak Lain', '2015-01-01', 'putra', 'Indonesia', 'aktif')
@@ -108,7 +108,7 @@ test("rejects a second pending guardian invite for the same email and perenang",
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   const first = await createInvite(h.actor(SATRIYO_ID), {
     kind: "guardian",
     email: "ibu-baru@example.com",
@@ -128,11 +128,11 @@ test("rejects guardian invite when that email is already wali of the perenang", 
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   await expect(
     createInvite(h.actor(SATRIYO_ID), {
       kind: "guardian",
-      email: "ratihsasminta@gmail.com",
+      email: "wali@example.com",
       swimmerIds: [luigi.id],
     }),
   ).rejects.toThrow(/sudah wali/);
@@ -185,7 +185,7 @@ test("rejects an empty wali invite when that email is already family", async () 
   await expect(
     createInvite(h.actor(SATRIYO_ID), {
       kind: "guardian",
-      email: "ratihsasminta@gmail.com",
+      email: "wali@example.com",
       swimmerIds: [],
     }),
   ).rejects.toThrow(/sudah wali/);

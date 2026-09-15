@@ -8,8 +8,8 @@ test("seeded superadmin can list the club roster", async () => {
   await seedClub(h.sql);
   const rows = await listSwimmers(h.actor(SATRIYO_ID));
   expect(rows.map((s) => s.fullName).sort()).toEqual([
-    "Ken Athaya Nirwasita",
-    "Kun Bumi Pamungkas",
-    "Luigi Banyu Pamungkas",
+    "Perenang Dua",
+    "Perenang Satu",
+    "Perenang Tiga",
   ]);
 });

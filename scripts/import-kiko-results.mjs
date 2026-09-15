@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 /**
- * Upsert kiko-web race times and medals for Ken, Luigi, and Kun.
+ * Upsert kiko-web race times and medals for the club's swimmers.
  * Uses DATABASE_URL. Safe to re-run (skips existing result rows).
+ *
+ * The events/medal CSVs only ever reference anonymous athlete codes (e.g. "ken"), never a real
+ * name -- kiko-parse.mjs's ATHLETE_NAMES/NICKNAMES resolve those codes to the synthetic names
+ * seeded by default. A club's real roster (data/seed.local.json, see docs/aidev-deploy.md) can
+ * declare a "kikoCode" per swimmer to resolve codes to real names/nicknames instead; scripts/
+ * run-import-kiko.mjs resolves that file and passes it into importKikoResults explicitly, so
+ * this module (and its tests) always behave the same regardless of what override file happens
+ * to exist on a given machine -- see scripts/default-training-schedules.mjs for the same pattern.
  */
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -19,11 +27,19 @@ import {
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-export async function importKikoResults(query) {
+/**
+ * @param {Record<string, string>} [realNames] Maps kikoCode -> real full name, overriding
+ *   ATHLETE_NAMES. Defaults to no override (the committed synthetic names).
+ * @param {Record<string, string>} [realNicknames] Maps kikoCode -> real nickname, overriding
+ *   NICKNAMES.
+ */
+export async function importKikoResults(query, realNames = {}, realNicknames = {}) {
+  const athleteNames = { ...ATHLETE_NAMES, ...realNames };
+  const nicknames = { ...NICKNAMES, ...realNicknames };
   const eventsCsv = await readFile(join(root, "data/kiko/renang_events.csv"), "utf8");
   const medalsCsv = await readFile(join(root, "data/kiko/renang_medal.csv"), "utf8");
   const medals = parseMedals(medalsCsv);
-  const events = syncEventDates(applyMedalPlaces(parseEvents(eventsCsv), medals), medals);
+  const events = syncEventDates(applyMedalPlaces(parseEvents(eventsCsv, athleteNames), medals), medals);
   const ranges = meetDateRange(events, medals);
   const club = await query("select id from clubs limit 1");
   if (!club[0]) throw new Error("No club row — seed the club first");
@@ -31,8 +47,8 @@ export async function importKikoResults(query) {
 
   const swimmers = await query("select id, full_name from swimmers where club_id = $1", [clubId]);
   const byName = Object.fromEntries(swimmers.map((s) => [s.full_name, s.id]));
-  for (const [id, name] of Object.entries(ATHLETE_NAMES)) {
-    const nick = NICKNAMES[id];
+  for (const [id, name] of Object.entries(athleteNames)) {
+    const nick = nicknames[id];
     if (byName[name] && nick) {
       await query("update swimmers set nickname = $1 where id = $2 and (nickname is null or nickname = '')", [
         nick,
@@ -117,5 +133,3 @@ export async function importKikoResults(query) {
   }
   return { inserted, skipped, updated, total: events.length };
 }
-
-

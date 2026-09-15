@@ -13,9 +13,9 @@ test("guardian does not see an unlinked swimmer", async () => {
   const ratih = await listSwimmers(h.actor(RATIH_ID));
   expect(ratih.map((s) => s.fullName)).not.toContain("Anak Lain");
   expect(ratih.map((s) => s.fullName).sort()).toEqual([
-    "Ken Athaya Nirwasita",
-    "Kun Bumi Pamungkas",
-    "Luigi Banyu Pamungkas",
+    "Perenang Dua",
+    "Perenang Satu",
+    "Perenang Tiga",
   ]);
 });
 
@@ -28,12 +28,12 @@ test("superadmin sees the whole skuad including unlinked children", async () => 
   `;
   const names = (await listSwimmers(h.actor(SATRIYO_ID))).map((s) => s.fullName);
   expect(names).toContain("Anak Lain");
-  expect(names).toContain("Luigi Banyu Pamungkas");
+  expect(names).toContain("Perenang Tiga");
 });
 
 test("club admin sees the whole skuad", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   const names = (await listSwimmers(h.actor(AZKIYA_ID))).map((s) => s.fullName);
-  expect(names).toContain("Ken Athaya Nirwasita");
+  expect(names).toContain("Perenang Satu");
 });

@@ -28,7 +28,7 @@ async function sessionWithLuigi(
     sets: [set],
   });
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
-  const luigi = kids.find((s) => s.full_name.startsWith("Luigi"))!;
+  const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
   const practice = await loadPractice(h.actor(SATRIYO_ID), saved.id);
   const row = practice.attendance.find((a) => a.swimmerId === luigi.id)!;
   return { practiceId: saved.id, luigiId: luigi.id, attendanceId: row.id, revision: practice.revision };

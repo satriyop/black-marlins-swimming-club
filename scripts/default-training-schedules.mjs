@@ -1,9 +1,22 @@
-import schedules from "../data/default-training-schedules.json" with { type: "json" };
+// data/default-training-schedules.json is synthetic placeholder data, committed, so a fresh
+// clone of this repo seeds a working demo schedule without publishing anyone's actual training
+// location. A club's real venue names/map links/times belong in a gitignored local override
+// file instead (see scripts/seed-club.mjs, which resolves that file and passes it in) -- this
+// module only knows about the schedules it's given, so tests and the local demo preview always
+// get the same synthetic default regardless of what override file happens to exist on a given
+// machine.
+import defaultSchedules from "../data/default-training-schedules.json" with { type: "json" };
 
 const HORIZON_WEEKS = 16;
 
 /** @typedef {{ rows: Array<Record<string, unknown>> }} QueryResult */
 /** @typedef {(text: string, params?: unknown[]) => Promise<QueryResult>} Query */
+/**
+ * @typedef {{
+ *   key: string, title: string, weekday: number, startTime: string, durationMin: number,
+ *   location: string, kind: string, notes?: string, mapUrl?: string, active: boolean,
+ * }} ScheduleSeed
+ */
 
 function jakartaDate() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -22,8 +35,10 @@ function jakartaDate() {
  *
  * @param {Query} query
  * @param {number} clubId
+ * @param {ScheduleSeed[]} [schedules] Defaults to the committed synthetic example data;
+ *   pass a club's real schedule data explicitly (see scripts/seed-club.mjs) to seed with it.
  */
-export async function ensureDefaultTrainingSchedules(query, clubId) {
+export async function ensureDefaultTrainingSchedules(query, clubId, schedules = defaultSchedules) {
   const fromDate = jakartaDate();
   let seriesCreated = 0;
   const practicesCreated = 0;

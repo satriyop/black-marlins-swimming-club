@@ -25,7 +25,7 @@ async function fixture() {
     id: number;
     full_name: string;
   }>`select id, full_name from swimmers where club_id = ${clubId}`;
-  const luigi = swimmers.find((row) => row.full_name.startsWith("Luigi"))!;
+  const luigi = swimmers.find((row) => row.full_name === "Perenang Tiga")!;
   return { h, clubId, luigi };
 }
 

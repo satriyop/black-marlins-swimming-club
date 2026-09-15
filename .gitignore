@@ -9,6 +9,8 @@ dist
 .env.*
 client_secret*.json
 !.env.example
+data/*.local.json
+data/kiko.local/
 screenshots
 artifacts
 playwright-report

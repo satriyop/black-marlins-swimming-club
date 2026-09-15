@@ -4,9 +4,11 @@ export const SATRIYO_ID = "usr_satriyo";
 export const AZKIYA_ID = "usr_azkiya";
 export const RATIH_ID = "usr_ratih";
 
-export const SATRIYO_EMAIL = "satriyopamungkas@gmail.com";
-export const AZKIYA_EMAIL = "azkiyakhayladwrd04@gmail.com";
-export const RATIH_EMAIL = "ratihsasminta@gmail.com";
+// Synthetic fixture data only -- used for the in-memory PGLite demo preview and the test
+// harness, never for real production seeding. See scripts/seed-club.mjs for that.
+export const SATRIYO_EMAIL = "superadmin@example.com";
+export const AZKIYA_EMAIL = "admin.klub@example.com";
+export const RATIH_EMAIL = "wali@example.com";
 
 async function ensureUser(sql: Sql, fallbackId: string, name: string, email: string): Promise<string> {
   const existing = await sql<{ id: string }>`select id from "user" where email = ${email} limit 1`;
@@ -22,9 +24,9 @@ export async function seedClub(sql: Sql): Promise<number> {
   const existing = await sql<{ id: number }>`select id from clubs limit 1`;
   if (existing[0]) return existing[0].id;
 
-  const satriyoId = await ensureUser(sql, SATRIYO_ID, "Satriyo", SATRIYO_EMAIL);
-  const azkiyaId = await ensureUser(sql, AZKIYA_ID, "Azkiya", AZKIYA_EMAIL);
-  const ratihId = await ensureUser(sql, RATIH_ID, "Ratih", RATIH_EMAIL);
+  const satriyoId = await ensureUser(sql, SATRIYO_ID, "Admin Utama", SATRIYO_EMAIL);
+  const azkiyaId = await ensureUser(sql, AZKIYA_ID, "Admin Klub", AZKIYA_EMAIL);
+  const ratihId = await ensureUser(sql, RATIH_ID, "Wali Contoh", RATIH_EMAIL);
 
   const clubs = await sql<{ id: number }>`
     insert into clubs (name, short_name, city, province, country, coach_name, venue, motto)
@@ -53,9 +55,9 @@ export async function seedClub(sql: Sql): Promise<number> {
     const swimmers = await sql<{ id: number }>`
       insert into swimmers (club_id, full_name, nickname, date_of_birth, gender, nationality, city, status, notes)
       values
-        (${clubId}, 'Ken Athaya Nirwasita', 'Kak Ken', '2012-06-30', 'putri', 'Indonesia', 'Klaten', 'aktif', 'Bebas & punggung · Popda 2026'),
-        (${clubId}, 'Luigi Banyu Pamungkas', 'Mas Banyu', '2014-06-05', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Bebas & kupu · elite youth'),
-        (${clubId}, 'Kun Bumi Pamungkas', 'Mas Bumi', '2014-06-05', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Punggung · elite youth')
+        (${clubId}, 'Perenang Satu', 'Kak Satu', '2012-05-15', 'putri', 'Indonesia', 'Klaten', 'aktif', 'Bebas & punggung · contoh'),
+        (${clubId}, 'Perenang Dua', 'Kak Dua', '2014-03-20', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Bebas & kupu · contoh'),
+        (${clubId}, 'Perenang Tiga', 'Kak Tiga', '2014-09-10', 'putra', 'Indonesia', 'Klaten', 'aktif', 'Punggung · contoh')
       returning id
     `;
     for (const s of swimmers) {

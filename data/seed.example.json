@@ -1,0 +1,20 @@
+{
+  "club": {
+    "name": "Black Marlins Swimming Club Klaten",
+    "shortName": "BMSC",
+    "city": "Klaten",
+    "province": "Jawa Tengah",
+    "country": "Indonesia",
+    "coachName": "Hardiyanto Wibowo"
+  },
+  "adults": [
+    { "fallbackId": "usr_admin_utama", "name": "Admin Utama", "email": "superadmin@example.com", "role": "superadmin" },
+    { "fallbackId": "usr_admin_klub", "name": "Admin Klub", "email": "admin.klub@example.com", "role": "club_admin" },
+    { "fallbackId": "usr_wali_contoh", "name": "Wali Contoh", "email": "wali@example.com", "role": null }
+  ],
+  "swimmers": [
+    { "fullName": "Perenang Satu", "dateOfBirth": "2012-05-15", "gender": "putri", "nickname": "Kak Satu", "kikoCode": "ken" },
+    { "fullName": "Perenang Dua", "dateOfBirth": "2014-03-20", "gender": "putra", "nickname": "Kak Dua", "kikoCode": "bumi" },
+    { "fullName": "Perenang Tiga", "dateOfBirth": "2014-09-10", "gender": "putra", "nickname": "Kak Tiga", "kikoCode": "banyu" }
+  ]
+}
