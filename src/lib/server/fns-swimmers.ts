@@ -12,6 +12,7 @@ import { listSwimmerGoals, saveSwimmerGoal as saveSwimmerGoalFor, type SaveSwimm
 import { getDashboardData } from "@/lib/club/dashboard";
 import { deleteSwimmer as deleteSwimmerFor } from "@/lib/club/writes";
 import { listFeedbackPracticeOptions, listSwimmerFeedback } from "@/lib/club/feedback";
+import { getMonthlyReport } from "@/lib/club/monthly-report";
 import { clubOf, mapSwimmer, type SwimmerRow } from "./fns-shared";
 import type { Dashboard, PersonalBest, Result } from "@/lib/swim/types";
 
@@ -108,6 +109,14 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
     upcomingEntries: entries.map((e) => ({ id: e.id, meetId: e.meet_id, swimmerId: e.swimmer_id, swimmerName: e.swimmer_name, stroke: e.stroke, distanceM: e.distance_m, ageGroup: e.age_group, seedTimeMs: e.seed_time_ms, status: e.status, registrationStatus: e.registration_status, registrationReason: e.registration_reason, lane: e.lane, heat: e.heat, meetName: e.meet_name, startDate: e.start_date })),
   };
 });
+
+export const getMonthlySwimmerReport = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator((input: { id: number; month: string }) => input)
+  .handler(async ({ context, data }) => {
+    const actor = await requireClub(context.userId);
+    return getMonthlyReport(actor, data.id, data.month);
+  });
 
 export const saveSwimmerGoal = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

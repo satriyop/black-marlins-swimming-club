@@ -7,6 +7,7 @@ export {
   getClub,
   listSwimmers,
   getSwimmer,
+  getMonthlySwimmerReport,
   saveSwimmerGoal,
   saveSwimmer,
   deleteSwimmer,
