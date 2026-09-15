@@ -8,6 +8,7 @@ export type ClubFixtureOptions = {
   practice?: "scheduled" | "none" | "cancelled" | "completed";
   importantNotices?: number;
   results?: boolean;
+  primaryChildName?: string;
 };
 
 function jakartaToday() {
@@ -66,7 +67,9 @@ export async function createClubFixture(
         "insert into swimmers (club_id, full_name, nickname, date_of_birth, gender) values ($1,$2,$3,'2014-06-01','putra') returning id",
         [
           clubId,
-          i === 0 ? "Perenang Contoh" : `Anak Tambahan ${i + 1} Dengan Nama Panjang`,
+          i === 0
+            ? (options.primaryChildName ?? "Perenang Contoh")
+            : `Anak Tambahan ${i + 1} Dengan Nama Panjang`,
           i === 0 ? null : `Niko ${i + 1}`,
         ],
       );
@@ -128,19 +131,32 @@ export async function createClubFixture(
         [clubId, `Pengumuman penting ${i + 1}`, "Isi pengumuman contoh.", userId],
       );
     }
+    const issueSession = async () => {
+      const token = randomUUID();
+      await pool.query(
+        'insert into session (id,token,"userId","expiresAt","updatedAt") values ($1,$2,$3,now()+interval \'1 hour\',now())',
+        [randomUUID(), token, userId],
+      );
+      return token;
+    };
     return {
+      clubId,
+      userId,
       name,
       email,
       swimmerId,
       practiceId,
+      issueSession,
+      async expireSession(token: string) {
+        await pool.query(
+          "update session set \"expiresAt\"=now()-interval '1 minute' where token=$1",
+          [token],
+        );
+      },
       async signIn(context: BrowserContext, _baseURL: string) {
         // Authenticate through the real bearer/session reader without flooding the password
         // endpoint shared by parallel UI tests. This code is never included in the app build.
-        const token = randomUUID();
-        await pool.query(
-          'insert into session (id,token,"userId","expiresAt","updatedAt") values ($1,$2,$3,now()+interval \'1 hour\',now())',
-          [randomUUID(), token, userId],
-        );
+        const token = await issueSession();
         await context.addInitScript(
           (value) => sessionStorage.setItem("bmsc.auth.bearer-token", value),
           token,

@@ -39,6 +39,7 @@ export async function signIn(
   providerId: string,
   opts: { callbackURL?: string; errorCallbackURL?: string } = {},
 ): Promise<void> {
+  setBearerToken(null);
   const callbackURL = opts.callbackURL ?? "/";
   const errorCallbackURL = opts.errorCallbackURL ?? "/login?error=auth";
   const { data, error } = await authClient.signIn.social({
@@ -55,6 +56,7 @@ export async function signInWithPassword(
   password: string,
   opts: { callbackURL?: string } = {},
 ): Promise<void> {
+  setBearerToken(null);
   const { error } = await authClient.signIn.email({
     email: email.trim(),
     password,
