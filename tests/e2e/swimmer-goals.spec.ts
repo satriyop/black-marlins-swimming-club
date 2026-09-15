@@ -12,8 +12,7 @@ function localPool() {
 
 function dayOffset(days: number) {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
-  return new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000)
-    .toISOString().slice(0, 10);
+  return new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
 test("coach sets a swimmer goal and only a comparable pool time completes it", async ({
@@ -54,14 +53,13 @@ test("coach sets a swimmer goal and only a comparable pool time completes it", a
     await expect(section.getByText("Tercapai pada", { exact: false })).toBeVisible();
     await page.reload();
     await expect(section.getByText("Tercapai", { exact: true })).toBeVisible();
-    await page.screenshot({ path: info.outputPath("goal-hit-mobile.png"), fullPage: true, animations: "disabled" });
+    await page.screenshot({
+      path: info.outputPath("goal-hit-mobile.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
 
-    await section.getByRole("button", { name: "Ubah target" }).click();
-    const editForm = page.getByRole("dialog", { name: "Ubah target perenang" });
-    await editForm.getByLabel("Waktu target").fill("33.00");
-    await editForm.getByRole("button", { name: "Simpan target" }).click();
-    await expect(section.getByText("Berjalan", { exact: true })).toBeVisible();
-    await expect(section.getByText("Perlu 1.50 lebih cepat")).toBeVisible();
+    await expect(section.getByRole("button", { name: "Ubah target" })).toHaveCount(0);
   } finally {
     await fixture.cleanup();
   }
@@ -76,7 +74,8 @@ test("guardian sees a linked child's goal but cannot see another child's goal or
   const pool = localPool();
   try {
     const swimmer = await pool.query<{ club_id: number }>(
-      "select club_id from swimmers where id=$1", [fixture.swimmerId],
+      "select club_id from swimmers where id=$1",
+      [fixture.swimmerId],
     );
     const clubId = swimmer.rows[0]!.club_id;
     await pool.query(

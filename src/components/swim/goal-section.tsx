@@ -25,7 +25,8 @@ type GoalForm = {
 function formFrom(goal: SwimmerGoal | null): GoalForm {
   const today = todayIso();
   const inThirtyDays = new Date(Date.parse(`${today}T00:00:00Z`) + 30 * 86_400_000)
-    .toISOString().slice(0, 10);
+    .toISOString()
+    .slice(0, 10);
   return {
     stroke: goal?.stroke ?? "bebas",
     distanceM: String(goal?.distanceM ?? 50),
@@ -36,13 +37,7 @@ function formFrom(goal: SwimmerGoal | null): GoalForm {
   };
 }
 
-function GoalDialog({
-  goal = null,
-  swimmerId,
-}: {
-  goal?: SwimmerGoal | null;
-  swimmerId: number;
-}) {
+function GoalDialog({ goal = null, swimmerId }: { goal?: SwimmerGoal | null; swimmerId: number }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<GoalForm>(() => formFrom(goal));
   const qc = useQueryClient();
@@ -58,6 +53,7 @@ function GoalDialog({
       return saveSwimmerGoal({
         data: {
           id: goal?.id,
+          expectedRevision: goal?.revision,
           swimmerId,
           stroke: form.stroke,
           distanceM: Number(form.distanceM),
@@ -86,28 +82,55 @@ function GoalDialog({
         size="sm"
         onClick={() => setOpen(true)}
       >
-        {goal ? "Ubah target" : <><Plus /> Tambah target</>}
+        {goal ? (
+          "Ubah target"
+        ) : (
+          <>
+            <Plus /> Tambah target
+          </>
+        )}
       </Button>
       <DialogContent
         title={goal ? "Ubah target perenang" : "Target baru perenang"}
-        description="Waktu hasil resmi dan tes latihan pada nomor yang sama dihitung sampai batas waktu."
+        description="Status dihitung dari hasil setelah target dibuat. Waktu terbaik saat ini tetap memakai seluruh riwayat nomor yang sama."
       >
         <form className="grid gap-4" onSubmit={submit}>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Gaya">
-              <SelectNative value={form.stroke} onChange={(event) => setForm({ ...form, stroke: event.target.value })}>
-                {COMPETITION_STROKES.map((stroke) => <option key={stroke.id} value={stroke.id}>{stroke.label}</option>)}
+              <SelectNative
+                value={form.stroke}
+                onChange={(event) => setForm({ ...form, stroke: event.target.value })}
+              >
+                {COMPETITION_STROKES.map((stroke) => (
+                  <option key={stroke.id} value={stroke.id}>
+                    {stroke.label}
+                  </option>
+                ))}
               </SelectNative>
             </Field>
             <Field label="Jarak">
-              <SelectNative value={form.distanceM} onChange={(event) => setForm({ ...form, distanceM: event.target.value })}>
-                {DISTANCES.map((distance) => <option key={distance} value={distance}>{distance} m</option>)}
+              <SelectNative
+                value={form.distanceM}
+                onChange={(event) => setForm({ ...form, distanceM: event.target.value })}
+              >
+                {DISTANCES.map((distance) => (
+                  <option key={distance} value={distance}>
+                    {distance} m
+                  </option>
+                ))}
               </SelectNative>
             </Field>
           </div>
           <Field label="Panjang kolam">
-            <SelectNative value={form.course} onChange={(event) => setForm({ ...form, course: event.target.value as "25" | "50" })}>
-              {COURSES.map((course) => <option key={course.id} value={course.id}>{course.label}</option>)}
+            <SelectNative
+              value={form.course}
+              onChange={(event) => setForm({ ...form, course: event.target.value as "25" | "50" })}
+            >
+              {COURSES.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.label}
+                </option>
+              ))}
             </SelectNative>
           </Field>
           <div className="grid grid-cols-2 gap-3">
@@ -121,14 +144,33 @@ function GoalDialog({
               />
             </Field>
             <Field label="Batas waktu">
-              <Input type="date" required min={goal?.startedOn ?? todayIso()} value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} />
+              <Input
+                type="date"
+                required
+                min={goal?.startedOn ?? todayIso()}
+                value={form.deadline}
+                onChange={(event) => setForm({ ...form, deadline: event.target.value })}
+              />
             </Field>
           </div>
-          <Field label="Catatan" hint="Catatan target ini terlihat oleh perenang dan wali yang terhubung.">
-            <Textarea maxLength={500} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
+          <Field
+            label="Catatan"
+            hint="Catatan target ini terlihat oleh perenang dan wali yang terhubung."
+          >
+            <Textarea
+              maxLength={500}
+              value={form.notes}
+              onChange={(event) => setForm({ ...form, notes: event.target.value })}
+            />
           </Field>
-          {mut.isError ? <p role="alert" className="text-sm text-destructive">{mut.error.message}</p> : null}
-          <Button type="submit" disabled={mut.isPending}>{mut.isPending ? "Menyimpan…" : "Simpan target"}</Button>
+          {mut.isError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {mut.error.message}
+            </p>
+          ) : null}
+          <Button type="submit" disabled={mut.isPending}>
+            {mut.isPending ? "Menyimpan…" : "Simpan target"}
+          </Button>
         </form>
       </DialogContent>
     </Dialog>
@@ -146,27 +188,54 @@ function GoalCard({ goal, canManage }: { goal: SwimmerGoal; canManage: boolean }
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">{eventCode(goal.distanceM, goal.stroke, goal.course)}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Batas waktu {formatDateId(goal.deadline)}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Batas waktu {formatDateId(goal.deadline)}
+          </p>
         </div>
         <Badge tone={status.tone}>{status.label}</Badge>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-        <div><dt className="text-muted-foreground">Target</dt><dd className="font-mono text-lg font-semibold tabular-nums">{formatTime(goal.targetTimeMs)}</dd></div>
-        <div><dt className="text-muted-foreground">Terbaik sejak target</dt><dd className="font-mono text-lg font-semibold tabular-nums">{formatTime(goal.bestTimeMs)}</dd></div>
+        <div>
+          <dt className="text-muted-foreground">Target</dt>
+          <dd className="font-mono text-lg font-semibold tabular-nums">
+            {formatTime(goal.targetTimeMs)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Waktu terbaik saat ini</dt>
+          <dd className="font-mono text-lg font-semibold tabular-nums">
+            {formatTime(goal.bestTimeMs)}
+          </dd>
+        </div>
         <div className="col-span-2 sm:col-span-1">
           <dt className="text-muted-foreground">Selisih</dt>
           <dd className="font-semibold">
-            {goal.deltaMs == null ? "Belum ada hasil sebanding" : goal.deltaMs > 0
-              ? `Perlu ${formatTime(goal.deltaMs)} lebih cepat`
-              : goal.deltaMs === 0 ? "Tepat target"
-                : `Lebih cepat ${formatTime(Math.abs(goal.deltaMs))}`}
+            {goal.deltaMs == null
+              ? "Belum ada hasil sebanding"
+              : goal.deltaMs > 0
+                ? `Perlu ${formatTime(goal.deltaMs)} lebih cepat`
+                : goal.deltaMs === 0
+                  ? "Tepat target"
+                  : `Lebih cepat ${formatTime(Math.abs(goal.deltaMs))}`}
           </dd>
         </div>
       </dl>
-      {goal.hitOn ? <p className="mt-3 text-sm text-success">Tercapai pada {formatDateId(goal.hitOn)}.</p> : null}
-      {goal.status === "missed" ? <p className="mt-3 text-sm text-muted-foreground">Hasil setelah batas waktu tidak mengubah status target ini.</p> : null}
-      {goal.notes ? <p className="mt-3 border-t border-border pt-3 text-sm whitespace-pre-wrap">{goal.notes}</p> : null}
-      {canManage ? <div className="mt-4"><GoalDialog goal={goal} swimmerId={goal.swimmerId} /></div> : null}
+      {goal.hitOn ? (
+        <p className="mt-3 text-sm text-success">Tercapai pada {formatDateId(goal.hitOn)}.</p>
+      ) : null}
+      {goal.status === "missed" ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Hasil setelah batas waktu tidak mengubah status target ini.
+        </p>
+      ) : null}
+      {goal.notes ? (
+        <p className="mt-3 border-t border-border pt-3 text-sm whitespace-pre-wrap">{goal.notes}</p>
+      ) : null}
+      {canManage && goal.status === "open" ? (
+        <div className="mt-4">
+          <GoalDialog goal={goal} swimmerId={goal.swimmerId} />
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -184,13 +253,27 @@ export function GoalSection({
     <section className="mb-6" aria-labelledby="swimmer-goals-title">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 id="swimmer-goals-title" className="font-display text-2xl">Target perenang</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Hasil resmi dan tes latihan pada gaya, jarak, dan panjang kolam yang sama dihitung sejak target dibuat.</p>
+          <h2 id="swimmer-goals-title" className="font-display text-2xl">
+            Target perenang
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Status memakai hasil sejak target dibuat; waktu terbaik saat ini memakai seluruh riwayat
+            pada nomor yang sama.
+          </p>
         </div>
         {canManage ? <GoalDialog swimmerId={swimmerId} /> : null}
       </div>
-      {goals.length ? <ul className="grid gap-3 sm:grid-cols-2">{goals.map((goal) => <GoalCard key={goal.id} goal={goal} canManage={canManage} />)}</ul>
-        : <p className="rounded-2xl bg-card px-4 py-6 text-sm text-muted-foreground shadow-border">Belum ada target waktu untuk perenang ini.</p>}
+      {goals.length ? (
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {goals.map((goal) => (
+            <GoalCard key={goal.id} goal={goal} canManage={canManage} />
+          ))}
+        </ul>
+      ) : (
+        <p className="rounded-2xl bg-card px-4 py-6 text-sm text-muted-foreground shadow-border">
+          Belum ada target waktu untuk perenang ini.
+        </p>
+      )}
     </section>
   );
 }
