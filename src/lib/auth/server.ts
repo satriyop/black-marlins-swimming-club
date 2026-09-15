@@ -56,7 +56,8 @@ export const auth = betterAuth({
       requireLocalEmailVerified: false,
     },
   },
-  session: { cookieCache: { enabled: true, maxAge: 300 } },
+  // Private pages must stop resolving as soon as a session expires or is revoked.
+  session: { cookieCache: { enabled: false } },
   ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true, disableSignUp: true } } : {}),
   ...(authConfigured && googleClientId && googleClientSecret
     ? { socialProviders: { google: { clientId: googleClientId, clientSecret: googleClientSecret } } }

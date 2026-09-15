@@ -129,18 +129,27 @@ export async function createClubFixture(
       );
     }
     return {
+      clubId,
+      userId,
       name,
       email,
       swimmerId,
       practiceId,
-      async signIn(context: BrowserContext, _baseURL: string) {
-        // Authenticate through the real bearer/session reader without flooding the password
-        // endpoint shared by parallel UI tests. This code is never included in the app build.
+      async issueSession() {
         const token = randomUUID();
         await pool.query(
           'insert into session (id,token,"userId","expiresAt","updatedAt") values ($1,$2,$3,now()+interval \'1 hour\',now())',
           [randomUUID(), token, userId],
         );
+        return token;
+      },
+      async expireSession(token: string) {
+        await pool.query('update session set "expiresAt"=now()-interval \'1 minute\' where token=$1', [token]);
+      },
+      async signIn(context: BrowserContext, _baseURL: string) {
+        // Authenticate through the real bearer/session reader without flooding the password
+        // endpoint shared by parallel UI tests. This code is never included in the app build.
+        const token = await this.issueSession();
         await context.addInitScript(
           (value) => sessionStorage.setItem("bmsc.auth.bearer-token", value),
           token,
