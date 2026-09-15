@@ -27,6 +27,7 @@ import { Route as PerenangIdRouteImport } from './routes/perenang_.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as LatihanIdUbahRouteImport } from './routes/latihan_.$id_.ubah'
 import { Route as LatihanJadwalUbahRouteImport } from './routes/latihan_.jadwal_.ubah'
+import { Route as PerenangIdLaporanRouteImport } from './routes/perenang_.$id_.laporan'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -118,6 +119,11 @@ const LatihanJadwalUbahRoute = LatihanJadwalUbahRouteImport.update({
   path: '/latihan/jadwal/ubah',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PerenangIdLaporanRoute = PerenangIdLaporanRouteImport.update({
+  id: '/perenang_/$id_/laporan',
+  path: '/perenang/$id/laporan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/latihan/$id/ubah': typeof LatihanIdUbahRoute
   '/latihan/jadwal/ubah': typeof LatihanJadwalUbahRoute
+  '/perenang/$id/laporan': typeof PerenangIdLaporanRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/latihan/$id/ubah': typeof LatihanIdUbahRoute
   '/latihan/jadwal/ubah': typeof LatihanJadwalUbahRoute
+  '/perenang/$id/laporan': typeof PerenangIdLaporanRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/latihan_/$id_/ubah': typeof LatihanIdUbahRoute
   '/latihan_/jadwal_/ubah': typeof LatihanJadwalUbahRoute
+  '/perenang_/$id_/laporan': typeof PerenangIdLaporanRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/latihan/$id/ubah'
     | '/latihan/jadwal/ubah'
+    | '/perenang/$id/laporan'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/latihan/$id/ubah'
     | '/latihan/jadwal/ubah'
+    | '/perenang/$id/laporan'
   id:
     | '__root__'
     | '/'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/latihan_/$id_/ubah'
     | '/latihan_/jadwal_/ubah'
+    | '/perenang_/$id_/laporan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   LatihanIdUbahRoute: typeof LatihanIdUbahRoute
   LatihanJadwalUbahRoute: typeof LatihanJadwalUbahRoute
+  PerenangIdLaporanRoute: typeof PerenangIdLaporanRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LatihanJadwalUbahRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/perenang_/$id_/laporan': {
+      id: '/perenang_/$id_/laporan'
+      path: '/perenang/$id/laporan'
+      fullPath: '/perenang/$id/laporan'
+      preLoaderRoute: typeof PerenangIdLaporanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -414,6 +434,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   LatihanIdUbahRoute: LatihanIdUbahRoute,
   LatihanJadwalUbahRoute: LatihanJadwalUbahRoute,
+  PerenangIdLaporanRoute: PerenangIdLaporanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

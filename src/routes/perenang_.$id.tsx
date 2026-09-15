@@ -96,6 +96,7 @@ function Page() {
           </div>
         </div>
         <div className="flex flex-wrap items-start gap-2">
+          <Link to="/perenang/$id/laporan" params={{ id: String(swimmer.id) }} search={{ bulan: undefined }} className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-medium hover:bg-muted">Laporan bulanan</Link>
           <ResultDialog swimmerId={swimmer.id} />
           {canWriteRoster(hats, swimmer.id) && (
             <SwimmerDialog initial={swimmer} variant="outline" />
