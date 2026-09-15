@@ -80,6 +80,7 @@ test("recreating an invite invalidates the old token", async () => {
   const invite = await createInvite(h.actor(SATRIYO_ID), {
     kind: "staff",
     email: "baru-staf@example.com",
+    confirmedEmail: "baru-staf@example.com",
     role: "coach",
   });
   const next = await recreateInvite(h.actor(SATRIYO_ID), { id: invite.id });
@@ -94,6 +95,7 @@ test("revoked pending invite is not auto-accepted on login", async () => {
   const invite = await createInvite(h.actor(SATRIYO_ID), {
     kind: "staff",
     email: "revoked@example.com",
+    confirmedEmail: "revoked@example.com",
     role: "coach",
   });
   await revokeInvite(h.actor(SATRIYO_ID), { id: invite.id });

@@ -33,6 +33,8 @@ export type ScheduledTrainingDay = {
   startTime: string | null;
   durationMin: number | null;
   location: string | null;
+  focus: string | null;
+  totalMeters: number;
   familySwimmers: {
     id: number;
     name: string;
@@ -186,21 +188,49 @@ export async function skipSeriesRange(
 
 export async function listPracticeSeries(actor: Actor) {
   const clubId = await requireCoach(actor);
-  return actor.sql<{
+  const rows = await actor.sql<{
     id: number;
     title: string;
     weekday: WeekdayId;
     start_time: string | null;
     location: string | null;
+    focus: string | null;
+    notes: string | null;
     horizon_weeks: number;
     active: boolean;
     until_date: string | null;
   }>`
-    select id, title, weekday, start_time, location, horizon_weeks, active,
+    select id, title, weekday, start_time, location, focus, notes, horizon_weeks, active,
            until_date::text as until_date
     from practice_series where club_id = ${clubId}
     order by title, weekday, start_time, id
   `;
+  const sets = await actor.sql<{
+    series_id: number;
+    sort_order: number;
+    block: string | null;
+    reps: number;
+    distance_m: number;
+    stroke: string;
+    interval_sec: number | null;
+    description: string | null;
+  }>`
+    select series_id, sort_order, block, reps, distance_m, stroke, interval_sec, description
+    from practice_series_sets where club_id = ${clubId}
+    order by series_id, sort_order, id
+  `;
+  const setsBySeries = new Map<number, typeof sets>();
+  for (const set of sets) {
+    setsBySeries.set(set.series_id, [...(setsBySeries.get(set.series_id) ?? []), set]);
+  }
+  return rows.map((row) => {
+    const program = (setsBySeries.get(row.id) ?? []).map(({ series_id: _seriesId, ...set }) => set);
+    return {
+      ...row,
+      sets: program,
+      total_meters: program.reduce((total, set) => total + set.reps * set.distance_m, 0),
+    };
+  });
 }
 
 export async function setSeriesActive(
@@ -248,13 +278,17 @@ export async function listScheduledTrainingDays(
     start_time: string | null;
     duration_min: number | null;
     location: string | null;
+    focus: string | null;
+    total_meters: number;
     start_date: string;
   }>`
-    select id, title, weekday, start_time, duration_min, location, start_date::text as start_date
-    from practice_series
-    where club_id = ${clubId} and active = true and start_date <= ${toDate}::date
-      and (until_date is null or until_date >= ${fromDate}::date)
-    order by weekday, start_time, id
+    select s.id, s.title, s.weekday, s.start_time, s.duration_min, s.location, s.focus,
+           coalesce((select sum(ps.reps * ps.distance_m) from practice_series_sets ps where ps.series_id = s.id), 0)::int as total_meters,
+           s.start_date::text as start_date
+    from practice_series s
+    where s.club_id = ${clubId} and s.active = true and s.start_date <= ${toDate}::date
+      and (s.until_date is null or s.until_date >= ${fromDate}::date)
+    order by s.weekday, s.start_time, s.id
   `;
   const skips = await actor.sql<{ series_id: number; skip_date: string }>`
     select series_id, skip_date::text as skip_date from practice_series_skips
@@ -266,9 +300,11 @@ export async function listScheduledTrainingDays(
     series_id: number;
     occurrence_date: string;
     status: PracticeStatus;
+    focus: string | null;
+    total_meters: number;
   }>`
-    select id, series_id, occurrence_date::text as occurrence_date, status from practices
-    where club_id = ${clubId} and series_id is not null
+    select id, series_id, occurrence_date::text as occurrence_date, status, focus, total_meters
+    from practices where club_id = ${clubId} and series_id is not null
       and occurrence_date between ${fromDate}::date and ${toDate}::date
   `;
   const practiceByDay = new Map(
@@ -316,15 +352,18 @@ export async function listScheduledTrainingDays(
         skipped.has(key)
       )
         continue;
+      const opened = practiceByDay.get(key);
       result.push({
         scheduleId: schedule.id,
-        practiceId: practiceByDay.get(key)?.id ?? null,
-        practiceStatus: practiceByDay.get(key)?.status ?? null,
+        practiceId: opened?.id ?? null,
+        practiceStatus: opened?.status ?? null,
         date: day,
         title: schedule.title,
         startTime: schedule.start_time,
         durationMin: schedule.duration_min,
         location: schedule.location,
+        focus: opened ? opened.focus : schedule.focus,
+        totalMeters: opened ? opened.total_meters : schedule.total_meters,
         familySwimmers: family.map((swimmer) => {
           const notice = noticeByDay.get(`${key}:${swimmer.id}`);
           return {

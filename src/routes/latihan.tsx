@@ -155,6 +155,12 @@ function Overview({
                       {practice.startTime ?? "Jam belum ditentukan"}
                       {practice.location ? ` · ${practice.location}` : ""}
                     </p>
+                    {practice.focus || practice.totalMeters ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {practice.focus ? `Fokus: ${practice.focus}` : "Program latihan"}
+                        {practice.totalMeters ? ` · ${practice.totalMeters.toLocaleString("id-ID")} m` : ""}
+                      </p>
+                    ) : null}
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {practice.practiceStatus === "cancelled"
@@ -210,6 +216,12 @@ function TodayCard({
             <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
               <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>{trainingDay.location}</span>
+            </p>
+          ) : null}
+          {trainingDay.focus || trainingDay.totalMeters ? (
+            <p className="mt-2 text-sm">
+              {trainingDay.focus ? `Fokus: ${trainingDay.focus}` : "Program latihan"}
+              {trainingDay.totalMeters ? ` · ${trainingDay.totalMeters.toLocaleString("id-ID")} m` : ""}
             </p>
           ) : null}
           <p className="mt-3 text-sm text-muted-foreground">

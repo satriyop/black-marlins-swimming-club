@@ -33,11 +33,13 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
       await page.getByRole("link", { name: "Jadwal baru" }).first().click();
       await expect(page).toHaveURL(/\/latihan\/baru/);
       await expect(page.getByRole("heading", { name: "Jadwal latihan", exact: true })).toBeVisible();
-      await expect(page.getByText("Program set")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Program latihan", exact: true })).toBeVisible();
 
       await page.getByLabel("Nama jadwal").fill("Latihan Sore");
       await selectOnlyWeekdays(page, ["Sel", "Rab"]);
       await page.getByLabel("Lokasi").fill("Umbul Tirtomulyono Pluneng");
+      await page.getByLabel("Fokus latihan").fill("Posisi tubuh dan pernapasan");
+      await page.getByLabel("Catatan untuk pelatih").fill("Jelaskan drill sebelum atlet masuk air.");
       await page.getByRole("button", { name: "Simpan jadwal" }).click();
 
       // More than one day selected -> lands on the management list, not a single session.
@@ -45,6 +47,10 @@ test.describe("flexible recurring schedule (jadwal berulang)", () => {
       const card = page.locator("li", { hasText: "Latihan Sore" });
       await expect(card).toBeVisible();
       await expect(card.getByText("Umbul Tirtomulyono Pluneng")).toBeVisible();
+      await expect(card.getByText(/Fokus: Posisi tubuh dan pernapasan.*200 m/)).toBeVisible();
+      await card.getByText(/Lihat panduan latihan/).click();
+      await expect(card.getByText(/Set utama.*4 × 50 m gaya bebas/)).toBeVisible();
+      await expect(card.getByText(/Catatan: Jelaskan drill sebelum atlet masuk air/)).toBeVisible();
 
       // Each day chip's accessible name is "<Hari>: <status>, ketuk untuk mengubah",
       // not the visible 3-letter label -- match on the day name prefix instead.
