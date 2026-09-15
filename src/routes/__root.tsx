@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 
 import { APPEARANCE_SCRIPT } from "@/lib/appearance";
+import { InstallPromptProvider } from "@/components/pwa/install-app";
 
 const APP_NAME = "Black Marlins Swimming Club";
 
@@ -31,6 +32,8 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon.png" },
       { rel: "stylesheet", href: appCss },
     ],
   }),
@@ -42,10 +45,12 @@ export const Route = createRootRoute({
       </head>
       <body>
         <AuthProvider>
-          <Providers>
-            <Outlet />
-            <AppToaster />
-          </Providers>
+          <InstallPromptProvider>
+            <Providers>
+              <Outlet />
+              <AppToaster />
+            </Providers>
+          </InstallPromptProvider>
         </AuthProvider>
         <Scripts />
       </body>

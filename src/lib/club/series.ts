@@ -3,7 +3,7 @@ import { hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
 import { canSubmitAbsenceNotice, canWritePractice } from "./permissions";
 import type { PracticeStatus } from "@/lib/swim/types";
-import { cancelPractice, savePracticeRecord, type PracticeSetInput } from "./practice";
+import { applyProgramToSeries, cancelPractice, savePracticeRecord, type PracticeSetInput } from "./practice";
 import { saveAbsenceNotice, withdrawAbsenceNotice } from "./attendance";
 import { absenceCutoffLabel, isBeforeAbsenceCutoff } from "./absence-window";
 import { jakartaNowParts } from "@/lib/utils";
@@ -193,14 +193,16 @@ export async function listPracticeSeries(actor: Actor) {
     title: string;
     weekday: WeekdayId;
     start_time: string | null;
+    duration_min: number | null;
     location: string | null;
+    kind: string;
     focus: string | null;
     notes: string | null;
     horizon_weeks: number;
     active: boolean;
     until_date: string | null;
   }>`
-    select id, title, weekday, start_time, location, focus, notes, horizon_weeks, active,
+    select id, title, weekday, start_time, duration_min, location, kind, focus, notes, horizon_weeks, active,
            until_date::text as until_date
     from practice_series where club_id = ${clubId}
     order by title, weekday, start_time, id
@@ -230,6 +232,57 @@ export async function listPracticeSeries(actor: Actor) {
       sets: program,
       total_meters: program.reduce((total, set) => total + set.reps * set.distance_m, 0),
     };
+  });
+}
+
+/**
+ * Edits the shared training program (title/time/location/kind/focus/notes/sets) for one or more
+ * schedule rows at once — by default every weekday row of a grouped schedule, so a multi-day
+ * schedule's program stays a single edit. Callers may pass a subset of the group's series ids
+ * instead, which is how a future per-day program override would hook in without any backend
+ * change: this function has never assumed "the whole group" is one opaque unit.
+ *
+ * Applies regardless of each series' active/inactive state — a paused day is still the same
+ * program, just not currently generating training days — and is atomic across all ids: an
+ * invalid or foreign series id rolls back every change, never a partial update.
+ */
+export async function updateScheduleProgram(
+  actor: Actor,
+  input: {
+    seriesIds: number[];
+    title: string;
+    startTime?: string;
+    durationMin?: number;
+    location?: string;
+    kind: string;
+    focus?: string;
+    notes?: string;
+    sets: PracticeSetInput[];
+  },
+): Promise<{ ok: true }> {
+  const clubId = await requireCoach(actor);
+  const seriesIds = [...new Set(input.seriesIds)];
+  if (!seriesIds.length) throw new Error("Pilih jadwal");
+  const title = input.title.trim();
+  if (!title) throw new Error("Judul wajib diisi");
+  for (const s of input.sets) {
+    if (s.distanceM <= 0 || s.reps <= 0) throw new Error("Set tidak valid");
+  }
+  const program = {
+    title,
+    startTime: input.startTime || null,
+    durationMin: input.durationMin ?? null,
+    location: input.location?.trim() || null,
+    kind: input.kind,
+    focus: input.focus?.trim() || null,
+    notes: input.notes?.trim() || null,
+    sets: input.sets,
+  };
+  return actor.sql.transaction(async (sql) => {
+    for (const seriesId of seriesIds) {
+      await applyProgramToSeries(sql, clubId, seriesId, program);
+    }
+    return { ok: true as const };
   });
 }
 

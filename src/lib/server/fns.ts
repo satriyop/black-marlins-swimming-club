@@ -34,6 +34,7 @@ export {
   withdrawClubPlannedAbsenceNotice,
   skipClubSeriesRange,
   setClubPracticeSeriesActive,
+  updateClubScheduleProgram,
   getPracticeIcs,
   type SetInput,
 } from "./fns-practice";

@@ -7,6 +7,7 @@ import { Field, Input } from "@/components/ui/input";
 import { MarlinMark } from "@/components/swim/mark";
 
 import { AppearanceSelect } from "@/components/settings/appearance-select";
+import { InstallAppButton, InstallAppDialog } from "@/components/pwa/install-app";
 
 function GoogleGlyph() {
   return (
@@ -59,6 +60,7 @@ export function LoginScreen({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
 
   async function onPassword(e: FormEvent) {
     e.preventDefault();
@@ -169,11 +171,15 @@ export function LoginScreen({
             <p className="text-sm text-muted-foreground">Masuk belum diaktifkan.</p>
           )}
         </div>
+        <div className="rise-in mt-3 flex justify-center">
+          <InstallAppButton surface="login" onOpen={() => setInstallOpen(true)} />
+        </div>
         <LoginPublicContact />
         <p className="rise-in rise-in-3 mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <MarlinMark className="size-4" />
           Pelatih Hardiyanto Wibowo
         </p>
+        <InstallAppDialog open={installOpen} onOpenChange={setInstallOpen} />
       </div>
     </main>
   );
