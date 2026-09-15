@@ -27,6 +27,7 @@ import {
   openScheduledTrainingDay,
   setSeriesActive,
   skipSeriesRange,
+  updateScheduleProgram,
 } from "@/lib/club/series";
 import { deletePractice as deletePracticeFor } from "@/lib/club/writes";
 import type { WeekdayId } from "@/lib/swim/constants";
@@ -108,6 +109,14 @@ export const createClubPracticeSeriesBatch = createServerFn({ method: "POST" }).
 export const setClubPracticeSeriesActive = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { id: number; active: boolean }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
   return setSeriesActive(actor, data);
+});
+
+export const updateClubScheduleProgram = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: {
+  seriesIds: number[]; title: string; startTime?: string; durationMin?: number; location?: string;
+  kind: string; focus?: string; notes?: string; sets: SetInput[];
+}) => input).handler(async ({ context, data }) => {
+  const actor = await requireClub(context.userId);
+  return updateScheduleProgram(actor, data);
 });
 
 export const listClubPracticeSeries = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {

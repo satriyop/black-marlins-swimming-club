@@ -20,7 +20,9 @@ type SeriesGroup = {
   key: string;
   title: string;
   startTime: string | null;
+  durationMin: number | null;
   location: string | null;
+  kind: string;
   focus: string | null;
   notes: string | null;
   sets: SeriesRow["sets"];
@@ -29,7 +31,7 @@ type SeriesGroup = {
 };
 
 function groupKey(s: SeriesRow) {
-  return JSON.stringify([s.title, s.start_time, s.location, s.focus, s.notes, s.sets]);
+  return JSON.stringify([s.title, s.start_time, s.duration_min, s.location, s.kind, s.focus, s.notes, s.sets]);
 }
 
 function groupSeries(rows: SeriesRow[]): SeriesGroup[] {
@@ -43,7 +45,9 @@ function groupSeries(rows: SeriesRow[]): SeriesGroup[] {
       key,
       title: members[0]!.title,
       startTime: members[0]!.start_time,
+      durationMin: members[0]!.duration_min,
       location: members[0]!.location,
+      kind: members[0]!.kind,
       focus: members[0]!.focus,
       notes: members[0]!.notes,
       sets: members[0]!.sets,
@@ -115,11 +119,23 @@ function Page() {
         <ul className="grid gap-3">
           {groups.map((g) => (
             <li key={g.key} className="rounded-2xl bg-card p-4 shadow-border">
-              <p className="text-card-title">{g.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {g.startTime ? g.startTime : "Jam belum ditentukan"}
-                {g.location ? ` · ${g.location}` : ""}
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-card-title">{g.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {g.startTime ? g.startTime : "Jam belum ditentukan"}
+                    {g.location ? ` · ${g.location}` : ""}
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    to="/latihan/jadwal/ubah"
+                    search={{ ids: g.members.map((m) => m.id).join(",") }}
+                  >
+                    Ubah program
+                  </Link>
+                </Button>
+              </div>
               {g.focus || g.totalMeters ? (
                 <p className="mt-2 text-sm">
                   {g.focus ? `Fokus: ${g.focus}` : "Program latihan"}

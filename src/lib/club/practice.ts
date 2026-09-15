@@ -156,6 +156,86 @@ function assertOpen(status: PracticeStatus): void {
   if (status === "cancelled") throw new Error("Sesi dibatalkan.");
 }
 
+/**
+ * Writes a program (title/schedule fields/focus/notes/sets) onto a series and cascades it to
+ * that series' already-materialized, still-open future occurrences. Shared by editing a single
+ * opened day with scope "future" and by editing a schedule's program directly.
+ */
+export async function applyProgramToSeries(
+  sql: Actor["sql"],
+  clubId: number,
+  seriesId: number,
+  program: {
+    title: string;
+    startTime: string | null;
+    durationMin: number | null;
+    location: string | null;
+    kind: string;
+    focus: string | null;
+    notes: string | null;
+    sets: PracticeSetInput[];
+  },
+  opts: { excludePracticeId?: number; fromDate?: string } = {},
+): Promise<void> {
+  const updated = await sql<{ id: number }>`
+    update practice_series set
+      title = ${program.title},
+      start_time = ${program.startTime},
+      duration_min = ${program.durationMin},
+      location = ${program.location},
+      kind = ${program.kind},
+      focus = ${program.focus},
+      notes = ${program.notes}
+    where id = ${seriesId} and club_id = ${clubId}
+    returning id
+  `;
+  if (!updated[0]) throw new Error("Jadwal tidak ditemukan");
+  await sql`delete from practice_series_sets where series_id = ${seriesId} and club_id = ${clubId}`;
+  for (let i = 0; i < program.sets.length; i++) {
+    const s = program.sets[i]!;
+    await sql`
+      insert into practice_series_sets (club_id, series_id, sort_order, block, reps, distance_m, stroke, interval_sec, description)
+      values (${clubId}, ${seriesId}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})
+    `;
+  }
+  const total = program.sets.reduce((acc, s) => acc + s.reps * s.distanceM, 0);
+  const future =
+    opts.excludePracticeId != null && opts.fromDate
+      ? await sql<{ id: number }>`
+          select id from practices
+          where club_id = ${clubId} and series_id = ${seriesId} and id <> ${opts.excludePracticeId}
+            and status in ('scheduled', 'in_progress')
+            and coalesce(occurrence_date, session_date) > ${opts.fromDate}::date
+        `
+      : await sql<{ id: number }>`
+          select id from practices
+          where club_id = ${clubId} and series_id = ${seriesId} and status in ('scheduled', 'in_progress')
+        `;
+  for (const f of future) {
+    await sql`
+      update practices set
+        start_time = ${program.startTime},
+        duration_min = ${program.durationMin},
+        location = ${program.location},
+        kind = ${program.kind},
+        title = ${program.title},
+        focus = ${program.focus},
+        notes = ${program.notes},
+        total_meters = ${total},
+        revision = revision + 1
+      where id = ${f.id} and club_id = ${clubId}
+    `;
+    await sql`delete from practice_sets where practice_id = ${f.id} and club_id = ${clubId}`;
+    for (let i = 0; i < program.sets.length; i++) {
+      const s = program.sets[i]!;
+      await sql`
+        insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description)
+        values (${clubId}, ${f.id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})
+      `;
+    }
+  }
+}
+
 export async function savePracticeRecord(
   actor: Actor,
   data: {
@@ -228,51 +308,22 @@ export async function savePracticeRecord(
       await sql`delete from practice_sets where practice_id = ${practiceId} and club_id = ${clubId}`;
       if (data.scope === "future" && current.series_id) {
         const from = asDate(current.occurrence_date) ?? asDate(current.session_date);
-        await sql`
-          update practice_series set
-            title = ${data.title.trim()},
-            start_time = ${nextTime},
-            duration_min = ${data.durationMin ?? null},
-            location = ${nextLocation},
-            kind = ${data.kind},
-            focus = ${data.focus?.trim() || null},
-            notes = ${data.notes?.trim() || null}
-          where id = ${current.series_id} and club_id = ${clubId}
-        `;
-        await sql`delete from practice_series_sets where series_id = ${current.series_id} and club_id = ${clubId}`;
-        for (let i = 0; i < data.sets.length; i++) {
-          const s = data.sets[i]!;
-          await sql`
-            insert into practice_series_sets (club_id, series_id, sort_order, block, reps, distance_m, stroke, interval_sec, description)
-            values (${clubId}, ${current.series_id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})
-          `;
-        }
-        const future = await sql<{ id: number }>`
-          select id from practices
-          where club_id = ${clubId} and series_id = ${current.series_id} and id <> ${practiceId}
-            and status in ('scheduled', 'in_progress')
-            and coalesce(occurrence_date, session_date) > ${from}::date
-        `;
-        for (const f of future) {
-          await sql`
-            update practices set
-              start_time = ${nextTime},
-              duration_min = ${data.durationMin ?? null},
-              location = ${nextLocation},
-              kind = ${data.kind},
-              title = ${data.title.trim()},
-              focus = ${data.focus?.trim() || null},
-              notes = ${data.notes?.trim() || null},
-              total_meters = ${total},
-              revision = revision + 1
-            where id = ${f.id} and club_id = ${clubId}
-          `;
-          await sql`delete from practice_sets where practice_id = ${f.id} and club_id = ${clubId}`;
-          for (let i = 0; i < data.sets.length; i++) {
-            const s = data.sets[i]!;
-            await sql`insert into practice_sets (club_id, practice_id, sort_order, block, reps, distance_m, stroke, interval_sec, description) values (${clubId}, ${f.id}, ${i}, ${s.block}, ${s.reps}, ${s.distanceM}, ${s.stroke}, ${s.intervalSec ?? null}, ${s.description?.trim() || null})`;
-          }
-        }
+        await applyProgramToSeries(
+          sql,
+          clubId,
+          current.series_id,
+          {
+            title: data.title.trim(),
+            startTime: nextTime,
+            durationMin: data.durationMin ?? null,
+            location: nextLocation,
+            kind: data.kind,
+            focus: data.focus?.trim() || null,
+            notes: data.notes?.trim() || null,
+            sets: data.sets,
+          },
+          { excludePracticeId: practiceId, fromDate: from ?? undefined },
+        );
       }
     } else {
       const rows = await sql<{ id: number }>`
