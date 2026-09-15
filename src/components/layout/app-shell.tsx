@@ -35,6 +35,7 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { QueryError } from "@/components/ui/query-error";
+import { InstallAppButton, InstallAppDialog } from "@/components/pwa/install-app";
 
 const ICONS: Record<NavItem["to"], typeof LayoutDashboard> = {
   "/": LayoutDashboard,
@@ -55,6 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navRef = useMobileNavSpace();
   const { user, isPending } = useCurrentUserState();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const access = useQuery({
     queryKey: ["access"],
@@ -130,6 +132,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
+          <InstallAppButton
+            onOpen={() => setInstallOpen(true)}
+            className="mt-3 bg-transparent text-sm text-muted-foreground hover:text-foreground"
+          />
           <div className="mt-auto rounded-2xl bg-card p-4 shadow-border">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <MarlinMark className="size-5" />
@@ -243,11 +249,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </Link>
                   );
                 })}
+                <InstallAppButton
+                  onOpen={() => {
+                    setMoreOpen(false);
+                    setInstallOpen(true);
+                  }}
+                />
               </nav>
             </DialogContent>
           </Dialog>
         )}
       </nav>
+      <InstallAppDialog open={installOpen} onOpenChange={setInstallOpen} />
     </div>
   );
 }
