@@ -10,6 +10,11 @@ import { nitro } from "nitro/vite";
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 
+const bmscBuildId = (process.env.GITHUB_SHA ?? `local-${Date.now().toString(36)}`).replace(
+  /[^a-zA-Z0-9._-]/g,
+  "-",
+);
+
 function hasGlobbedMigrations(root: string): boolean {
   try {
     return readdirSync(join(root, "migrations")).some(isMigrationFile);
@@ -25,7 +30,9 @@ function pgliteBootstrapPlugin(): Plugin {
     async configureServer(server) {
       if (!hasGlobbedMigrations(server.config.root)) return;
       try {
-        const mod = (await server.ssrLoadModule("/src/lib/db.ts")) as { ensureDbReady?: () => Promise<void> };
+        const mod = (await server.ssrLoadModule("/src/lib/db.ts")) as {
+          ensureDbReady?: () => Promise<void>;
+        };
         if (typeof mod.ensureDbReady === "function") await mod.ensureDbReady();
       } catch (err) {
         console.error("[app-builder] DB bootstrap failed:", err);
@@ -38,6 +45,7 @@ function pgliteBootstrapPlugin(): Plugin {
 export default defineConfig(({ command, isPreview }) => ({
   server: { host: "0.0.0.0", port: 8080, strictPort: true },
   preview: { host: "127.0.0.1", port: 8081, strictPort: true },
+  define: { __BMSC_BUILD_ID__: JSON.stringify(bmscBuildId) },
   resolve: { tsconfigPaths: true },
   plugins: [
     pgliteBootstrapPlugin(),
@@ -45,7 +53,23 @@ export default defineConfig(({ command, isPreview }) => ({
     tailwindcss(),
     tanstackStart(),
     ...(command === "build" || isPreview
-      ? [nitro({ preset: "node-server" })]
+      ? [
+          nitro({
+            preset: "node-server",
+            routeRules: {
+              "/sw.js": {
+                headers: {
+                  "cache-control": "no-cache, no-store, must-revalidate",
+                  "service-worker-allowed": "/",
+                },
+              },
+              "/offline.html": { headers: { "cache-control": "no-cache" } },
+              "/assets/**": {
+                headers: { "cache-control": "public, max-age=31536000, immutable" },
+              },
+            },
+          }),
+        ]
       : []),
     viteReact(),
   ],

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus } from "lucide-react";
@@ -23,6 +23,7 @@ import { isoWeekday } from "@/lib/club/series";
 import { PRACTICE_KINDS, SET_BLOCKS, STROKES, WEEKDAYS, labelOf, strokeLabel, type WeekdayId } from "@/lib/swim/constants";
 import { todayIso } from "@/lib/utils";
 import { formatInterval } from "@/lib/swim/time";
+import { useReloadGuard } from "@/components/pwa/use-reload-guard";
 
 const blankSet = (): SetInput => ({
   block: "utama",
@@ -91,6 +92,9 @@ export function PracticeEditor({
   ]);
   const [active, setActive] = useState(true);
   const [editScope, setEditScope] = useState<"this" | "future">("this");
+  const formSnapshot = JSON.stringify({ form, sets, weekdays, active, editScope });
+  const initialFormSnapshot = useRef(formSnapshot);
+  useReloadGuard(formSnapshot !== initialFormSnapshot.current);
   const toggleWeekday = (day: WeekdayId) =>
     setWeekdays((days) =>
       days.includes(day)

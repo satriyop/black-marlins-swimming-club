@@ -7,6 +7,7 @@ import appCss from "../styles.css?url";
 
 import { APPEARANCE_SCRIPT } from "@/lib/appearance";
 import { InstallPromptProvider } from "@/components/pwa/install-app";
+import { PwaUpdateManager } from "@/components/pwa/update-manager";
 
 const APP_NAME = "Black Marlins Swimming Club";
 
@@ -14,7 +15,12 @@ function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 8_000, retry: 1 } } }),
   );
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      <PwaUpdateManager />
+      {children}
+    </QueryClientProvider>
+  );
 }
 
 export const Route = createRootRoute({
