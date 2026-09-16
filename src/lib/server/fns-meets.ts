@@ -3,6 +3,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { requireClub } from "@/lib/club/context";
 import { canSeeSwimmer, hatsFor } from "@/lib/club/hats";
 import { saveResult as saveClubResult } from "@/lib/club/results";
+import { getRaceDay as loadRaceDay, saveHeatSheet as saveRaceHeatSheet, saveHeatSheetSchema } from "@/lib/club/race-day";
 import {
   deleteEntry as deleteEntryFor,
   deleteMeet as deleteMeetFor,
@@ -178,6 +179,16 @@ export const getMeet = createServerFn({ method: "GET" })
       };
     });
   });
+
+export const getSwimmerRaceDay = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator((input: { meetId: number; swimmerId: number }) => input)
+  .handler(async ({ context, data }) => loadRaceDay(await requireClub(context.userId), data.meetId, data.swimmerId));
+
+export const saveRaceDayHeatSheet = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => saveHeatSheetSchema.parse(input))
+  .handler(async ({ context, data }) => saveRaceHeatSheet(await requireClub(context.userId), data));
 
 export const saveMeet = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
