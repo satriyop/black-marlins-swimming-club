@@ -132,6 +132,10 @@ export async function saveMeetRecord(
         m.start_date !== data.startDate ||
         m.end_date !== (data.endDate || null) ||
         (["batal", "selesai"].includes(m.status) && !["batal", "selesai"].includes(data.status));
+      if (changed) {
+        await sql`update meet_entries set heat=null,lane=null,report_date=null,report_time=null,
+          warmup_note=null,heat_sheet_revision=heat_sheet_revision+1 where meet_id=${data.id} and club_id=${clubId}`;
+      }
       if (m.registration_state !== "draft") {
         await sql`update meets set registration_revision=registration_revision+1 where id=${data.id}`;
         if (changed) {

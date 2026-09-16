@@ -43,6 +43,8 @@ export {
 export {
   listMeets,
   getMeet,
+  getSwimmerRaceDay,
+  saveRaceDayHeatSheet,
   saveMeet,
   deleteMeet,
   saveEntry,

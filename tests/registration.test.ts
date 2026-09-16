@@ -12,6 +12,7 @@ import {
 } from "../src/lib/club/registration";
 import { saveMeetEntry, deleteEntry, deleteMeet, saveMeetRecord } from "../src/lib/club/writes";
 import { getDashboardData } from "../src/lib/club/dashboard";
+import { getRaceDay, saveHeatSheet } from "../src/lib/club/race-day";
 
 async function fixture() {
   const h = await createClubHarness();
@@ -117,6 +118,88 @@ test("proposal, guardian response, approval, locked export, submission and confi
         h.note?.includes("ref B"),
     ),
   ).toBe(true);
+});
+
+test("withdrawal clears heat-sheet details and removes the race-day card", async () => {
+  const f = await fixture();
+  await f.open();
+  const entry = await f.propose();
+  await f.yes();
+  await decideEntry(f.actor("coach"), {
+    ...(await f.base()),
+    entryId: entry.id,
+    action: "approve",
+  });
+  const revision = (
+    await f.sql<{ heat_sheet_revision: number }>`
+    select heat_sheet_revision from meet_entries where id=${entry.id}
+  `
+  )[0]!.heat_sheet_revision;
+  await saveHeatSheet(f.actor("coach"), {
+    meetId: f.meetId,
+    entryId: entry.id,
+    expectedRevision: revision,
+    heat: "Seri 3",
+    lane: 4,
+    reportDate: "2099-12-30",
+    reportTime: "07:45",
+    warmupNote: "Pemanasan di kolam latihan",
+  });
+  await respondRegistration(f.actor("parent"), {
+    ...(await f.base()),
+    swimmerId: f.child,
+    response: "withdrawn",
+    reason: "Tidak dapat hadir",
+  });
+  const stored = (
+    await f.sql<{
+      heat: string | null;
+      lane: number | null;
+      report_date: string | null;
+      warmup_note: string | null;
+      heat_sheet_revision: number;
+    }>`
+    select heat,lane,report_date::text,warmup_note,heat_sheet_revision
+    from meet_entries where id=${entry.id}
+  `
+  )[0]!;
+  expect(stored).toMatchObject({
+    heat: null,
+    lane: null,
+    report_date: null,
+    warmup_note: null,
+    heat_sheet_revision: revision + 2,
+  });
+  expect((await getRaceDay(f.actor("parent"), f.meetId, f.child)).races).toEqual([]);
+});
+
+test("a declined legacy entry remains in history but is not a race-day plan", async () => {
+  const f = await fixture();
+  await f.open();
+  const entry = await f.sql<{ id: number }>`
+    insert into meet_entries(club_id,meet_id,swimmer_id,stroke,distance_m,registration_status)
+    values (${f.clubId},${f.meetId},${f.child},'bebas',50,'legacy') returning id
+  `;
+  await respondRegistration(f.actor("parent"), {
+    ...(await f.base()),
+    swimmerId: f.child,
+    response: "no",
+    reason: "Tidak ikut",
+  });
+  expect((await f.state(entry[0]!.id)).registration_status).toBe("legacy");
+  expect((await getRaceDay(f.actor("parent"), f.meetId, f.child)).races).toEqual([]);
+  await expect(
+    saveHeatSheet(f.actor("coach"), {
+      meetId: f.meetId,
+      entryId: entry[0]!.id,
+      expectedRevision: 1,
+      heat: "Seri 3",
+      lane: 4,
+      reportDate: "2099-12-30",
+      reportTime: "07:45",
+      warmupNote: null,
+    }),
+  ).rejects.toThrow("Nomor tidak ditemukan");
 });
 
 test("guardian proposals and corrections require eligibility, consent and allowed events", async () => {
