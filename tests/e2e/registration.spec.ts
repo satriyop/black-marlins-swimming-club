@@ -238,7 +238,11 @@ test("two browser tabs cannot apply the same stale guardian response twice", asy
       [f.meetId, f.childId, f.clubId],
     );
     await f.signIn(context, "parent");
-    await Promise.all([page.goto(`/event/${f.meetId}`), second.goto(`/event/${f.meetId}`)]);
+    // Authenticate and render each tab before racing the writes. Concurrent page
+    // bootstraps exercise the auth rate limiter instead of the stale-response guard
+    // this test is intended to cover.
+    await page.goto(`/event/${f.meetId}`);
+    await second.goto(`/event/${f.meetId}`);
     const firstButton = page.getByRole("button", { name: "Simpan respons Anak Pendaftaran" });
     const secondButton = second.getByRole("button", { name: "Simpan respons Anak Pendaftaran" });
     await expect(firstButton).toBeVisible();
