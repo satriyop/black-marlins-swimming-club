@@ -181,6 +181,10 @@ test("expired family edits stay blocked until staff reopen; stale form keeps its
       "insert into meet_eligibility(meet_id,swimmer_id,club_id,group_name) values ($1,$2,$3,'A')",
       [f.meetId, f.childId, f.clubId],
     );
+    // The production reverse proxy supplies this header. Give this multi-tab
+    // browser context its own valid client bucket instead of CI's shared
+    // no-trusted-IP fallback bucket.
+    await context.setExtraHTTPHeaders({ "x-forwarded-for": "192.0.2.93" });
     await f.signIn(context, "parent");
     await page.goto(`/event/${f.meetId}`);
     await page.getByLabel("Respons untuk Anak Pendaftaran").selectOption("no");
