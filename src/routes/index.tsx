@@ -16,6 +16,7 @@ import { isFamilyMember } from "@/lib/club/hats";
 import { homePracticeCta, isDualRole, roleLabels } from "@/lib/club/nav";
 import { eventCode, labelOf, MEET_STATUSES } from "@/lib/swim/constants";
 import { progressDescription, progressSeries } from "@/lib/swim/progress";
+import { selectDashboardPractice } from "@/lib/club/dashboard-practice";
 import { formatTime } from "@/lib/swim/time";
 import type { Dashboard, Meet, Practice, Result, Swimmer } from "@/lib/swim/types";
 import { formatDateId, greetingId, todayIso } from "@/lib/utils";
@@ -83,23 +84,12 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
     stats,
   } = data;
   const clubView = taskView === "club";
-  const actionablePractices = clubView
-    ? upcomingPractices
-    : upcomingPractices.filter((practice) => practice.sessionDate >= todayIso());
-  const scheduledPractice = actionablePractices.find(
-    (practice) => practice.id === nextScheduledTraining?.practiceId,
-  );
-  const scheduledCandidate = scheduledPractice ?? nextScheduledTraining;
-  const standalone = actionablePractices.find(
-    (practice) => !nextScheduledTraining || practice.id !== nextScheduledTraining.practiceId,
-  );
-  const next =
-    !scheduledCandidate ||
-    (standalone &&
-      `${standalone.sessionDate}T${standalone.startTime ?? "00:00"}` <
-        `${nextScheduledTraining!.date}T${nextScheduledTraining!.startTime ?? "00:00"}`)
-      ? standalone
-      : scheduledCandidate;
+  const next = selectDashboardPractice({
+    upcomingPractices,
+    nextScheduledTraining,
+    clubView,
+    today: todayIso(),
+  });
   const guardian = isFamilyMember(hats);
   const dual = isDualRole(hats);
   const practiceCta = homePracticeCta(hats, taskView);

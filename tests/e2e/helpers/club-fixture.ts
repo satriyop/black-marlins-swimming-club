@@ -9,6 +9,7 @@ export type ClubFixtureOptions = {
   importantNotices?: number;
   results?: boolean;
   primaryChildName?: string;
+  overduePractice?: boolean;
 };
 
 function jakartaToday() {
@@ -112,6 +113,12 @@ export async function createClubFixture(
           "insert into practice_attendance (club_id,practice_id,swimmer_id,status) values ($1,$2,$3,'hadir')",
           [clubId, practiceId, swimmerId],
         );
+      if (options.overduePractice) {
+        await pool.query(
+          "insert into practices (club_id, session_date, start_time, location, kind, title, status) values ($1,$2::date,'15:30','Kolam lama','renang','Latihan lama belum selesai','in_progress')",
+          [clubId, "2020-01-01"],
+        );
+      }
     }
     if (options.results !== false && swimmerId) {
       for (const [date, time] of [
