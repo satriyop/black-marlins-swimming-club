@@ -181,10 +181,6 @@ test("expired family edits stay blocked until staff reopen; stale form keeps its
       "insert into meet_eligibility(meet_id,swimmer_id,club_id,group_name) values ($1,$2,$3,'A')",
       [f.meetId, f.childId, f.clubId],
     );
-    // The production reverse proxy supplies this header. Give this multi-tab
-    // browser context its own valid client bucket instead of CI's shared
-    // no-trusted-IP fallback bucket.
-    await context.setExtraHTTPHeaders({ "x-forwarded-for": "192.0.2.93" });
     await f.signIn(context, "parent");
     await page.goto(`/event/${f.meetId}`);
     await page.getByLabel("Respons untuk Anak Pendaftaran").selectOption("no");
@@ -227,10 +223,10 @@ test("expired family edits stay blocked until staff reopen; stale form keeps its
 });
 
 test("two browser tabs cannot apply the same stale guardian response twice", async ({
-  context,
+  browser,
 }) => {
   const f = await fixture();
-  const pages: Page[] = [];
+  const contexts: BrowserContext[] = [];
   try {
     await f.pool.query(
       "update meets set registration_state='open',registration_deadline=now()+interval '1 hour' where id=$1",
@@ -240,12 +236,21 @@ test("two browser tabs cannot apply the same stale guardian response twice", asy
       "insert into meet_eligibility(meet_id,swimmer_id,club_id,group_name) values ($1,$2,$3,'A')",
       [f.meetId, f.childId, f.clubId],
     );
-    await f.signIn(context, "parent");
-    // Create both tabs after signIn installs the bearer-token init script so
-    // each tab receives its own sessionStorage value during page creation.
-    const first = await context.newPage();
-    const second = await context.newPage();
-    pages.push(first, second);
+    // Separate contexts model two independently authenticated browser sessions
+    // for the same parent. Distinct proxy IPs also keep CI out of Better Auth's
+    // shared no-trusted-IP fallback bucket.
+    const firstContext = await browser.newContext({
+      extraHTTPHeaders: { "x-forwarded-for": "192.0.2.93" },
+    });
+    const secondContext = await browser.newContext({
+      extraHTTPHeaders: { "x-forwarded-for": "192.0.2.94" },
+    });
+    contexts.push(firstContext, secondContext);
+    await f.signIn(firstContext, "parent");
+    await f.signIn(secondContext, "parent");
+    const first = await firstContext.newPage();
+    const second = await secondContext.newPage();
+    const pages: Page[] = [first, second];
     await Promise.all(
       pages.map((browserPage) =>
         browserPage.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort()),
@@ -280,7 +285,7 @@ test("two browser tabs cannot apply the same stale guardian response twice", asy
         .rows[0].registration_revision,
     ).toBe(2);
   } finally {
-    await Promise.all(pages.map((browserPage) => browserPage.close()));
+    await Promise.all(contexts.map((browserContext) => browserContext.close()));
     await f.cleanup();
   }
 });
