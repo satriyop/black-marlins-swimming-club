@@ -60,6 +60,11 @@ function Page() {
       </AppShell>
     );
   const { meet, entries, results } = data;
+  const raceDaySwimmers = [...new Map<number, string>(
+    entries
+      .filter((entry) => !["rejected", "declined", "withdrawn"].includes(entry.registrationStatus ?? "legacy"))
+      .map((entry) => [entry.swimmerId, entry.swimmerName]),
+  ).entries()];
   return (
     <AppShell>
       <Link
@@ -116,6 +121,27 @@ function Page() {
         entries={entries}
         resultAction={(entry) => <EntryActions entry={entry} meet={meet} />}
       />
+      {raceDaySwimmers.length > 0 && (
+        <section className="mb-6">
+          <h2 className="font-display mb-3 text-2xl">Hari lomba perenang</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Lihat seri, lintasan, waktu lapor, pemanasan, dan hasil resmi di satu halaman.
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {raceDaySwimmers.map(([swimmerId, name]) => (
+              <li key={swimmerId}>
+                <Link
+                  to="/event/$id/harilomba/$swimmerId"
+                  params={{ id: String(meet.id), swimmerId: String(swimmerId) }}
+                  className="flex min-h-11 items-center rounded-2xl bg-card px-4 py-3 text-sm font-medium shadow-border hover:bg-muted"
+                >
+                  Hari lomba · {name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section>
         <h2 className="font-display mb-3 text-2xl">Hasil</h2>
         <ResultList results={results} showSwimmer variant="meet" />

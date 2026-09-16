@@ -129,6 +129,15 @@ function Page() {
                     {eventCode(e.distanceM, e.stroke)} · {e.ageGroup} · seed{" "}
                     {formatTime(e.seedTimeMs)}
                   </p>
+                  {!["rejected", "declined", "withdrawn"].includes(e.registrationStatus) && (
+                    <Link
+                      to="/event/$id/harilomba/$swimmerId"
+                      params={{ id: String(e.meetId), swimmerId: String(swimmer.id) }}
+                      className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-primary underline"
+                    >
+                      Hari lomba
+                    </Link>
+                  )}
                 </div>
                 <Badge>{formatDateId(e.startDate, "d MMM")}</Badge>
               </li>

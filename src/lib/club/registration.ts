@@ -170,7 +170,9 @@ export async function proposeEntry(actor: Actor, input: z.input<typeof proposeEn
       if (["submitted", "confirmed"].includes(rows[0].registration_status))
         throw new Error("Pelatih perlu membuka kembali daftar untuk koreksi");
       await a.sql`update meet_entries set stroke=${d.stroke},distance_m=${d.distanceM},seed_time_ms=${d.seedTimeMs ?? null},
-        age_group=${ageGroup},registration_status=${state},registration_reason=null where id=${d.entryId}`;
+        age_group=${ageGroup},registration_status=${state},registration_reason=null,
+        heat=null,lane=null,report_date=null,report_time=null,warmup_note=null,
+        heat_sheet_revision=heat_sheet_revision+1 where id=${d.entryId}`;
       id = d.entryId;
     } else {
       const rows = await a.sql<{ id: number }>`insert into meet_entries
@@ -206,10 +208,14 @@ export async function respondRegistration(
     const note = d.response === "yes" ? null : reason(d.reason);
     await a.sql`update meet_eligibility set response=${d.response},reason=${note} where meet_id=${m.id} and swimmer_id=${d.swimmerId}`;
     if (d.response === "yes") {
-      await a.sql`update meet_entries set registration_status='requested',registration_reason=null where meet_id=${m.id} and swimmer_id=${d.swimmerId}
+      await a.sql`update meet_entries set registration_status='requested',registration_reason=null,
+        heat=null,lane=null,report_date=null,report_time=null,warmup_note=null,
+        heat_sheet_revision=heat_sheet_revision+1 where meet_id=${m.id} and swimmer_id=${d.swimmerId}
         and registration_status in ('proposed','declined')`;
     } else {
-      await a.sql`update meet_entries set registration_status=${d.response === "no" ? "declined" : "withdrawn"},registration_reason=${note}
+      await a.sql`update meet_entries set registration_status=${d.response === "no" ? "declined" : "withdrawn"},registration_reason=${note},
+        heat=null,lane=null,report_date=null,report_time=null,warmup_note=null,
+        heat_sheet_revision=heat_sheet_revision+1
         where meet_id=${m.id} and swimmer_id=${d.swimmerId} and registration_status <> 'legacy'`;
     }
     await audit(
@@ -274,7 +280,13 @@ export async function decideEntry(actor: Actor, input: z.input<typeof decideEntr
     };
     const note = d.action === "approve" ? (d.note ?? null) : reason(d.note);
     const ageGroup = ageGroupForDob(c.date_of_birth, Number(m.start_date.slice(0, 4))).id;
-    await a.sql`update meet_entries set registration_status=${states[d.action]},registration_reason=${note},age_group=${ageGroup} where id=${d.entryId}`;
+    if (d.action === "reject" || d.action === "withdraw") {
+      await a.sql`update meet_entries set registration_status=${states[d.action]},registration_reason=${note},age_group=${ageGroup},
+        heat=null,lane=null,report_date=null,report_time=null,warmup_note=null,
+        heat_sheet_revision=heat_sheet_revision+1 where id=${d.entryId}`;
+    } else {
+      await a.sql`update meet_entries set registration_status=${states[d.action]},registration_reason=${note},age_group=${ageGroup} where id=${d.entryId}`;
+    }
     const labels = {
       approve: "Pelatih menyetujui",
       reject: "Pelatih menolak",
@@ -324,7 +336,9 @@ export async function reopenRegistration(
     if (m.registration_state === "draft") throw new Error("Buka pendaftaran terlebih dahulu");
     await validateDeadline(a, m, d.deadline);
     // Every earlier export becomes obsolete; new staff approval and organizer evidence are required.
-    await a.sql`update meet_entries set registration_status='requested',registration_reason=${d.reason}
+    await a.sql`update meet_entries set registration_status='requested',registration_reason=${d.reason},
+      heat=null,lane=null,report_date=null,report_time=null,warmup_note=null,
+      heat_sheet_revision=heat_sheet_revision+1
       where meet_id=${m.id} and registration_status in ('approved','submitted','confirmed')`;
     await a.sql`update meets set registration_state='open',registration_deadline=${d.deadline} where id=${m.id}`;
     await audit(a, m, "Daftar dibuka kembali; ekspor sebelumnya kedaluwarsa", d.reason);
