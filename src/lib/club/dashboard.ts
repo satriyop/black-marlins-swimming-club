@@ -218,17 +218,27 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
   }
   const monthPractices = await sql<{ n: number }>`
     select count(*)::int as n from practices where club_id = ${clubId}
-      and date_trunc('month', session_date::timestamp) = date_trunc('month', current_date::timestamp)`;
-  const att = await sql<{ hadir: number; total: number }>`
+      and session_date >= date_trunc('month', ${jakartaDate}::date)::date
+      and session_date <= ${jakartaDate}::date
+      and status in ('completed', 'in_progress')`;
+  const att = await sql<{ hadir: number; total: number; expected: number }>`
     select coalesce(sum(case when a.status = 'hadir' then 1 else 0 end), 0)::int as hadir,
-           count(*) filter (where a.status <> 'belum')::int as total
+           count(*) filter (where a.status <> 'belum')::int as total,
+           count(*)::int as expected
     from practice_attendance a join practices p on p.id = a.practice_id
-    where a.club_id = ${clubId} and p.session_date >= (current_date - interval '30 days') and p.session_date <= current_date`;
+    where a.club_id = ${clubId} and a.on_roll = true
+      and p.session_date >= date_trunc('month', ${jakartaDate}::date)::date
+      and p.session_date <= ${jakartaDate}::date
+      and p.status in ('completed', 'in_progress')`;
   const volume = await sql<{ n: number }>`
     select coalesce(sum(total_meters), 0)::int as n from practices
-    where club_id = ${clubId} and session_date >= (current_date - interval '6 days') and session_date <= current_date`;
+    where club_id = ${clubId}
+      and session_date >= date_trunc('month', ${jakartaDate}::date)::date
+      and session_date <= ${jakartaDate}::date
+      and status in ('completed', 'in_progress')`;
   const hadir = att[0]?.hadir ?? 0;
   const total = att[0]?.total ?? 0;
+  const expected = att[0]?.expected ?? 0;
   const unreadTotal = await sql<{ n: number }>`
     select count(*)::int as n
     from announcements a
@@ -298,8 +308,9 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
       meetsUpcoming: meetCount[0]?.n ?? 0,
       pbThisMonth,
       attendanceRecorded: total,
+      attendanceExpected: expected,
       attendanceRate: total === 0 ? 0 : Math.round((hadir / total) * 100),
-      volumeThisWeek: volume[0]?.n ?? 0,
+      volumeThisMonth: volume[0]?.n ?? 0,
     },
   };
 }

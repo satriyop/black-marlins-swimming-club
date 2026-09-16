@@ -612,22 +612,28 @@ function ClubStats({
   stats: {
     swimmerCount: number;
     practicesThisMonth: number;
-    volumeThisWeek: number;
+    volumeThisMonth: number;
     attendanceRecorded: number;
+    attendanceExpected: number;
     attendanceRate: number;
   };
 }) {
   return (
     <section aria-label="Statistik klub" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Stat label="Perenang aktif klub" value={String(stats.swimmerCount)} />
-      <Stat label="Sesi klub bulan ini" value={String(stats.practicesThisMonth)} />
+      <Stat label="Sesi terlaksana bulan ini" value={String(stats.practicesThisMonth)} />
       <Stat
-        label="Volume program klub · 7 hari"
-        value={`${(stats.volumeThisWeek / 1000).toFixed(1)} km`}
+        label="Volume program bulan ini"
+        value={`${(stats.volumeThisMonth / 1000).toFixed(1)} km`}
       />
       <Stat
-        label="Kehadiran tercatat klub · 30 hari"
+        label="Kehadiran bulan ini"
         value={stats.attendanceRecorded ? `${stats.attendanceRate}%` : "—"}
+        detail={
+          stats.attendanceExpected
+            ? `${stats.attendanceRecorded} dari ${stats.attendanceExpected} catatan dituntaskan`
+            : "Belum ada absensi"
+        }
       />
     </section>
   );
@@ -691,11 +697,12 @@ function WelcomeCard({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-xl border border-border p-4">
       <p className="font-mono text-2xl">{value}</p>
       <p className="mt-2 text-sm text-muted-foreground">{label}</p>
+      {detail ? <p className="mt-1 text-xs text-muted-foreground">{detail}</p> : null}
     </div>
   );
 }

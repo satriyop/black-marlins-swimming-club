@@ -123,6 +123,9 @@ test("staff home keeps labelled club statistics and operational practice action"
     await expect(page.getByRole("link", { name: "Catat kehadiran" })).toBeVisible();
     await expect(page.getByLabel("Statistik klub")).toBeVisible();
     await expect(page.getByText("Perenang aktif klub")).toBeVisible();
+    await expect(page.getByText("Sesi terlaksana bulan ini")).toBeVisible();
+    await expect(page.getByText("Volume program bulan ini")).toBeVisible();
+    await expect(page.getByText("Kehadiran bulan ini")).toBeVisible();
     await changeAppAppearance(page, "dark");
     await page.screenshot({
       path: info.outputPath("staff-desktop.png"),

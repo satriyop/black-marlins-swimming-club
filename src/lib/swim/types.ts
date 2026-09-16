@@ -234,6 +234,7 @@ export type Dashboard = {
     pbThisMonth: number;
     attendanceRate: number;
     attendanceRecorded: number;
-    volumeThisWeek: number;
+    attendanceExpected: number;
+    volumeThisMonth: number;
   };
 };
