@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { test, expect } from "./helpers/browser-test";
-import type { BrowserContext } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 
 async function fixture() {
   const url = process.env.DATABASE_URL;
@@ -223,12 +223,10 @@ test("expired family edits stay blocked until staff reopen; stale form keeps its
 });
 
 test("two browser tabs cannot apply the same stale guardian response twice", async ({
-  page,
   context,
 }) => {
   const f = await fixture();
-  const second = await context.newPage();
-  await second.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
+  const pages: Page[] = [];
   try {
     await f.pool.query(
       "update meets set registration_state='open',registration_deadline=now()+interval '1 hour' where id=$1",
@@ -239,12 +237,21 @@ test("two browser tabs cannot apply the same stale guardian response twice", asy
       [f.meetId, f.childId, f.clubId],
     );
     await f.signIn(context, "parent");
-    // Authenticate and render each tab before racing the writes. Concurrent page
-    // bootstraps exercise the auth rate limiter instead of the stale-response guard
-    // this test is intended to cover.
-    await page.goto(`/event/${f.meetId}`);
+    // Create both tabs after signIn installs the bearer-token init script so
+    // each tab receives its own sessionStorage value during page creation.
+    const first = await context.newPage();
+    const second = await context.newPage();
+    pages.push(first, second);
+    await Promise.all(
+      pages.map((browserPage) =>
+        browserPage.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort()),
+      ),
+    );
+    // Render each tab before racing the writes. Concurrent page bootstraps
+    // exercise authentication instead of the stale-response guard under test.
+    await first.goto(`/event/${f.meetId}`);
     await second.goto(`/event/${f.meetId}`);
-    const firstButton = page.getByRole("button", { name: "Simpan respons Anak Pendaftaran" });
+    const firstButton = first.getByRole("button", { name: "Simpan respons Anak Pendaftaran" });
     const secondButton = second.getByRole("button", { name: "Simpan respons Anak Pendaftaran" });
     await expect(firstButton).toBeVisible();
     await expect(secondButton).toBeVisible();
@@ -252,7 +259,7 @@ test("two browser tabs cannot apply the same stale guardian response twice", asy
     await expect
       .poll(
         async () =>
-          (await page.getByRole("alert").filter({ hasText: "Data berubah" }).count()) +
+          (await first.getByRole("alert").filter({ hasText: "Data berubah" }).count()) +
           (await second.getByRole("alert").filter({ hasText: "Data berubah" }).count()),
       )
       .toBe(1);
@@ -269,7 +276,7 @@ test("two browser tabs cannot apply the same stale guardian response twice", asy
         .rows[0].registration_revision,
     ).toBe(2);
   } finally {
-    await second.close();
+    await Promise.all(pages.map((browserPage) => browserPage.close()));
     await f.cleanup();
   }
 });
