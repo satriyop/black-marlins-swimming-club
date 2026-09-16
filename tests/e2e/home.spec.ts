@@ -134,6 +134,24 @@ test("staff home keeps labelled club statistics and operational practice action"
   }
 });
 
+test("staff home prioritizes today's training when an older session is unfinished", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  const fixture = await createClubFixture("coach", { overduePractice: true });
+  try {
+    await fixture.signIn(context, baseURL!);
+    await page.goto("/");
+
+    await expect(page.getByText("Latihan hari ini")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Latihan Contoh Visual" })).toBeVisible();
+    await expect(page.getByText("Latihan perlu dituntaskan")).toHaveCount(0);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("home reflows at 320px with enlarged text", async ({ page, context, baseURL }, info) => {
   const fixture = await createClubFixture("guardian", { childCount: 3 });
   try {
