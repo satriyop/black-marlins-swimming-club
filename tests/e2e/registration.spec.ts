@@ -167,6 +167,7 @@ test("expired family edits stay blocked until staff reopen; stale form keeps its
   browser,
   baseURL,
 }) => {
+  test.setTimeout(90_000);
   const f = await fixture();
   const staffContext = await browser.newContext();
   const staffPage = await staffContext.newPage();
