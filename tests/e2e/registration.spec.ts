@@ -76,7 +76,16 @@ test("coach and guardian complete proposal, correction, approval, export and org
 }, testInfo) => {
   test.setTimeout(90000);
   const f = await fixture();
-  const parentContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  // Distinct proxy IPs keep the staff and parent contexts out of Better
+  // Auth's shared no-trusted-IP rate-limit bucket (see the two-tabs test
+  // below) -- this test drives two authenticated contexts through a long
+  // action sequence and previously shared a bucket with every other
+  // untagged e2e context, occasionally tripping the limit under CI load.
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": "192.0.2.10" });
+  const parentContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    extraHTTPHeaders: { "x-forwarded-for": "192.0.2.11" },
+  });
   const parent = await parentContext.newPage();
   await parent.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
   try {
@@ -169,7 +178,14 @@ test("expired family edits stay blocked until staff reopen; stale form keeps its
 }) => {
   test.setTimeout(90_000);
   const f = await fixture();
-  const staffContext = await browser.newContext();
+  // Same shared-rate-limit-bucket isolation as the test above: the parent
+  // context (default `context`) and the staff context must look like
+  // different clients or they -- and every other untagged e2e context
+  // running concurrently -- pile into one bucket and can get throttled.
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": "192.0.2.20" });
+  const staffContext = await browser.newContext({
+    extraHTTPHeaders: { "x-forwarded-for": "192.0.2.21" },
+  });
   const staffPage = await staffContext.newPage();
   await staffPage.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
   try {
