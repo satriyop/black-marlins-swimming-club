@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { listMeets, saveMeet } from "@/lib/server/fns";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
+import { SyncConflictReview } from "@/components/club/sync-conflict-review";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -30,7 +31,12 @@ function Page() {
         kicker="Kejuaraan"
         title="Kejuaraan"
         description="Meet klub, Pengcab Klaten, Kejurprov Jateng, O2SN, sampai kejuaraan nasional. KU mengikuti tahun kompetisi."
-        action={canCreate ? <MeetDialog /> : undefined}
+        action={
+          <div className="flex flex-col items-end gap-2">
+            <SyncConflictReview />
+            {canCreate ? <MeetDialog /> : null}
+          </div>
+        }
       />
       {isPending ? (
         <div className="grid gap-2">

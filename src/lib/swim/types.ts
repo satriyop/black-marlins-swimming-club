@@ -27,6 +27,7 @@ export type Swimmer = {
   ageGroupId: string;
   ageGroupLabel: string;
   ageGroupRange: string;
+  spectraAthleteId: string | null;
 };
 
 export type PracticeSet = {
