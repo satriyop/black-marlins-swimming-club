@@ -108,6 +108,44 @@ Import kiko times once (or when CSV changes), not on every deploy:
 sudo bash scripts/bmsc.sh import-kiko
 ```
 
+Sync the Spectra SwimPro meet catalog once by hand, or set up the daily timer (see below):
+
+```bash
+sudo bash scripts/bmsc.sh sync-meets
+```
+
+### Daily Spectra meet-catalog sync
+
+`scripts/run-sync-spectra-meets.mjs` pages through Spectra's public event
+catalog and upserts in-region meets (see `scripts/spectra-parse.mjs` for the
+region filter and `sync-spectra-meets.mjs` for the conflict-safe upsert).
+One-time setup on aidev:
+
+```bash
+cd /var/www/bmsc
+sudo bash scripts/bmsc.sh install-sync-timer
+```
+
+This writes `bmsc-sync-meets.service` (oneshot, runs `bmsc.sh sync-meets` as
+`${APP_USER}`, not root) and `bmsc-sync-meets.timer` (`OnCalendar=*-*-*
+03:15:00`, `RandomizedDelaySec=600`, `Persistent=true` so a missed fire from
+downtime catches up on the next boot), then enables and starts the timer.
+Because the service shells back into `bmsc.sh sync-meets` — which resolves
+`current` fresh on every fire — this unit never needs rewriting on deploy,
+unlike `bmsc.service`'s per-release `WorkingDirectory`.
+
+`bmsc.sh` itself lives in the top-level git checkout at
+`/var/www/bmsc/scripts/bmsc.sh`, not inside a per-release `releases/<sha>/`
+directory, so picking up a new `bmsc.sh` subcommand (like `sync-meets`)
+after a code change needs a `git pull` there — `apply-release` never
+touches this top-level checkout.
+
+```bash
+sudo systemctl list-timers bmsc-sync-meets.timer
+sudo journalctl -u bmsc-sync-meets -e   # last run's output/errors
+sudo bash scripts/bmsc.sh sync-meets    # force an off-cycle run
+```
+
 ## After code changes
 
 Preferred: merge/push `main` and let Actions deploy the artifact.

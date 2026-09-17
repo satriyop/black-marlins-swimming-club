@@ -8,6 +8,8 @@
 #   sudo bash scripts/bmsc.sh rollback
 #   sudo bash scripts/bmsc.sh backup
 #   sudo bash scripts/bmsc.sh import-kiko                  # not part of deploy
+#   sudo bash scripts/bmsc.sh sync-meets                    # run the Spectra meet-catalog sync once
+#   sudo bash scripts/bmsc.sh install-sync-timer            # daily timer for sync-meets
 #   sudo bash scripts/bmsc.sh status
 set -euo pipefail
 
@@ -21,8 +23,11 @@ APP_PORT="${APP_PORT:-3000}"
 PG_ROLE="${PG_ROLE:-bmsc}"
 PG_DB="${PG_DB:-bmsc}"
 SERVICE="${SERVICE:-bmsc}"
+SYNC_SERVICE="${SYNC_SERVICE:-bmsc-sync-meets}"
 CADDY_SITE="/etc/caddy/sites/${APP_HOST}.caddy"
 UNIT="/etc/systemd/system/${SERVICE}.service"
+SYNC_UNIT="/etc/systemd/system/${SYNC_SERVICE}.service"
+SYNC_TIMER_UNIT="/etc/systemd/system/${SYNC_SERVICE}.timer"
 ENV_FILE="${APP_ROOT}/.env"
 RELEASES_DIR="${APP_ROOT}/releases"
 CURRENT_LINK="${APP_ROOT}/current"
@@ -317,6 +322,39 @@ EOF
   systemctl reload caddy
 }
 
+write_sync_timer() {
+  # Runs `bmsc.sh sync-meets` itself, which resolves runtime_dir() (the
+  # `current` symlink) fresh on every fire -- so this unit never needs to be
+  # rewritten on deploy, unlike bmsc.service's WorkingDirectory.
+  cat >"$SYNC_UNIT" <<EOF
+[Unit]
+Description=Black Marlins Swimming Club - Spectra meet catalog sync
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=${APP_USER}
+Group=${APP_USER}
+WorkingDirectory=${APP_ROOT}
+ExecStart=/usr/bin/env bash ${APP_ROOT}/scripts/bmsc.sh sync-meets
+EOF
+  cat >"$SYNC_TIMER_UNIT" <<EOF
+[Unit]
+Description=Daily Spectra meet catalog sync for Black Marlins Swimming Club
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl daemon-reload
+  systemctl enable --now "${SYNC_SERVICE}.timer"
+}
+
 cmd_dry_run() {
   need_root
   guard_pg_names
@@ -567,6 +605,27 @@ cmd_import_kiko() {
   (cd "$(runtime_dir)" && npm run db:import-kiko)
 }
 
+cmd_sync_meets() {
+  # No need_root: this also runs unattended as ${APP_USER} from the
+  # bmsc-sync-meets.timer unit (see install-sync-timer), not just manually
+  # via sudo. It only reads ENV_FILE (world-readable to its own group after
+  # `install`'s chown) and writes rows through DATABASE_URL -- no root-only
+  # filesystem or systemd changes like apply-release/rollback need.
+  guard_pg_names
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+  (cd "$(runtime_dir)" && npm run db:sync-spectra-meets)
+}
+
+cmd_install_sync_timer() {
+  need_root
+  write_sync_timer
+  echo "installed ${SYNC_SERVICE}.timer (daily, 03:15 + up to 10m jitter)"
+  systemctl list-timers "${SYNC_SERVICE}.timer" --no-pager || true
+}
+
 cmd_status() {
   systemctl --no-pager --full status "$SERVICE" || true
   echo
@@ -579,7 +638,7 @@ cmd_status() {
 }
 
 usage() {
-  echo "Usage: sudo bash $0 {dry-run|install|update|apply-release|rollback|backup|import-kiko|status}"
+  echo "Usage: sudo bash $0 {dry-run|install|update|apply-release|rollback|backup|import-kiko|sync-meets|install-sync-timer|status}"
   exit 1
 }
 
@@ -591,6 +650,8 @@ case "${1:-}" in
   rollback) cmd_rollback ;;
   backup) cmd_backup "${2:-}" ;;
   import-kiko) cmd_import_kiko ;;
+  sync-meets) cmd_sync_meets ;;
+  install-sync-timer) cmd_install_sync_timer ;;
   status) cmd_status ;;
   *) usage ;;
 esac
