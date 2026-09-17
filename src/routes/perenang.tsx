@@ -137,6 +137,7 @@ export function SwimmerDialog({
     status: "aktif" | "cuti" | "alumni";
     joinDate: string | null;
     notes: string | null;
+    spectraAthleteId: string | null;
   };
   asChild?: boolean;
   variant?: "default" | "outline";
@@ -189,7 +190,7 @@ export function SwimmerDialog({
         },
       }),
     onSuccess: async (res) => {
-      if (!initial && selectedMatch) {
+      if (selectedMatch) {
         try {
           await linkSpectraSwimmer({ data: { swimmerId: res.id, match: selectedMatch } });
         } catch (e) {
@@ -314,10 +315,12 @@ export function SwimmerDialog({
               </Field>
             )}
           </div>
-          {!initial ? (
+          {!initial || !initial.spectraAthleteId ? (
             <div className="rounded-xl bg-muted/50 p-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">Spectra SwimPro</p>
+                <p className="text-sm font-medium">
+                  {initial ? "Belum terhubung ke Spectra SwimPro" : "Spectra SwimPro"}
+                </p>
                 <Button
                   type="button"
                   variant="outline"
