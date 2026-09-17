@@ -15,6 +15,7 @@ export type SwimmerRow = {
   status: "aktif" | "cuti" | "alumni";
   join_date: string | null;
   notes: string | null;
+  spectra_athlete_id: string | null;
 };
 
 export function mapSwimmer(r: SwimmerRow): Swimmer {
@@ -35,6 +36,7 @@ export function mapSwimmer(r: SwimmerRow): Swimmer {
     ageGroupId: ag.id,
     ageGroupLabel: ag.label,
     ageGroupRange: ag.range,
+    spectraAthleteId: r.spectra_athlete_id,
   };
 }
 

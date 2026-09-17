@@ -7,7 +7,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { listSwimmers, saveSwimmer } from "@/lib/server/fns";
+import { listSwimmers, linkSpectraSwimmer, matchSpectraSwimmer, saveSwimmer } from "@/lib/server/fns";
+import type { SpectraMatch } from "@/lib/server/fns-spectra";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { SwimmerAvatar } from "@/components/swim/mark";
 import { Badge } from "@/components/ui/badge";
@@ -143,6 +144,8 @@ export function SwimmerDialog({
   const { hats } = useAccess();
   const [open, setOpen] = useState(false);
   const [confirmSimilar, setConfirmSimilar] = useState(false);
+  const [matches, setMatches] = useState<SpectraMatch[] | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<SpectraMatch | null>(null);
   const qc = useQueryClient();
   const [form, setForm] = useState({
     fullName: initial?.fullName ?? "",
@@ -153,6 +156,20 @@ export function SwimmerDialog({
     status: initial?.status ?? "aktif",
     joinDate: initial?.joinDate ?? todayIso(),
     notes: initial?.notes ?? "",
+  });
+  const searchMut = useMutation({
+    mutationFn: () =>
+      matchSpectraSwimmer({ data: { fullName: form.fullName, gender: form.gender as "putra" | "putri" } }),
+    onSuccess: (found) => {
+      setMatches(found);
+      if (found.length === 1) {
+        setSelectedMatch(found[0]);
+        if (found[0].dateOfBirth) setForm((f) => ({ ...f, dateOfBirth: found[0].dateOfBirth! }));
+      } else {
+        setSelectedMatch(null);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
   const mut = useMutation({
     mutationFn: () =>
@@ -171,11 +188,20 @@ export function SwimmerDialog({
           confirmSimilar,
         },
       }),
-    onSuccess: async () => {
+    onSuccess: async (res) => {
+      if (!initial && selectedMatch) {
+        try {
+          await linkSpectraSwimmer({ data: { swimmerId: res.id, match: selectedMatch } });
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Gagal menautkan ke Spectra SwimPro");
+        }
+      }
       toast.success(
         initial ? "Data perenang diperbarui" : asChild ? "Anak didaftarkan" : "Perenang ditambahkan",
       );
       setConfirmSimilar(false);
+      setMatches(null);
+      setSelectedMatch(null);
       setOpen(false);
       await qc.invalidateQueries();
     },
@@ -190,7 +216,11 @@ export function SwimmerDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) setConfirmSimilar(false);
+        if (!next) {
+          setConfirmSimilar(false);
+          setMatches(null);
+          setSelectedMatch(null);
+        }
       }}
     >
       <DialogTrigger asChild>
@@ -220,6 +250,8 @@ export function SwimmerDialog({
               value={form.fullName}
               onChange={(e) => {
                 setConfirmSimilar(false);
+                setMatches(null);
+                setSelectedMatch(null);
                 setForm({ ...form, fullName: e.target.value });
               }}
             />
@@ -247,7 +279,11 @@ export function SwimmerDialog({
             <Field label="Putra / putri">
               <SelectNative
                 value={form.gender}
-                onChange={(e) => setForm({ ...form, gender: e.target.value as "putra" | "putri" })}
+                onChange={(e) => {
+                  setMatches(null);
+                  setSelectedMatch(null);
+                  setForm({ ...form, gender: e.target.value as "putra" | "putri" });
+                }}
               >
                 {GENDERS.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -278,6 +314,53 @@ export function SwimmerDialog({
               </Field>
             )}
           </div>
+          {!initial ? (
+            <div className="rounded-xl bg-muted/50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">Spectra SwimPro</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!form.fullName.trim() || searchMut.isPending}
+                  onClick={() => searchMut.mutate()}
+                >
+                  {searchMut.isPending ? "Mencari…" : "Cari di Spectra SwimPro"}
+                </Button>
+              </div>
+              {matches !== null && matches.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Tidak ditemukan. Isi data secara manual di bawah.
+                </p>
+              ) : null}
+              {matches !== null && matches.length === 1 ? (
+                <p className="mt-2 text-xs text-success">
+                  Cocok: {matches[0].fullName} · {matches[0].club ?? "-"} (ID {matches[0].athleteId})
+                </p>
+              ) : null}
+              {matches !== null && matches.length > 1 ? (
+                <div className="mt-2 grid gap-1.5">
+                  <p className="text-xs text-muted-foreground">
+                    Ditemukan beberapa kemungkinan, pilih salah satu:
+                  </p>
+                  {matches.map((m) => (
+                    <label key={m.athleteId} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="spectraMatch"
+                        checked={selectedMatch?.athleteId === m.athleteId}
+                        onChange={() => {
+                          setSelectedMatch(m);
+                          if (m.dateOfBirth) setForm((f) => ({ ...f, dateOfBirth: m.dateOfBirth! }));
+                        }}
+                      />
+                      {m.fullName} · {m.club ?? "-"} (ID {m.athleteId})
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {asChild && !initial ? null : (
             <>
               <div className="grid grid-cols-2 gap-3">

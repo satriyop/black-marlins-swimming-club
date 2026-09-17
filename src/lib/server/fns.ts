@@ -53,6 +53,8 @@ export {
   deleteResult,
 } from "./fns-meets";
 export { listActivities, saveActivity, deleteActivity } from "./fns-activities";
+export { listSyncConflicts, resolveSyncConflict } from "./fns-sync";
+export { matchSpectraSwimmer, linkSpectraSwimmer, syncSpectraSwimmer } from "./fns-spectra";
 export { listAnnouncements, getAnnouncement, createAnnouncement } from "./fns-announcements";
 export {
   createClubCoachFeedback,

@@ -21,7 +21,8 @@ import {
   YAxis,
 } from "recharts";
 import { ArrowLeft } from "lucide-react";
-import { deleteResult, deleteSwimmer, getSwimmer } from "@/lib/server/fns";
+import { deleteResult, deleteSwimmer, getSwimmer, syncSpectraSwimmer } from "@/lib/server/fns";
+import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/layout/app-shell";
 import { SwimmerAvatar } from "@/components/swim/mark";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +99,9 @@ function Page() {
         <div className="flex flex-wrap items-start gap-2">
           <Link to="/perenang/$id/laporan" params={{ id: String(swimmer.id) }} search={{ bulan: undefined }} className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-medium hover:bg-muted">Laporan bulanan</Link>
           <ResultDialog swimmerId={swimmer.id} />
+          {canWriteRoster(hats, swimmer.id) && swimmer.spectraAthleteId && (
+            <SpectraSyncButton swimmerId={swimmer.id} />
+          )}
           {canWriteRoster(hats, swimmer.id) && (
             <SwimmerDialog initial={swimmer} variant="outline" />
           )}
@@ -255,6 +259,25 @@ function Page() {
         </div>
       </details>
     </AppShell>
+  );
+}
+
+function SpectraSyncButton({ swimmerId }: { swimmerId: number }) {
+  const qc = useQueryClient();
+  const mut = useMutation({
+    mutationFn: () => syncSpectraSwimmer({ data: { swimmerId } }),
+    onSuccess: async (res) => {
+      toast.success(
+        res.inserted > 0 ? `${res.inserted} hasil baru dari Spectra SwimPro` : "Sudah sinkron, tidak ada hasil baru",
+      );
+      await qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Button variant="outline" disabled={mut.isPending} onClick={() => mut.mutate()}>
+      {mut.isPending ? "Menyinkron…" : "Sync Spectra"}
+    </Button>
   );
 }
 
