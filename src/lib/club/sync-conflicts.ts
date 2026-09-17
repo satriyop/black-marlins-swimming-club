@@ -90,15 +90,22 @@ export async function resolveSyncConflict(
     const conflict = rows[0];
     if (!conflict) throw new Error("Konflik tidak ditemukan atau sudah diselesaikan");
 
-    if (input.resolution === "used_incoming" && conflict.entity_type === "meet") {
-      const column = MEET_COLUMN_BY_FIELD[conflict.field_name];
-      if (!column) throw new Error(`Kolom tidak dikenal: ${conflict.field_name}`);
-      await sql.query(
-        `update meets set ${column} = $1,
-           spectra_snapshot = coalesce(spectra_snapshot, '{}'::jsonb) || jsonb_build_object($2::text, $1::text)
-         where id = $3 and club_id = $4`,
-        [conflict.incoming_value, conflict.field_name, conflict.entity_id, actor.clubId],
-      );
+    if (input.resolution === "used_incoming") {
+      if (conflict.entity_type === "meet") {
+        const column = MEET_COLUMN_BY_FIELD[conflict.field_name];
+        if (!column) throw new Error(`Kolom tidak dikenal: ${conflict.field_name}`);
+        await sql.query(
+          `update meets set ${column} = $1,
+             spectra_snapshot = coalesce(spectra_snapshot, '{}'::jsonb) || jsonb_build_object($2::text, $1::text)
+           where id = $3 and club_id = $4`,
+          [conflict.incoming_value, conflict.field_name, conflict.entity_id, actor.clubId],
+        );
+      } else {
+        // No swimmer-bio sync exists yet (only meets and results do) -- fail
+        // loudly rather than marking this resolved while silently discarding
+        // the coach's chosen value, so this isn't forgotten once that ships.
+        throw new Error("Sinkronisasi data perenang belum didukung untuk kolom ini");
+      }
     }
     // "kept_local" intentionally leaves the meet row and its spectra_snapshot
     // untouched -- the snapshot still reflects the last *applied* sync value,

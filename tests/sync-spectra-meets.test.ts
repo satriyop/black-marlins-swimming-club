@@ -168,3 +168,23 @@ test("a meet the coach created manually (no spectra_event_code) is left alone en
   expect(rows).toHaveLength(2);
   expect(rows.find((r) => r.name === "Latihan bersama internal")?.spectra_event_code).toBeNull();
 });
+
+test("two overlapping sync runs for the same new meet don't crash each other (ON CONFLICT DO NOTHING)", async () => {
+  const { sql } = await createClubHarness();
+  await seedClubRow(sql.query);
+
+  // Both calls' internal SELECT-then-INSERT sequences interleave via the
+  // microtask queue even though PGlite has one connection -- this is the
+  // same race an overlapping cron tick or a manual re-run mid-flight would
+  // hit against real Postgres, per the docstring in sync-spectra-meets.mjs.
+  const [a, b] = await Promise.all([
+    syncSpectraMeets(sql.query, { fetchEvents: async () => [JATENG_EVENT] }),
+    syncSpectraMeets(sql.query, { fetchEvents: async () => [JATENG_EVENT] }),
+  ]);
+
+  // Exactly one of the two runs actually inserted the row; the other saw
+  // ON CONFLICT DO NOTHING and correctly didn't count it as inserted.
+  expect(a.inserted + b.inserted).toBe(1);
+  const rows = await sql.query("select id from meets where spectra_event_code = $1", [JATENG_EVENT.kode]);
+  expect(rows).toHaveLength(1);
+});

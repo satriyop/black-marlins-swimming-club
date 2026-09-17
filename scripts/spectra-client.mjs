@@ -7,7 +7,13 @@
  * (minutes, not seconds) rather than a handful of quick attempts.
  */
 
-const BASE = "https://globiesoft.com/rlist_off/php";
+export const SPECTRA_BASE = "https://globiesoft.com/rlist_off/php";
+const BASE = SPECTRA_BASE;
+
+/** Retry budget for the interactive path (a coach/parent waiting on a
+ *  synchronous "Add Swimmer" search) -- short, not the multi-minute
+ *  patience fetchEventsList uses for the unattended daily job. */
+export const INTERACTIVE_RETRY = { retries: 2, delayMs: 1500 };
 
 /** @param {number} ms */
 async function sleep(ms) {

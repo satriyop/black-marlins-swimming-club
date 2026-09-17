@@ -7,6 +7,14 @@
  * last synced (see diffAgainstSnapshot in spectra-parse.mjs), and never
  * overwrites a field a coach has hand-edited since -- that goes to
  * sync_conflicts for review instead.
+ *
+ * `course` is deliberately NOT synced and always defaults to '50' (long
+ * course) on insert: events_list.php carries no pool-length field at the
+ * meet level (only individual events' free-text descriptions do), so there
+ * is no reliable per-meet source for it. A genuinely short-course (25m)
+ * meet will show the wrong badge on Kejuaraan until a coach corrects it by
+ * hand -- which sticks, since course isn't in SYNCED_FIELDS and future
+ * syncs never touch it.
  */
 import { fetchEventsList } from "./spectra-client.mjs";
 import { diffAgainstSnapshot, inRegion, meetFieldsFromEvent, normalizeEventRow } from "./spectra-parse.mjs";
@@ -74,19 +82,33 @@ export async function syncSpectraMeets(query, { fetchEvents = fetchEventsList } 
   for (const event of events) {
     const incoming = meetFieldsFromEvent(event);
 
+    // start_date/end_date are cast to text explicitly -- node-postgres parses
+    // `date` columns into JS Date objects by default, and diffAgainstSnapshot
+    // does a strict `!==` against the plain ISO strings in spectra_snapshot
+    // and the incoming Spectra data. Without the cast, every meet would
+    // falsely look "changed" on every run regardless of the caller's pool
+    // configuration (the app's own pool overrides this globally via
+    // setTypeParser, but this script's pool -- see
+    // run-sync-spectra-meets.mjs -- does not, and shouldn't have to).
     const existing = await query(
       `select id, name, level, venue,
-              start_date as "startDate", end_date as "endDate", status,
+              start_date::text as "startDate", end_date::text as "endDate", status,
               spectra_snapshot as "spectraSnapshot"
        from meets where club_id = $1 and spectra_event_code = $2 limit 1`,
       [clubId, event.code],
     );
 
     if (!existing[0]) {
-      await query(
+      // ON CONFLICT DO NOTHING guards against a concurrent overlapping run
+      // (a run can take several minutes -- see run-sync-spectra-meets.mjs --
+      // so a manual re-run while one is still in flight, or an overlapping
+      // cron tick, can otherwise race two inserts on the same event code).
+      const insertedRows = await query(
         `insert into meets (club_id, name, level, course, venue, start_date, end_date, status, organizer,
                              spectra_event_code, spectra_synced_at, spectra_snapshot)
-         values ($1,$2,$3,'50',$4,$5,$6,$7,'Spectra SwimPro',$8, now(), $9)`,
+         values ($1,$2,$3,'50',$4,$5,$6,$7,'Spectra SwimPro',$8, now(), $9)
+         on conflict (club_id, spectra_event_code) where spectra_event_code is not null do nothing
+         returning id`,
         [
           clubId,
           incoming.name,
@@ -99,7 +121,7 @@ export async function syncSpectraMeets(query, { fetchEvents = fetchEventsList } 
           JSON.stringify(incoming),
         ],
       );
-      inserted += 1;
+      if (insertedRows.length) inserted += 1;
       continue;
     }
 

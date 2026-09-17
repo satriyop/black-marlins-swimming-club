@@ -1,12 +1,6 @@
 import type { Actor } from "./actor";
-import { fetchJsonPatient } from "../../../scripts/spectra-client.mjs";
+import { fetchJsonPatient, INTERACTIVE_RETRY, SPECTRA_BASE as BASE } from "../../../scripts/spectra-client.mjs";
 import { isRelay, nameMatches, normalizeResultRow, parseEventDescr } from "../../../scripts/spectra-athlete-parse.mjs";
-
-const BASE = "https://globiesoft.com/rlist_off/php";
-
-// Interactive path (a coach/parent is waiting on this during "add swimmer"):
-// short retries, not the multi-minute patience the unattended daily job uses.
-const INTERACTIVE_RETRY = { retries: 2, delayMs: 1500 };
 
 export type SpectraMatch = {
   athleteId: string;

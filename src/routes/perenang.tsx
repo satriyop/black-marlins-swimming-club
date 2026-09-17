@@ -250,6 +250,8 @@ export function SwimmerDialog({
               value={form.fullName}
               onChange={(e) => {
                 setConfirmSimilar(false);
+                setMatches(null);
+                setSelectedMatch(null);
                 setForm({ ...form, fullName: e.target.value });
               }}
             />
@@ -277,7 +279,11 @@ export function SwimmerDialog({
             <Field label="Putra / putri">
               <SelectNative
                 value={form.gender}
-                onChange={(e) => setForm({ ...form, gender: e.target.value as "putra" | "putri" })}
+                onChange={(e) => {
+                  setMatches(null);
+                  setSelectedMatch(null);
+                  setForm({ ...form, gender: e.target.value as "putra" | "putri" });
+                }}
               >
                 {GENDERS.map((g) => (
                   <option key={g.id} value={g.id}>

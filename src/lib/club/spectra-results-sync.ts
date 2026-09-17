@@ -1,10 +1,7 @@
 import type { Actor } from "./actor";
 import { refreshPbFlag } from "./results";
-import { fetchJsonPatient } from "../../../scripts/spectra-client.mjs";
+import { fetchJsonPatient, INTERACTIVE_RETRY, SPECTRA_BASE as BASE } from "../../../scripts/spectra-client.mjs";
 import { isRelay, normalizeAthleteHistoryRow } from "../../../scripts/spectra-athlete-parse.mjs";
-
-const BASE = "https://globiesoft.com/rlist_off/php";
-const INTERACTIVE_RETRY = { retries: 2, delayMs: 1500 };
 
 export type FetchAthleteHistory = (athleteId: string) => Promise<unknown[]>;
 
@@ -43,6 +40,7 @@ export async function syncSpectraResultsForSwimmer(
   inserted: number;
   skippedNoMeet: number;
   skippedNoTime: number;
+  skippedNoDate: number;
   skippedUnrecognized: number;
   skippedDuplicate: number;
 }> {
@@ -51,14 +49,24 @@ export async function syncSpectraResultsForSwimmer(
   let inserted = 0;
   let skippedNoMeet = 0;
   let skippedNoTime = 0;
+  let skippedNoDate = 0;
   let skippedUnrecognized = 0;
   let skippedDuplicate = 0;
+  // (stroke, distanceM, course) groups actually inserted into, so PBs are
+  // recomputed once per group after the loop instead of once per row.
+  const touchedGroups = new Map<string, { stroke: string; distanceM: number; course: string }>();
 
   for (const raw of rawRows as Array<{ jenis?: string }>) {
     if (isRelay(raw)) continue;
     const result = normalizeAthleteHistoryRow(raw as never);
     if (result.timeMs == null) {
       skippedNoTime += 1;
+      continue;
+    }
+    // result_date is NOT NULL -- a row whose date text parseSpectraDate
+    // can't recognize must be skipped, not inserted as null.
+    if (result.date == null) {
+      skippedNoDate += 1;
       continue;
     }
     if (!result.stroke || !result.distanceM || !result.course) {
@@ -93,9 +101,17 @@ export async function syncSpectraResultsForSwimmer(
         ${result.timeMs}, ${result.place}, 'final', 'selesai', 'official', false, ${result.notes}, ${resultRef}
       )
     `;
-    await refreshPbFlag(actor, actor.clubId, input.swimmerId, result.stroke, result.distanceM, result.course);
+    touchedGroups.set(`${result.stroke}|${result.distanceM}|${result.course}`, {
+      stroke: result.stroke,
+      distanceM: result.distanceM,
+      course: result.course,
+    });
     inserted += 1;
   }
 
-  return { total: rawRows.length, inserted, skippedNoMeet, skippedNoTime, skippedUnrecognized, skippedDuplicate };
+  for (const g of touchedGroups.values()) {
+    await refreshPbFlag(actor, actor.clubId, input.swimmerId, g.stroke, g.distanceM, g.course);
+  }
+
+  return { total: rawRows.length, inserted, skippedNoMeet, skippedNoTime, skippedNoDate, skippedUnrecognized, skippedDuplicate };
 }
