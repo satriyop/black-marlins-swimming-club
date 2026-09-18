@@ -24,6 +24,15 @@ export type FetchAthletesByName = (
 
 const PAGE_SIZE = 20;
 
+/** Spectra's `csearch` only matches a single name token. Multi-word queries
+ * return [] even when the exact athlete exists, so start with the longest
+ * (usually most distinctive) token and retain the full-name check locally. */
+export function spectraNameSearchTerms(fullName: string): string[] {
+  const trimmed = fullName.trim();
+  const terms = [...new Set(trimmed.split(/\s+/).filter((term) => term.length >= 2))];
+  return terms.length > 0 ? terms.sort((a, b) => b.length - a.length) : [trimmed];
+}
+
 export function spectraNameSearchUrl(meetCode: string, fullName: string, page: number): string {
   return (
     `${BASE}/events_resultbyname.php?csearch=${encodeURIComponent(fullName.trim())}` +
@@ -94,32 +103,41 @@ export async function findSpectraMatches({
   fetchAthletesByName?: FetchAthletesByName;
 }): Promise<SpectraMatch[]> {
   const found = new Map<string, SpectraMatch>();
+  const searchTerms = spectraNameSearchTerms(fullName);
   const deadline = Date.now() + maxWallClockMs;
   const outOfTime = () => Date.now() >= deadline;
 
   for (const meetCode of candidateMeetCodes) {
-    for (let page = 1; page <= maxPagesPerMeet; page += 1) {
-      if (outOfTime()) throw new Error("Pencarian Spectra terlalu lama. Coba lagi.");
-      const rows = await fetchAthletesByName(meetCode, fullName, page);
-      for (const row of rows as AthleteRow[]) {
-        if (!row.id || !row.name || !nameMatches(row.name, fullName)) continue;
-        const rowGender = row.sex === "MEN" ? "putra" : row.sex === "WOMEN" ? "putri" : null;
-        if (rowGender !== gender) continue;
-        if (!looksLikeThisClub(row.team ?? null, clubKeywords)) continue;
-        found.set(row.id, {
-          athleteId: row.id,
-          fullName: row.name,
-          dateOfBirth: parseSpectraDate(row.lahir ?? ""),
-          gender: rowGender,
-          club: row.team ?? null,
-        });
+    let meetSearchComplete = false;
+    for (const searchTerm of searchTerms) {
+      for (let page = 1; page <= maxPagesPerMeet; page += 1) {
+        if (outOfTime()) throw new Error("Pencarian Spectra terlalu lama. Coba lagi.");
+        const rows = await fetchAthletesByName(meetCode, searchTerm, page);
+        for (const row of rows as AthleteRow[]) {
+          if (!row.id || !row.name || !nameMatches(row.name, fullName)) continue;
+          const rowGender = row.sex === "MEN" ? "putra" : row.sex === "WOMEN" ? "putri" : null;
+          if (rowGender !== gender) continue;
+          if (!looksLikeThisClub(row.team ?? null, clubKeywords)) continue;
+          found.set(row.id, {
+            athleteId: row.id,
+            fullName: row.name,
+            dateOfBirth: parseSpectraDate(row.lahir ?? ""),
+            gender: rowGender,
+            club: row.team ?? null,
+          });
+        }
+        if (found.size > 0) break;
+        if (rows.length < PAGE_SIZE) {
+          meetSearchComplete = true;
+          break;
+        }
       }
-      if (found.size > 0 || rows.length < PAGE_SIZE) break;
-      if (page === maxPagesPerMeet) {
-        throw new Error("Terlalu banyak hasil Spectra. Masukkan nama lengkap yang lebih spesifik.");
-      }
+      if (found.size > 0 || meetSearchComplete) break;
     }
     if (found.size > 0) break;
+    if (!meetSearchComplete) {
+      throw new Error("Terlalu banyak hasil Spectra. Masukkan nama lengkap yang lebih spesifik.");
+    }
   }
 
   return [...found.values()];
