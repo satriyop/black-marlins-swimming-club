@@ -6,6 +6,35 @@ const LONG_MEET_NAME =
   "Kejuaraan Renang Antar Klub Se-Provinsi Jawa Tengah Dengan Nama Sangat Panjang";
 
 test.describe("swimmer profile hierarchy (#52)", () => {
+  test("identity header stays inside a phone viewport (#94)", async ({ page, context, baseURL }) => {
+    const fixture = await createClubFixture("guardian", {
+      childCount: 1,
+      results: false,
+      practice: "none",
+      primaryChildName: "Kun Bumi Pamungkas",
+    });
+    try {
+      await fixture.signIn(context, baseURL!);
+      await page.goto(`/perenang/${fixture.swimmerId}`);
+      const heading = page.getByRole("heading", { name: "Kun Bumi Pamungkas", exact: true });
+      await expect(heading).toBeVisible();
+      for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await expect(heading).toBeVisible();
+        const box = await heading.boundingBox();
+        expect(box, `${width}px heading box`).toBeTruthy();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          `${width}px page overflow`,
+        ).toBe(true);
+      }
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   test("empty profile shows unrecorded states, not zeros dressed up as data", async ({
     page,
     context,

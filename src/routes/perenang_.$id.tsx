@@ -81,22 +81,24 @@ function Page() {
       >
         <ArrowLeft className="size-4" /> Skuad
       </Link>
-      <div className="mb-6 flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-border sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-4">
+      <div className="mb-6 flex min-w-0 flex-col gap-4 rounded-2xl bg-card p-5 shadow-border sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
           <SwimmerAvatar name={swimmer.fullName} size="lg" />
-          <div>
+          <div className="min-w-0 [overflow-wrap:anywhere]">
             <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
               {swimmer.ageGroupLabel} · {swimmer.gender}
             </p>
-            <h1 className="font-display text-4xl leading-none">{swimmer.fullName}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <h1 className="font-display text-balance break-words text-4xl leading-none">
+              {swimmer.fullName}
+            </h1>
+            <p className="mt-2 text-pretty text-sm text-muted-foreground">
               {formatDateId(swimmer.dateOfBirth, "d MMMM yyyy")} · {swimmer.age} tahun · KU{" "}
               {swimmer.ageYearEnd} th di {new Date().getFullYear()}
             </p>
-            {swimmer.notes ? <p className="mt-3 max-w-xl text-sm">{swimmer.notes}</p> : null}
+            {swimmer.notes ? <p className="mt-3 max-w-xl text-pretty text-sm">{swimmer.notes}</p> : null}
           </div>
         </div>
-        <div className="flex flex-wrap items-start gap-2">
+        <div className="flex min-w-0 max-w-full flex-wrap items-start gap-2">
           <Link to="/perenang/$id/laporan" params={{ id: String(swimmer.id) }} search={{ bulan: undefined }} className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-medium hover:bg-muted">Laporan bulanan</Link>
           <ResultDialog swimmerId={swimmer.id} />
           {canWriteRoster(hats, swimmer.id) && swimmer.spectraAthleteId && (
