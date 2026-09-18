@@ -5,7 +5,13 @@ import {
   SPECTRA_BASE as BASE,
   SPECTRA_EMPTY_MESSAGE,
 } from "../../../scripts/spectra-client.mjs";
-import { isRelay, nameMatches, normalizeResultRow, parseEventDescr } from "../../../scripts/spectra-athlete-parse.mjs";
+import {
+  isRelay,
+  nameMatches,
+  normalizeResultRow,
+  parseEventDescr,
+} from "../../../scripts/spectra-athlete-parse.mjs";
+import { resolveSpectraKey } from "../server/spectra-key.server";
 
 export type SpectraMatch = {
   athleteId: string;
@@ -20,24 +26,32 @@ export type SpectraMatch = {
 
 type RaceRow = { kode: string; nomordescr: string; jenis: string; kelumur: string };
 export type FetchRaceList = (meetCode: string) => Promise<RaceRow[]>;
-export type FetchRaceResults = (meetCode: string, eventNumber: string, ageGroup: string) => Promise<unknown[]>;
+export type FetchRaceResults = (
+  meetCode: string,
+  eventNumber: string,
+  ageGroup: string,
+) => Promise<unknown[]>;
 
 export async function fetchRaceListLive(meetCode: string): Promise<RaceRow[]> {
   const url = `${BASE}/events_resultbyevent.php?csearch=&cevent=${encodeURIComponent(meetCode)}&page=1`;
   try {
-    const rows = await fetchJsonPatient(url, INTERACTIVE_RETRY);
+    const rows = await fetchJsonPatient(url, { ...INTERACTIVE_RETRY, apiKey: resolveSpectraKey() });
     return Array.isArray(rows) ? rows : [];
   } catch {
     return []; // their backend is genuinely flaky -- skip this meet, don't fail the whole search
   }
 }
 
-export async function fetchRaceResultsLive(meetCode: string, eventNumber: string, ageGroup: string): Promise<unknown[]> {
+export async function fetchRaceResultsLive(
+  meetCode: string,
+  eventNumber: string,
+  ageGroup: string,
+): Promise<unknown[]> {
   const url =
     `${BASE}/events_resultbyevent2.php?csearch=&cevent=${encodeURIComponent(meetCode)}` +
     `&ceventno=${encodeURIComponent(eventNumber)}&ckelumur=${encodeURIComponent(ageGroup)}`;
   try {
-    const rows = await fetchJsonPatient(url, INTERACTIVE_RETRY);
+    const rows = await fetchJsonPatient(url, { ...INTERACTIVE_RETRY, apiKey: resolveSpectraKey() });
     return Array.isArray(rows) ? rows : [];
   } catch {
     return [];
@@ -105,7 +119,12 @@ export async function findSpectraMatches({
 
     let checkedInMeet = 0;
     for (const race of candidates) {
-      if (checkedInMeet >= maxRaceChecksPerMeet || totalChecked >= maxTotalRaceChecks || outOfTime()) break;
+      if (
+        checkedInMeet >= maxRaceChecksPerMeet ||
+        totalChecked >= maxTotalRaceChecks ||
+        outOfTime()
+      )
+        break;
       checkedInMeet += 1;
       totalChecked += 1;
 
@@ -142,7 +161,10 @@ export async function findSpectraMatches({
  *  space for findSpectraMatches. Only meets with a spectra_event_code (i.e.
  *  ones that came from the Spectra sync, not manually-created club-only
  *  entries) are usable, since the search needs Spectra's own meet code. */
-export async function candidateMeetCodesFor(actor: Actor & { clubId: number }, limit = 15): Promise<string[]> {
+export async function candidateMeetCodesFor(
+  actor: Actor & { clubId: number },
+  limit = 15,
+): Promise<string[]> {
   const rows = await actor.sql<{ spectra_event_code: string }>`
     select spectra_event_code from meets
     where club_id = ${actor.clubId} and spectra_event_code is not null

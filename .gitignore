@@ -22,3 +22,4 @@ bmsc-release.tgz
 .DS_Store
 .claude/
 .vscode/
+tmp/

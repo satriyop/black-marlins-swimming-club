@@ -24,5 +24,20 @@ test("an empty page after catalog data ends pagination normally", async () => {
     .mockResolvedValueOnce(new Response(JSON.stringify([event]), { status: 200 }))
     .mockResolvedValueOnce(new Response("[]", { status: 200 }));
 
-  await expect(fetchEventsList({ maxPages: 2, retries: 0, delayMs: 0, fetchImpl })).resolves.toEqual([event]);
+  await expect(
+    fetchEventsList({ maxPages: 2, retries: 0, delayMs: 0, fetchImpl }),
+  ).resolves.toEqual([event]);
+});
+
+test("configured API key is sent with every Spectra request", async () => {
+  const event = { kode: "MEET_2026" };
+  const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+    expect(new Headers(init?.headers).get("x-api-key")).toBe("test-api-key");
+    return new Response(JSON.stringify([event]), { status: 200 });
+  });
+
+  await expect(
+    fetchEventsList({ maxPages: 1, retries: 0, delayMs: 0, apiKey: "test-api-key", fetchImpl }),
+  ).resolves.toEqual([event]);
+  expect(fetchImpl).toHaveBeenCalledOnce();
 });

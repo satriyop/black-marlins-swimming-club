@@ -17,13 +17,13 @@ GitHub Actions (`.github/workflows/ci.yml`):
 
 Repo secrets:
 
-| Secret | Purpose |
-|--------|---------|
-| `BMSC_DEPLOY_SSH_KEY` | Private ed25519 for **root@aidev** (not the Mini `AIDEV_SSH_PRIVATE_KEY`) |
-| `BMSC_DEPLOY_HOST` | Tailscale name, default `aidev` (public `:22` is not reachable from GitHub-hosted runners) |
-| `BMSC_DEPLOY_USER` | Optional, default `root` |
-| `TS_OAUTH_CLIENT_ID` | Shared Tailscale OAuth client already used for CI on this tailnet (`tag:ci`) |
-| `TS_OAUTH_SECRET` | Matching secret for that same OAuth client |
+| Secret                | Purpose                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `BMSC_DEPLOY_SSH_KEY` | Private ed25519 for **root@aidev** (not the Mini `AIDEV_SSH_PRIVATE_KEY`)                  |
+| `BMSC_DEPLOY_HOST`    | Tailscale name, default `aidev` (public `:22` is not reachable from GitHub-hosted runners) |
+| `BMSC_DEPLOY_USER`    | Optional, default `root`                                                                   |
+| `TS_OAUTH_CLIENT_ID`  | Shared Tailscale OAuth client already used for CI on this tailnet (`tag:ci`)               |
+| `TS_OAUTH_SECRET`     | Matching secret for that same OAuth client                                                 |
 
 GitHub-hosted runners join the tailnet, then SSH to `aidev` over Tailscale. Do not point `BMSC_DEPLOY_HOST` at the public VPS IP.
 
@@ -61,7 +61,7 @@ What it does, matching the GitHub Actions `ci` + `deploy` jobs:
 4. Ships it to `aidev` over SSH (host alias `aidev`, root — see `~/.ssh/config`; this machine must already be on the tailnet or otherwise able to reach it) and runs the same `sudo bash scripts/bmsc.sh apply-release <tarball> <sha>` the CI `deploy` job runs.
 5. Curls `https://bmsc.klaten.org/login` to confirm it's live.
 
-**macOS tar gotcha** (why this script exists instead of a one-liner): macOS's `tar` embeds AppleDouble metadata files (`._0001_auth.sql`, `._<anything>`) for extended attributes like `com.apple.provenance`. The remote migrate step runs every `*.sql` file it finds in `migrations/`, so one of these junk files reaching the server makes `db:migrate` fail with `invalid message format` (Postgres protocol error, code `08P01`) partway through. This happened for real deploying PR #75. It's safe — `apply-release` only swaps the `current` symlink *after* migrations succeed, so a failed migrate leaves production on the old release untouched — but it still means Postgres was fed one CI cycle's worth of garbage input for nothing. The script builds with `COPYFILE_DISABLE=1 tar --no-xattrs` and verifies the tarball has no `._*` entries before shipping it, so this can't recur. If you ever build a release tarball by hand on macOS, use those same flags.
+**macOS tar gotcha** (why this script exists instead of a one-liner): macOS's `tar` embeds AppleDouble metadata files (`._0001_auth.sql`, `._<anything>`) for extended attributes like `com.apple.provenance`. The remote migrate step runs every `*.sql` file it finds in `migrations/`, so one of these junk files reaching the server makes `db:migrate` fail with `invalid message format` (Postgres protocol error, code `08P01`) partway through. This happened for real deploying PR #75. It's safe — `apply-release` only swaps the `current` symlink _after_ migrations succeed, so a failed migrate leaves production on the old release untouched — but it still means Postgres was fed one CI cycle's worth of garbage input for nothing. The script builds with `COPYFILE_DISABLE=1 tar --no-xattrs` and verifies the tarball has no `._*` entries before shipping it, so this can't recur. If you ever build a release tarball by hand on macOS, use those same flags.
 
 ## First time
 
@@ -193,3 +193,66 @@ sudo journalctl -u bmsc -e
 ## Google / env
 
 `.env` lives in `/var/www/bmsc/.env` (not inside a release). `BETTER_AUTH_URL` must stay `https://bmsc.klaten.org` with no trailing slash.
+
+Spectra's public viewer requires the same API key embedded in its browser
+application. Store that rotating value as `SPECTRA_API_KEY` in the server's
+`.env`; never commit the live value. Without it, Spectra responds with a
+misleading HTTP 200 empty array instead of an authentication error.
+
+`cmd_sync_meets` does `set -a; source "$ENV_FILE"`, so adding the key to
+`/var/www/bmsc/.env` is the whole deployment step -- no unit file changes.
+
+### When the Spectra sync returns nothing
+
+Their key is a string literal in their own `main.dart.js`, so they can rotate
+it without telling anyone. A rotated key looks exactly like an outage: the sync
+retries an empty `[]` for roughly nine minutes and then reports
+`Spectra SwimPro sedang tidak mengirim data`. Tell the two apart with:
+
+```bash
+cd /var/www/bmsc && set -a && . ./.env && set +a && npm run diagnose:spectra
+```
+
+It compares the configured key against the one their bundle currently ships and
+exits `0` ok, `2` key unset, `3` rotated, `4` rejected, `5` their host
+unreachable -- so a monitor can alert on any non-zero. Keys are redacted in the
+output, which is safe to paste into an issue. Add `--json` for machine-readable
+output. On its own it only reports; it writes nothing.
+
+### Self-healing a rotated key
+
+`sync-meets` runs the same check with `--rotate` before each sync, so the daily
+timer already adopts a new key on its own -- no extra unit, no second schedule.
+A rotation is only written when their bundle yields exactly one well-formed key,
+it differs from ours, **and** that key has just been proven to return catalog
+rows; a key we have not watched work is never written. The write is atomic (temp
+file plus rename, since this `.env` also holds `DATABASE_URL` and
+`BETTER_AUTH_SECRET`), preserves mode `640`, and leaves the previous file at
+`/var/www/bmsc/.env.bak`.
+
+No restart is needed. `EnvironmentFile=` is a snapshot taken once at service
+start, so the running web app would otherwise keep serving the stale key while
+the sync was already healthy again. Instead the unit sets
+`SPECTRA_ENV_FILE=/var/www/bmsc/.env` (an absolute path -- `WorkingDirectory` is
+a release directory, not `APP_ROOT`) and the app re-reads that file behind a
+60-second TTL, so the interactive "Add Swimmer" search picks up a rotated key
+within a minute on its own. See `src/lib/server/spectra-key.server.ts`; the file
+value wins over the environment, and any read failure falls back to the
+boot-time value rather than failing the search.
+
+That makes the whole path unattended: the timer rotates, the sync uses the new
+key immediately, and the web app follows within the minute. To force it now, or
+on a release older than this change:
+
+```bash
+sudo bash scripts/bmsc.sh rotate-spectra-key
+```
+
+That adopts the current key, restores ownership and mode on `.env`, and restarts
+`bmsc` only if a rotation actually succeeded. To recover a bad rotation, copy
+`.env.bak` back over `.env` and restart the service.
+
+First-time setup still needs a shell on the box: deploy this release, `git pull`
+in `/var/www/bmsc` so `bmsc.sh` has the new subcommand (`apply-release` never
+touches that top-level checkout), and seed `SPECTRA_API_KEY` into
+`/var/www/bmsc/.env`. Everything after that is automatic.
