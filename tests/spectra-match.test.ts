@@ -161,6 +161,19 @@ test("a flaky/failed race-list fetch for one meet doesn't stop the search moving
   expect(matches).toHaveLength(1);
 });
 
+test("all empty race lists report Spectra unavailable instead of claiming no swimmer matched", async () => {
+  await expect(
+    findSpectraMatches({
+      fullName: "Test Swimmer",
+      gender: "putra",
+      candidateMeetCodes: ["EMPTY_ONE", "EMPTY_TWO"],
+      clubKeywords: ["Klaten"],
+      fetchRaceList: async () => [],
+      fetchRaceResults: async () => [],
+    }),
+  ).rejects.toThrow("Spectra SwimPro sedang tidak mengirim data");
+});
+
 test("gives up once the wall-clock budget is spent, rather than checking every race", async () => {
   // 20 candidate races, each individually fast and well-formed (not flaky) --
   // this is the realistic "brand new swimmer, never competed" case, which by

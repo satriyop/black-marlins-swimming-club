@@ -107,6 +107,19 @@ test("re-running is a no-op (idempotent via spectra_result_ref)", async () => {
   expect(results).toHaveLength(1);
 });
 
+test("empty athlete history reports an upstream failure instead of a successful zero-result sync", async () => {
+  const { sql, actor } = await createClubHarness();
+  const { clubId, swimmerId } = await seedClubAndSwimmer(sql);
+
+  await expect(
+    syncSpectraResultsForSwimmer(
+      { ...actor("usr_coach"), clubId },
+      { swimmerId, athleteId: "43720" },
+      { fetchAthleteHistory: async () => [] },
+    ),
+  ).rejects.toThrow("Spectra SwimPro sedang tidak mengirim data");
+});
+
 test("a result whose meet was never synced locally (out of region) is skipped, not fabricated", async () => {
   const { sql, actor } = await createClubHarness();
   const { clubId, swimmerId } = await seedClubAndSwimmer(sql);

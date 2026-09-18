@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { requireClub } from "@/lib/club/context";
 import { candidateMeetCodesFor, clubKeywordsFor, findSpectraMatches, type SpectraMatch } from "@/lib/club/spectra-match";
+import { SPECTRA_EMPTY_MESSAGE } from "../../../scripts/spectra-client.mjs";
 
 export type { SpectraMatch };
 import { linkSpectraSwimmer as linkSpectraSwimmerFor, syncSpectraSwimmerNow } from "@/lib/club/spectra-link";
@@ -15,7 +16,8 @@ export const matchSpectraSwimmer = createServerFn({ method: "POST" })
       candidateMeetCodesFor(actor),
       clubKeywordsFor(actor),
     ]);
-    if (candidateMeetCodes.length === 0 || clubKeywords.length === 0) return [];
+    if (candidateMeetCodes.length === 0) throw new Error(SPECTRA_EMPTY_MESSAGE);
+    if (clubKeywords.length === 0) return [];
     return findSpectraMatches({ fullName: data.fullName, gender: data.gender, candidateMeetCodes, clubKeywords });
   });
 
