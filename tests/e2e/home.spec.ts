@@ -150,6 +150,28 @@ test("staff home prioritizes today's training when an older session is unfinishe
     await expect(page.getByText("Latihan hari ini")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Latihan Contoh Visual" })).toBeVisible();
     await expect(page.getByText("Latihan perlu dituntaskan")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Perlu dituntaskan" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Latihan lama belum selesai" })).toBeVisible();
+    await expect(page.getByText(/Terlambat ·/)).toBeVisible();
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("staff home keeps unfinished older sessions off the primary slot", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  const fixture = await createClubFixture("coach", { practice: "none", overduePractice: true });
+  try {
+    await fixture.signIn(context, baseURL!);
+    await page.goto("/");
+    await expect(page.getByText("Belum ada latihan terjadwal")).toBeVisible();
+    await expect(page.getByText("Latihan perlu dituntaskan")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Perlu dituntaskan" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Latihan lama belum selesai" })).toBeVisible();
+    await expect(page.getByText(/Terlambat ·/)).toBeVisible();
   } finally {
     await fixture.cleanup();
   }
