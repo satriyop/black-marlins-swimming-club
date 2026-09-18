@@ -9,6 +9,7 @@
 #   sudo bash scripts/bmsc.sh backup
 #   sudo bash scripts/bmsc.sh import-kiko                  # not part of deploy
 #   sudo bash scripts/bmsc.sh sync-meets                    # run the Spectra meet-catalog sync once
+#   sudo bash scripts/bmsc.sh rotate-spectra-key            # adopt Spectra's current API key, then restart
 #   sudo bash scripts/bmsc.sh install-sync-timer            # daily timer for sync-meets
 #   sudo bash scripts/bmsc.sh status
 set -euo pipefail
@@ -283,6 +284,11 @@ User=${APP_USER}
 Group=${APP_USER}
 WorkingDirectory=${run_dir}
 EnvironmentFile=${ENV_FILE}
+# EnvironmentFile= is read once at start, so a key rotated by the nightly sync
+# would not reach this already-running process. Point the app at the same file
+# by absolute path -- WorkingDirectory is a release dir, not APP_ROOT -- so it
+# can re-read SPECTRA_API_KEY without a restart. See spectra-key.server.ts.
+Environment=SPECTRA_ENV_FILE=${ENV_FILE}
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=${APP_PORT}
@@ -612,15 +618,53 @@ cmd_import_kiko() {
 cmd_sync_meets() {
   # No need_root: this also runs unattended as ${APP_USER} from the
   # bmsc-sync-meets.timer unit (see install-sync-timer), not just manually
-  # via sudo. It only reads ENV_FILE (world-readable to its own group after
-  # `install`'s chown) and writes rows through DATABASE_URL -- no root-only
-  # filesystem or systemd changes like apply-release/rollback need.
+  # via sudo. It reads ENV_FILE and may rewrite SPECTRA_API_KEY in it --
+  # `install`'s chown makes ${APP_USER} the owner, so that needs no privilege
+  # either -- and writes rows through DATABASE_URL. No root-only filesystem
+  # or systemd changes like apply-release/rollback need.
   guard_pg_names
   set -a
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
+  # Self-heal a rotated Spectra key on the schedule we already have, before
+  # the sync that would otherwise fail on it. Spectra ship their API key in
+  # their own JS bundle and rotate it without notice, and a stale key is not
+  # distinguishable from an outage at the HTTP level: the sync would retry an
+  # empty [] for ~9 minutes and then report a provider problem. Never fatal --
+  # a failed check must not block a sync that may still work with the current
+  # key -- and it only writes a key it has just seen return rows.
+  (cd "$(runtime_dir)" && node scripts/diagnose-spectra.mjs --rotate --env-file "$ENV_FILE") || true
+  # Re-source: the line above may have just replaced SPECTRA_API_KEY, and this
+  # shell still holds the old value it exported before the check ran.
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
   (cd "$(runtime_dir)" && npm run db:sync-spectra-meets)
+}
+
+cmd_rotate_spectra_key() {
+  # The operator-facing half of the same check. Unlike the timer path this can
+  # restart bmsc.service, which is what the long-running web app needs to pick
+  # up a new key -- it reads ENV_FILE once via EnvironmentFile= at start, so
+  # the interactive "Add Swimmer" search keeps using the stale key until then.
+  need_root
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+  local rc=0
+  (cd "$(runtime_dir)" && node scripts/diagnose-spectra.mjs --rotate --env-file "$ENV_FILE") || rc=$?
+  chown "${APP_USER}:${APP_USER}" "$ENV_FILE" "${ENV_FILE}.bak" 2>/dev/null || true
+  chmod 640 "$ENV_FILE"
+  if [[ $rc -eq 0 ]]; then
+    systemctl restart "$SERVICE"
+    echo "restarted ${SERVICE} so the web app picks up the current key"
+  else
+    echo "no rotation applied (exit ${rc}); ${SERVICE} left running as-is" >&2
+  fi
+  return "$rc"
 }
 
 cmd_install_sync_timer() {
@@ -655,6 +699,7 @@ case "${1:-}" in
   backup) cmd_backup "${2:-}" ;;
   import-kiko) cmd_import_kiko ;;
   sync-meets) cmd_sync_meets ;;
+  rotate-spectra-key) cmd_rotate_spectra_key ;;
   install-sync-timer) cmd_install_sync_timer ;;
   status) cmd_status ;;
   *) usage ;;

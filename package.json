@@ -13,6 +13,7 @@
     "db:seed": "node scripts/seed-club.mjs",
     "db:import-kiko": "node scripts/run-import-kiko.mjs",
     "db:sync-spectra-meets": "node scripts/run-sync-spectra-meets.mjs",
+    "diagnose:spectra": "node scripts/diagnose-spectra.mjs",
     "smoke": "node scripts/smoke-http.mjs",
     "deploy:manual": "bash scripts/deploy-manual.sh",
     "test:e2e": "playwright test",

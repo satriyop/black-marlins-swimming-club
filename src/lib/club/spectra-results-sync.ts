@@ -7,13 +7,14 @@ import {
   SPECTRA_EMPTY_MESSAGE,
 } from "../../../scripts/spectra-client.mjs";
 import { isRelay, normalizeAthleteHistoryRow } from "../../../scripts/spectra-athlete-parse.mjs";
+import { resolveSpectraKey } from "../server/spectra-key.server";
 
 export type FetchAthleteHistory = (athleteId: string) => Promise<unknown[]>;
 
 export async function fetchAthleteHistoryLive(athleteId: string): Promise<unknown[]> {
   const url = `${BASE}/athlete_time2.php?cid=${encodeURIComponent(athleteId)}&cprovince=&page=1`;
   try {
-    const rows = await fetchJsonPatient(url, INTERACTIVE_RETRY);
+    const rows = await fetchJsonPatient(url, { ...INTERACTIVE_RETRY, apiKey: resolveSpectraKey() });
     return Array.isArray(rows) ? rows : [];
   } catch {
     return [];
@@ -39,7 +40,9 @@ export async function fetchAthleteHistoryLive(athleteId: string): Promise<unknow
 export async function syncSpectraResultsForSwimmer(
   actor: Actor & { clubId: number },
   input: { swimmerId: number; athleteId: string },
-  { fetchAthleteHistory = fetchAthleteHistoryLive }: { fetchAthleteHistory?: FetchAthleteHistory } = {},
+  {
+    fetchAthleteHistory = fetchAthleteHistoryLive,
+  }: { fetchAthleteHistory?: FetchAthleteHistory } = {},
 ): Promise<{
   total: number;
   inserted: number;
@@ -122,5 +125,13 @@ export async function syncSpectraResultsForSwimmer(
     await refreshPbFlag(actor, actor.clubId, input.swimmerId, g.stroke, g.distanceM, g.course);
   }
 
-  return { total: rawRows.length, inserted, skippedNoMeet, skippedNoTime, skippedNoDate, skippedUnrecognized, skippedDuplicate };
+  return {
+    total: rawRows.length,
+    inserted,
+    skippedNoMeet,
+    skippedNoTime,
+    skippedNoDate,
+    skippedUnrecognized,
+    skippedDuplicate,
+  };
 }
