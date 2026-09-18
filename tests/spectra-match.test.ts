@@ -1,5 +1,10 @@
-import { expect, test, vi } from "vitest";
-import { findSpectraMatches, spectraNameSearchUrl } from "../src/lib/club/spectra-match";
+import { afterEach, expect, test, vi } from "vitest";
+import {
+  fetchAthletesByNameLive,
+  findSpectraMatches,
+  spectraNameSearchUrl,
+} from "../src/lib/club/spectra-match";
+import { resetSpectraKeyCache } from "../src/lib/server/spectra-key.server";
 
 const LUIGI = {
   id: "43720",
@@ -8,6 +13,31 @@ const LUIGI = {
   sex: "MEN",
   team: "BLACK MARLINS SWIMMING CLUB KLATEN",
 };
+
+afterEach(() => {
+  resetSpectraKeyCache();
+});
+
+test("a missing API key is an error, never a completed search with no match", async () => {
+  // Spectra answer a keyless request with 200 [], which retryEmpty:false would
+  // otherwise pass through as "this swimmer is not in Spectra" -- the exact
+  // failure the API-key work removed. This must stay loud.
+  const saved = process.env.SPECTRA_API_KEY;
+  const savedFile = process.env.SPECTRA_ENV_FILE;
+  delete process.env.SPECTRA_API_KEY;
+  delete process.env.SPECTRA_ENV_FILE;
+  resetSpectraKeyCache();
+
+  try {
+    await expect(fetchAthletesByNameLive("MEET_ONE", "Luigi Banyu Pamungkas", 1)).rejects.toThrow(
+      "SPECTRA_API_KEY",
+    );
+  } finally {
+    if (saved !== undefined) process.env.SPECTRA_API_KEY = saved;
+    if (savedFile !== undefined) process.env.SPECTRA_ENV_FILE = savedFile;
+    resetSpectraKeyCache();
+  }
+});
 
 test("builds the direct result-by-name URL with an explicit page", () => {
   expect(spectraNameSearchUrl("MEET/2026", " Luigi Banyu ", 2)).toBe(

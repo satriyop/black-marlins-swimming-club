@@ -36,11 +36,23 @@ export async function fetchAthletesByNameLive(
   fullName: string,
   page: number,
 ): Promise<unknown[]> {
+  // Spectra answer an unauthenticated request with HTTP 200 and an empty []
+  // rather than a 401. Everywhere else that shape means "no rows", and with
+  // retryEmpty:false below it would sail through as a completed search with no
+  // match -- telling a coach the swimmer is not in Spectra when the real cause
+  // is that we sent no key. Nothing downstream can tell those apart, so fail
+  // here, before spending a request. Checked outside the try: the catch below
+  // rewrites every error into "tidak dapat dihubungi", which would hide a
+  // configuration problem behind a network one.
+  const apiKey = resolveSpectraKey();
+  if (!apiKey) {
+    throw new Error("Spectra belum dikonfigurasi (SPECTRA_API_KEY kosong). Hubungi admin.");
+  }
   try {
     const rows = await fetchJsonPatient(spectraNameSearchUrl(meetCode, fullName, page), {
       ...INTERACTIVE_RETRY,
       retryEmpty: false,
-      apiKey: resolveSpectraKey(),
+      apiKey,
     });
     if (!Array.isArray(rows)) {
       throw new Error("unexpected response shape");
