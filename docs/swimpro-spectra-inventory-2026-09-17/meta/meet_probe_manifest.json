@@ -1,0 +1,294 @@
+[
+  {
+    "endpoint": "events_select.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_select.php?cselect=WALKOTMGL2026",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_eventno.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_eventno.php?csearch=&cevent=WALKOTMGL2026&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_medaltally_report.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_medaltally_report.php?cmeet=WALKOTMGL2026&cteam=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_meetprogram_acara.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_meetprogram_acara.php?cmeet=WALKOTMGL2026&ceventno=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_meetprogram_proses.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_meetprogram_proses.php?cmeet=WALKOTMGL2026&ceventno=",
+    "status": 200,
+    "bytes": 15,
+    "saved": true,
+    "json_type": "dict",
+    "empty": false,
+    "file": "/workspace/globiesoft-inventory-2026-09-17/meet_detail/events_meetprogram_prose_WALKOTMGL2026.json"
+  },
+  {
+    "endpoint": "events_meetprogram_estafet.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_meetprogram_estafet.php?cmeet=WALKOTMGL2026&cid=&cnomorkode=&csistem=",
+    "status": 200,
+    "bytes": 61,
+    "saved": true,
+    "json_type": "dict",
+    "empty": false,
+    "file": "/workspace/globiesoft-inventory-2026-09-17/meet_detail/events_meetprogram_estafe_WALKOTMGL2026.json"
+  },
+  {
+    "endpoint": "events_meetprogram_rekor.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_meetprogram_rekor.php?cmeet=WALKOTMGL2026&cnomorkode=&ckelumur1=&ckelumur2=&ckelumur3=&ckelumur4=&cnote1=&cnote2=&cnote3=&cnote4=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "report_orderofevents_preview.php",
+    "url": "https://157.245.61.1/rlist_off/php/report_orderofevents_preview.php?cmeet=WALKOTMGL2026&clanguage=EN",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "report_schedule_preview.php",
+    "url": "https://157.245.61.1/rlist_off/php/report_schedule_preview.php?cmeet=WALKOTMGL2026",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "report_bestswimmer_preview.php",
+    "url": "https://157.245.61.1/rlist_off/php/report_bestswimmer_preview.php?cmeet=WALKOTMGL2026",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "report_newrecordlist_preview.php",
+    "url": "https://157.245.61.1/rlist_off/php/report_newrecordlist_preview.php?cmeet=WALKOTMGL2026",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbyevent.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbyevent.php?csearch=&cevent=WALKOTMGL2026&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbyevent2.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbyevent2.php?csearch=&cevent=WALKOTMGL2026&ceventno=&ckelumur=&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbyevent2uno.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbyevent2uno.php?csearch=&cevent=WALKOTMGL2026&ceventno=&ckelumur=&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbyeventuno.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbyeventuno.php?csearch=&cevent=WALKOTMGL2026&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbyname.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbyname.php?csearch=&cevent=WALKOTMGL2026&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbyname2.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbyname2.php?csearch=&cevent=WALKOTMGL2026&cid=&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbyname2uno.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbyname2uno.php?csearch=&cevent=WALKOTMGL2026&cid=&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultbynameuno.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultbynameuno.php?csearch=&cevent=WALKOTMGL2026&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_resultdetail.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_resultdetail.php?event=WALKOTMGL2026&id=&nomorkode=&sistem=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_results_acara.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_results_acara.php?cmeet=WALKOTMGL2026&ceventno=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_results_rekor.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_results_rekor.php?cmeet=WALKOTMGL2026&cnomorkode=&ckelumur=&cnote=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_results_individual.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_results_individual.php?cmeet=WALKOTMGL2026&cid=&cnomorkode=&cprelim=&cnote=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_results_estafet.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_results_estafet.php?cmeet=WALKOTMGL2026&cid=&cnomorkode=&cprelim=&cnote=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "events_results_report.php",
+    "url": "https://157.245.61.1/rlist_off/php/events_results_report.php?cmeet=WALKOTMGL2026&ceventno=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "athlete_time.php",
+    "url": "https://157.245.61.1/rlist_off/php/athlete_time.php?cid=&cprovince=NATIONAL",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "athlete_time2.php",
+    "url": "https://157.245.61.1/rlist_off/php/athlete_time2.php?cid=&cprovince=NATIONAL&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "athlete_time.php",
+    "url": "https://157.245.61.1/rlist_off/php/athlete_time.php?cid=&cprovince=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "athlete_time2.php",
+    "url": "https://157.245.61.1/rlist_off/php/athlete_time2.php?cid=&cprovince=&page=1",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "athlete_progress.php",
+    "url": "https://157.245.61.1/rlist_off/php/athlete_progress.php?datakind=&nomorkode=&note=&id=",
+    "status": 200,
+    "bytes": 2,
+    "saved": false,
+    "json_type": "list",
+    "empty": true
+  },
+  {
+    "endpoint": "report_besttime_athlete.php",
+    "url": "https://157.245.61.1/rlist_off/php/report_besttime_athlete.php?csearch=&cas=&cteam=&page=1",
+    "status": 200,
+    "bytes": 58,
+    "saved": true,
+    "json_type": "list",
+    "empty": false,
+    "file": "/workspace/globiesoft-inventory-2026-09-17/athlete_history/report_besttime_athlet_WALKOTMGL2026.json"
+  },
+  {
+    "endpoint": "report_eventhistory_athlete.php",
+    "url": "https://157.245.61.1/rlist_off/php/report_eventhistory_athlete.php?csearch=&cas=&cteam=&page=1",
+    "status": 200,
+    "bytes": 58,
+    "saved": true,
+    "json_type": "list",
+    "empty": false,
+    "file": "/workspace/globiesoft-inventory-2026-09-17/athlete_history/report_eventhistory_athlet_WALKOTMGL2026.json"
+  }
+]
