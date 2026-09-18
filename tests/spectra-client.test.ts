@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { fetchEventsList } from "../scripts/spectra-client.mjs";
+import { fetchEventsList, fetchJsonPatient } from "../scripts/spectra-client.mjs";
 
 test("an empty first catalog page is an upstream failure, not a successful empty sync", async () => {
   const fetchImpl = vi.fn(async () => new Response("[]", { status: 200 }));
@@ -39,5 +39,19 @@ test("configured API key is sent with every Spectra request", async () => {
   await expect(
     fetchEventsList({ maxPages: 1, retries: 0, delayMs: 0, apiKey: "test-api-key", fetchImpl }),
   ).resolves.toEqual([event]);
+  expect(fetchImpl).toHaveBeenCalledOnce();
+});
+
+test("an endpoint where empty means no matches can opt out of empty-response retries", async () => {
+  const fetchImpl = vi.fn(async () => new Response("[]", { status: 200 }));
+
+  await expect(
+    fetchJsonPatient("https://example.test/search", {
+      retries: 2,
+      delayMs: 0,
+      retryEmpty: false,
+      fetchImpl,
+    }),
+  ).resolves.toEqual([]);
   expect(fetchImpl).toHaveBeenCalledOnce();
 });
