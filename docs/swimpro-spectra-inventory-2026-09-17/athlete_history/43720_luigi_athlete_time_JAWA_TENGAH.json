@@ -1,0 +1,92 @@
+[
+  {
+    "kode": "POPDAJATENG2026",
+    "awal": "01 SEPTEMBER 2026",
+    "nomorkode": "A03",
+    "nomordescr": "100 M FREESTYLE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "01:06.77",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "POPDAJATENG2026",
+    "awal": "01 SEPTEMBER 2026",
+    "nomorkode": "A07",
+    "nomordescr": "200 M FREESTYLE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "02:28.36",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "POPDAJATENG2026",
+    "awal": "01 SEPTEMBER 2026",
+    "nomorkode": "A01",
+    "nomordescr": "50 M FREESTYLE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "00:30.53",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "KRAPPROVBYL2026",
+    "awal": "04 JULY 2026",
+    "nomorkode": "E03",
+    "nomordescr": "100 M BREASTSTROKE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "01:32.19",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "KRAPPROVBYL2026",
+    "awal": "04 JULY 2026",
+    "nomorkode": "A09",
+    "nomordescr": "400 M FREESTYLE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "05:40.29",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "KRAPPROVBYL2026",
+    "awal": "04 JULY 2026",
+    "nomorkode": "E01",
+    "nomordescr": "50 M BREASTSTROKE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "00:43.26",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "KRAPPROVBYL2026",
+    "awal": "04 JULY 2026",
+    "nomorkode": "B01",
+    "nomordescr": "50 M BUTTERFLY MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "00:32.91",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "SMGOPEN2025",
+    "awal": "03 OCTOBER 2025",
+    "nomorkode": "D03",
+    "nomordescr": "100 M BACKSTROKE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "01:43.55",
+    "pakaidata": "JAWA TENGAH"
+  },
+  {
+    "kode": "SMGOPEN2025",
+    "awal": "03 OCTOBER 2025",
+    "nomorkode": "D01",
+    "nomordescr": "50 M BACKSTROKE MEN, LCM",
+    "jenis": "INDIVIDUAL",
+    "note": "",
+    "hasil": "00:44.47",
+    "pakaidata": "JAWA TENGAH"
+  }
+]
