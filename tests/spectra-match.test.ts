@@ -9,7 +9,7 @@ import { resetSpectraKeyCache } from "../src/lib/server/spectra-key.server";
 
 const LUIGI = {
   id: "43720",
-  name: "LUIGI BANYU PAMUNGKAS",
+  name: "LUIGI  BANYU PAMUNGKAS",
   lahir: "1 JANUARY 2014",
   sex: "MEN",
   team: "BLACK MARLINS SWIMMING CLUB KLATEN",
@@ -68,7 +68,7 @@ test("finds and normalizes a swimmer whose name, gender, and club match", async 
   ).resolves.toEqual([
     {
       athleteId: "43720",
-      fullName: "LUIGI BANYU PAMUNGKAS",
+      fullName: "LUIGI  BANYU PAMUNGKAS",
       dateOfBirth: "2014-01-01",
       gender: "putra",
       club: "BLACK MARLINS SWIMMING CLUB KLATEN",
