@@ -16,7 +16,12 @@ import { isFamilyMember } from "@/lib/club/hats";
 import { homePracticeCta, isDualRole, roleLabels } from "@/lib/club/nav";
 import { eventCode, labelOf, MEET_STATUSES } from "@/lib/swim/constants";
 import { progressDescription, progressSeries } from "@/lib/swim/progress";
-import { selectDashboardPractice } from "@/lib/club/dashboard-practice";
+import {
+  dashboardPracticeDate,
+  selectDashboardPractice,
+  selectOverduePractices,
+  type DashboardPractice,
+} from "@/lib/club/dashboard-practice";
 import { formatTime } from "@/lib/swim/time";
 import type { Dashboard, Meet, Practice, Result, Swimmer } from "@/lib/swim/types";
 import { formatDateId, greetingId, todayIso } from "@/lib/utils";
@@ -84,11 +89,18 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
     stats,
   } = data;
   const clubView = taskView === "club";
+  const today = todayIso();
   const next = selectDashboardPractice({
     upcomingPractices,
     nextScheduledTraining,
     clubView,
-    today: todayIso(),
+    today,
+  });
+  const overdue = selectOverduePractices({
+    upcomingPractices,
+    nextScheduledTraining,
+    clubView,
+    today,
   });
   const guardian = isFamilyMember(hats);
   const dual = isDualRole(hats);
@@ -208,6 +220,7 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
         guardian={guardian}
         familyCount={family.length}
       />
+      <OverduePractices items={overdue} practiceCta={practiceCta} />
 
       {completed.map((p) => (
         <CompletedNotice key={p.id} practice={p} />
@@ -340,16 +353,15 @@ function NextPractice({
   familyCount: number;
 }) {
   const scheduled = next != null && "scheduleId" in next;
-  const date = next ? (scheduled ? next.date : next.sessionDate) : null;
+  const date = next ? dashboardPracticeDate(next) : null;
   const today = date === todayIso();
-  const overdue = date != null && date < todayIso();
   return (
     <section
       aria-labelledby="next-session"
       className="rounded-2xl border border-primary/30 bg-card p-4 sm:p-5"
     >
       <p id="next-session" className="text-sm font-semibold text-primary">
-        {overdue ? "Latihan perlu dituntaskan" : today ? "Latihan hari ini" : "Latihan berikutnya"}
+        {today ? "Latihan hari ini" : "Latihan berikutnya"}
       </p>
       {next ? (
         <>
@@ -399,6 +411,46 @@ function NextPractice({
           untuk mulai melihat latihan.
         </p>
       ) : null}
+    </section>
+  );
+}
+
+function OverduePractices({
+  items,
+  practiceCta,
+}: {
+  items: DashboardPractice[];
+  practiceCta: ReturnType<typeof homePracticeCta>;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section aria-labelledby="overdue-sessions" className="grid min-w-0 gap-3">
+      <h2 id="overdue-sessions" className="text-card-title">
+        Perlu dituntaskan
+      </h2>
+      {items.map((item) => {
+        const date = dashboardPracticeDate(item);
+        const key = "scheduleId" in item ? `schedule-${item.scheduleId}` : item.id;
+        return (
+          <article key={key} className="min-w-0 rounded-2xl border border-border bg-card p-4">
+            <p className="text-sm font-semibold text-muted-foreground">
+              Terlambat · {formatDateId(date, "EEEE, d MMM")}
+            </p>
+            <h3 className="text-section-title mt-1 [overflow-wrap:anywhere]">{item.title}</h3>
+            <p className="mt-2 flex items-start gap-2 text-sm">
+              <CalendarDays className="mt-0.5 size-4 shrink-0" />
+              <span>{item.startTime || "Jam belum ditentukan"}</span>
+            </p>
+            <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+              <MapPin className="mt-0.5 size-4 shrink-0" />
+              <span>{item.location || "Lokasi belum ditentukan"}</span>
+            </p>
+            <div className="mt-4">
+              <PracticeCta next={item} practiceCta={practiceCta} />
+            </div>
+          </article>
+        );
+      })}
     </section>
   );
 }
