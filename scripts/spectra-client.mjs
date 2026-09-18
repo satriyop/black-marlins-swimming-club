@@ -8,6 +8,8 @@
  */
 
 export const SPECTRA_BASE = "https://globiesoft.com/rlist_off/php";
+export const SPECTRA_EMPTY_MESSAGE =
+  "Spectra SwimPro sedang tidak mengirim data. Coba sinkronkan lagi nanti.";
 const BASE = SPECTRA_BASE;
 
 /** Retry budget for the interactive path (a coach/parent waiting on a
@@ -69,10 +71,23 @@ export async function fetchEventsList({ maxPages = 30, ...retryOpts } = {}) {
     let rows;
     try {
       rows = await fetchJsonPatient(url, retryOpts);
-    } catch {
-      break; // exhausted retries on a real end-of-pages response
+    } catch (cause) {
+      // A catalog cannot legitimately have no first page. Keep later-page
+      // failures as pagination termination, but make a failed bootstrap run
+      // visible to systemd and operators.
+      if (page === 1) throw new Error(SPECTRA_EMPTY_MESSAGE, { cause });
+      break;
     }
-    if (!Array.isArray(rows) || rows.length === 0) break;
+    if (!Array.isArray(rows)) {
+      throw new Error("Spectra SwimPro mengirim format data yang tidak dikenali.");
+    }
+    if (rows.length === 0) {
+      // The catalog always has historical meets. An empty first page is the
+      // provider's outage signature, not a legitimate empty catalog. Later
+      // empty pages simply mark the end of pagination.
+      if (page === 1) throw new Error(SPECTRA_EMPTY_MESSAGE);
+      break;
+    }
     all.push(...rows);
   }
   return all;

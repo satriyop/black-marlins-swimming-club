@@ -344,7 +344,11 @@ EOF
 Description=Daily Spectra meet catalog sync for Black Marlins Swimming Club
 
 [Timer]
-OnCalendar=*-*-* 03:15:00
+# Run shortly after first installation so a fresh production database does
+# not remain empty until the next calendar tick. Calendar time is explicitly
+# WIB because aidev itself runs in UTC.
+OnActiveSec=2min
+OnCalendar=*-*-* 03:15:00 Asia/Jakarta
 RandomizedDelaySec=600
 Persistent=true
 
@@ -622,7 +626,7 @@ cmd_sync_meets() {
 cmd_install_sync_timer() {
   need_root
   write_sync_timer
-  echo "installed ${SYNC_SERVICE}.timer (daily, 03:15 + up to 10m jitter)"
+  echo "installed ${SYNC_SERVICE}.timer (first run after 2m; daily, 03:15 WIB + up to 10m jitter)"
   systemctl list-timers "${SYNC_SERVICE}.timer" --no-pager || true
 }
 

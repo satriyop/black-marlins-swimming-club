@@ -1,6 +1,11 @@
 import type { Actor } from "./actor";
 import { refreshPbFlag } from "./results";
-import { fetchJsonPatient, INTERACTIVE_RETRY, SPECTRA_BASE as BASE } from "../../../scripts/spectra-client.mjs";
+import {
+  fetchJsonPatient,
+  INTERACTIVE_RETRY,
+  SPECTRA_BASE as BASE,
+  SPECTRA_EMPTY_MESSAGE,
+} from "../../../scripts/spectra-client.mjs";
 import { isRelay, normalizeAthleteHistoryRow } from "../../../scripts/spectra-athlete-parse.mjs";
 
 export type FetchAthleteHistory = (athleteId: string) => Promise<unknown[]>;
@@ -45,6 +50,10 @@ export async function syncSpectraResultsForSwimmer(
   skippedDuplicate: number;
 }> {
   const rawRows = await fetchAthleteHistory(input.athleteId);
+  // A linked athlete was discovered from at least one published race result,
+  // so their history cannot legitimately be empty. Spectra returns [] during
+  // outages; surface that state instead of claiming a successful zero import.
+  if (rawRows.length === 0) throw new Error(SPECTRA_EMPTY_MESSAGE);
 
   let inserted = 0;
   let skippedNoMeet = 0;

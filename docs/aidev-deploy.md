@@ -127,9 +127,10 @@ sudo bash scripts/bmsc.sh install-sync-timer
 ```
 
 This writes `bmsc-sync-meets.service` (oneshot, runs `bmsc.sh sync-meets` as
-`${APP_USER}`, not root) and `bmsc-sync-meets.timer` (`OnCalendar=*-*-*
-03:15:00`, `RandomizedDelaySec=600`, `Persistent=true` so a missed fire from
-downtime catches up on the next boot), then enables and starts the timer.
+`${APP_USER}`, not root) and `bmsc-sync-meets.timer` (first run two minutes
+after installation, then `OnCalendar=*-*-* 03:15:00 Asia/Jakarta`,
+`RandomizedDelaySec=600`, `Persistent=true` so a missed fire from downtime
+catches up on the next boot), then enables and starts the timer.
 Because the service shells back into `bmsc.sh sync-meets` — which resolves
 `current` fresh on every fire — this unit never needs rewriting on deploy,
 unlike `bmsc.service`'s per-release `WorkingDirectory`.

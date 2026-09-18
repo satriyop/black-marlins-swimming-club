@@ -1,5 +1,10 @@
 import type { Actor } from "./actor";
-import { fetchJsonPatient, INTERACTIVE_RETRY, SPECTRA_BASE as BASE } from "../../../scripts/spectra-client.mjs";
+import {
+  fetchJsonPatient,
+  INTERACTIVE_RETRY,
+  SPECTRA_BASE as BASE,
+  SPECTRA_EMPTY_MESSAGE,
+} from "../../../scripts/spectra-client.mjs";
 import { isRelay, nameMatches, normalizeResultRow, parseEventDescr } from "../../../scripts/spectra-athlete-parse.mjs";
 
 export type SpectraMatch = {
@@ -84,12 +89,14 @@ export async function findSpectraMatches({
   const genderWord = gender === "putri" ? "putri" : "putra";
   const found = new Map<string, SpectraMatch>();
   let totalChecked = 0;
+  let meetsWithRaces = 0;
   const deadline = Date.now() + maxWallClockMs;
   const outOfTime = () => Date.now() > deadline;
 
   for (const meetCode of candidateMeetCodes) {
     if (outOfTime()) break;
     const races = await fetchRaceList(meetCode);
+    if (races.length > 0) meetsWithRaces += 1;
     const candidates = races.filter((r) => {
       if (isRelay(r)) return false;
       const { gender: raceGender } = parseEventDescr(r.nomordescr);
@@ -122,6 +129,10 @@ export async function findSpectraMatches({
 
     if (found.size > 0) break; // confident match(es) found -- stop searching further meets
     if (totalChecked >= maxTotalRaceChecks) break;
+  }
+
+  if (candidateMeetCodes.length > 0 && meetsWithRaces === 0) {
+    throw new Error(SPECTRA_EMPTY_MESSAGE);
   }
 
   return [...found.values()];
