@@ -120,6 +120,7 @@ test("normalizeResultRow rejects a row that doesn't look like events_resultbyeve
 test("nameMatches is case/whitespace insensitive and allows substring recall", () => {
   expect(nameMatches("LAUZAH BATRISYA AZZAHRA", "lauzah batrisya azzahra")).toBe(true);
   expect(nameMatches("LAUZAH BATRISYA AZZAHRA", "Lauzah Batrisya")).toBe(true);
+  expect(nameMatches("LUIGI  BANYU PAMUNGKAS", "Luigi Banyu Pamungkas")).toBe(true);
   expect(nameMatches("LAUZAH BATRISYA AZZAHRA", "Chyara Nayla")).toBe(false);
 });
 

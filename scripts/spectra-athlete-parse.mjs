@@ -170,7 +170,13 @@ export function normalizeAthleteHistoryRow(row) {
  *  @param {string} candidateName @param {string} query */
 export function nameMatches(candidateName, query) {
   /** @param {string} s */
-  const norm = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  const norm = (s) =>
+    String(s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .trim()
+      .replace(/\s+/g, " ");
   const a = norm(candidateName);
   const b = norm(query);
   if (!a || !b) return false;
