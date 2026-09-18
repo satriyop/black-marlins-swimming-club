@@ -3,6 +3,7 @@ import {
   fetchAthletesByNameLive,
   findSpectraMatches,
   spectraNameSearchUrl,
+  spectraNameSearchTerms,
 } from "../src/lib/club/spectra-match";
 import { resetSpectraKeyCache } from "../src/lib/server/spectra-key.server";
 
@@ -45,6 +46,14 @@ test("builds the direct result-by-name URL with an explicit page", () => {
   );
 });
 
+test("uses distinctive single-word terms because Spectra rejects multi-word searches", () => {
+  expect(spectraNameSearchTerms(" Luigi Banyu Pamungkas ")).toEqual([
+    "Pamungkas",
+    "Luigi",
+    "Banyu",
+  ]);
+});
+
 test("finds and normalizes a swimmer whose name, gender, and club match", async () => {
   const fetchAthletesByName = vi.fn(async () => [LUIGI]);
 
@@ -65,7 +74,7 @@ test("finds and normalizes a swimmer whose name, gender, and club match", async 
       club: "BLACK MARLINS SWIMMING CLUB KLATEN",
     },
   ]);
-  expect(fetchAthletesByName).toHaveBeenCalledWith("KRAPPROVBYL2026", "Luigi Banyu Pamungkas", 1);
+  expect(fetchAthletesByName).toHaveBeenCalledWith("KRAPPROVBYL2026", "Pamungkas", 1);
 });
 
 test("filters same-name swimmers from another club or gender", async () => {
@@ -100,8 +109,8 @@ test("an empty successful search moves to the next meet without retrying pages",
 
   expect(matches).toHaveLength(1);
   expect(fetchAthletesByName.mock.calls).toEqual([
-    ["MEET_ONE", "Luigi Banyu Pamungkas", 1],
-    ["MEET_TWO", "Luigi Banyu Pamungkas", 1],
+    ["MEET_ONE", "Pamungkas", 1],
+    ["MEET_TWO", "Pamungkas", 1],
   ]);
 });
 
@@ -125,7 +134,33 @@ test("paginates a full name-search page", async () => {
   });
 
   expect(matches).toHaveLength(1);
-  expect(fetchAthletesByName).toHaveBeenNthCalledWith(2, "MEET_ONE", "Luigi Banyu Pamungkas", 2);
+  expect(fetchAthletesByName).toHaveBeenNthCalledWith(2, "MEET_ONE", "Pamungkas", 2);
+});
+
+test("tries another name token when the first token exceeds the page cap", async () => {
+  const crowded = Array.from({ length: 20 }, (_, id) => ({
+    ...LUIGI,
+    id: String(id),
+    name: `OTHER PAMUNGKAS ${id}`,
+  }));
+  const fetchAthletesByName = vi.fn(async (_meet: string, term: string) =>
+    term === "Pamungkas" ? crowded : [LUIGI],
+  );
+
+  const matches = await findSpectraMatches({
+    fullName: "Luigi Banyu Pamungkas",
+    gender: "putra",
+    candidateMeetCodes: ["MEET_ONE"],
+    clubKeywords: ["Klaten"],
+    maxPagesPerMeet: 1,
+    fetchAthletesByName,
+  });
+
+  expect(matches).toHaveLength(1);
+  expect(fetchAthletesByName.mock.calls).toEqual([
+    ["MEET_ONE", "Pamungkas", 1],
+    ["MEET_ONE", "Luigi", 1],
+  ]);
 });
 
 test("provider failures remain errors instead of becoming false no-match results", async () => {
