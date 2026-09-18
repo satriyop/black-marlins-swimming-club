@@ -37,11 +37,17 @@ async function sleep(ms) {
  * Fetch one URL, retrying on network error, non-200, or an empty [] body
  * (their flakiness signature) up to `retries` times with linear backoff.
  * @param {string} url
- * @param {{retries?: number, delayMs?: number, apiKey?: string, fetchImpl?: typeof fetch}} [options]
+ * @param {{retries?: number, delayMs?: number, retryEmpty?: boolean, apiKey?: string, fetchImpl?: typeof fetch}} [options]
  */
 export async function fetchJsonPatient(
   url,
-  { retries = 8, delayMs = 15_000, apiKey = process.env.SPECTRA_API_KEY, fetchImpl = fetch } = {},
+  {
+    retries = 8,
+    delayMs = 15_000,
+    retryEmpty = true,
+    apiKey = process.env.SPECTRA_API_KEY,
+    fetchImpl = fetch,
+  } = {},
 ) {
   /** @type {unknown} */
   let lastErr;
@@ -57,7 +63,7 @@ export async function fetchJsonPatient(
       } catch {
         throw new Error(`non-JSON response: ${text.slice(0, 200)}`);
       }
-      if (Array.isArray(data) && data.length === 0 && attempt < retries) {
+      if (retryEmpty && Array.isArray(data) && data.length === 0 && attempt < retries) {
         throw new Error(
           "empty response (missing/invalid SPECTRA_API_KEY, or their backend under load)",
         );

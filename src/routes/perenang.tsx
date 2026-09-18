@@ -170,7 +170,7 @@ export function SwimmerDialog({
         setSelectedMatch(null);
       }
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: () => setMatches(null),
   });
   const mut = useMutation({
     mutationFn: () =>
@@ -333,7 +333,14 @@ export function SwimmerDialog({
               </div>
               {matches !== null && matches.length === 0 ? (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Tidak ditemukan. Isi data secara manual di bawah.
+                  Tidak ada perenang yang cocok di Spectra. Periksa nama dan jenis kelamin, atau isi data secara manual.
+                </p>
+              ) : null}
+              {searchMut.isError ? (
+                <p className="mt-2 text-xs text-destructive">
+                  {searchMut.error instanceof Error
+                    ? searchMut.error.message
+                    : "Spectra sedang tidak dapat dihubungi. Coba lagi."}
                 </p>
               ) : null}
               {matches !== null && matches.length === 1 ? (
