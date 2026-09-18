@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import {
+  candidateMeetCodesFor,
   fetchAthletesByNameLive,
   findSpectraMatches,
   spectraNameSearchUrl,
@@ -112,6 +113,23 @@ test("an empty successful search moves to the next meet without retrying pages",
     ["MEET_ONE", "Pamungkas", 1],
     ["MEET_TWO", "Pamungkas", 1],
   ]);
+});
+
+test("loads enough recent meets to find swimmers beyond the old 15-meet window", async () => {
+  const rows = Array.from({ length: 21 }, (_, index) => ({
+    spectra_event_code: `MEET_${index + 1}`,
+  }));
+  const sql = vi.fn(async (_strings: TemplateStringsArray, ..._values: unknown[]) => rows);
+
+  const codes = await candidateMeetCodesFor({
+    clubId: 7,
+    userId: "test-user",
+    sql: sql as never,
+  });
+
+  expect(sql.mock.calls[0]?.slice(1)).toEqual([7, 30]);
+  expect(codes).toHaveLength(21);
+  expect(codes.at(-1)).toBe("MEET_21");
 });
 
 test("paginates a full name-search page", async () => {

@@ -147,7 +147,7 @@ export async function findSpectraMatches({
  * have no published results and must not consume the interactive budget. */
 export async function candidateMeetCodesFor(
   actor: Actor & { clubId: number },
-  limit = 15,
+  limit = 30,
 ): Promise<string[]> {
   const rows = await actor.sql<{ spectra_event_code: string }>`
     select spectra_event_code from meets
