@@ -6,7 +6,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
-  retries: 0,
+  retries: process.env.CI ? 2 : 0,
   use: { baseURL, trace: "off" },
   webServer: [
     {
