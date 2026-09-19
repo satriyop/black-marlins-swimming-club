@@ -181,7 +181,7 @@ test("gate marker keeps sign-out unavailable", async ({ page, context, baseURL }
     expect(await page.evaluate(() => document.cookie)).toContain("__Host-grok_gate_session=");
     await page.getByRole("button", { name: "Buka menu akun" }).click();
     await expect(page.getByRole("button", { name: "Keluar", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "Tampilan" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Tampilan", exact: true })).toBeVisible();
   } finally {
     await fixture.cleanup();
   }

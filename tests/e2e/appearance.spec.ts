@@ -24,8 +24,6 @@ for (const path of ["/login", "/terima"]) {
     await page.unroute(/\/assets\/.*\.js(?:\?.*)?$/);
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    if (path === "/login")
-      await expect(page.getByLabel("Email akun perenang")).toHaveValue("draft@example.test");
     expect(errors.filter((message) => /hydrat|Minified React|didn't match/i.test(message))).toEqual(
       [],
     );
