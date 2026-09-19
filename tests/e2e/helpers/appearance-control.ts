@@ -7,8 +7,15 @@ const LABELS: Record<string, string> = {
 };
 
 export async function changeAppAppearance(page: Page, theme: string) {
-  await page.getByRole("button", { name: "Tampilan", exact: true }).click();
+  const trigger = page.getByRole("button", { name: "Tampilan", exact: true });
+  await trigger.scrollIntoViewIfNeeded();
+  await trigger.click();
   await page.getByRole("menuitemradio", { name: LABELS[theme] }).click();
+  if (theme === "dark" || theme === "light") {
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  } else {
+    await expect(page.locator("html")).toHaveAttribute("data-appearance", "system");
+  }
 }
 
 export async function expectAppearanceChoice(page: Page, theme: string) {

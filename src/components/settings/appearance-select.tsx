@@ -1,5 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
 import { Monitor, Moon, Sun } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { setAppearance, useAppearance, type Appearance } from "@/lib/appearance";
@@ -12,9 +13,10 @@ const CHOICES: { value: Appearance; label: string; Icon: typeof Sun }[] = [
 
 export function AppearanceSelect() {
   const appearance = useAppearance();
+  const [open, setOpen] = useState(false);
   const Current = CHOICES.find((choice) => choice.value === appearance)?.Icon ?? Monitor;
   return (
-    <Popover.Root>
+    <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <Button type="button" size="icon" variant="ghost" aria-label="Tampilan">
           <Current />
@@ -30,21 +32,23 @@ export function AppearanceSelect() {
           className="z-50 grid min-w-52 gap-1 rounded-xl border border-input bg-popover p-1 text-popover-foreground shadow-elevated"
         >
           {CHOICES.map(({ value, label, Icon }) => (
-            <Popover.Close asChild key={value}>
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={appearance === value}
-                className={cn(
-                  "flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-muted",
-                  appearance === value && "bg-selected font-semibold text-primary",
-                )}
-                onClick={() => setAppearance(value)}
-              >
-                <Icon />
-                {label}
-              </button>
-            </Popover.Close>
+            <button
+              type="button"
+              key={value}
+              role="menuitemradio"
+              aria-checked={appearance === value}
+              className={cn(
+                "flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-muted",
+                appearance === value && "bg-selected font-semibold text-primary",
+              )}
+              onClick={() => {
+                setAppearance(value);
+                setOpen(false);
+              }}
+            >
+              <Icon />
+              {label}
+            </button>
           ))}
         </Popover.Content>
       </Popover.Portal>
