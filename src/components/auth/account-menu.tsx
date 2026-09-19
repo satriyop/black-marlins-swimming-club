@@ -47,6 +47,7 @@ export function AccountMenu({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
+          role="dialog"
           aria-label="Akun"
           align="end"
           sideOffset={8}

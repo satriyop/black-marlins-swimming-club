@@ -61,6 +61,7 @@ for (const theme of ["dark", "light"]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(fixture);
     await changeAppAppearance(page, theme);
+    await page.keyboard.press("Escape");
     await page.evaluate(
       () =>
         new Promise<void>((resolve) =>

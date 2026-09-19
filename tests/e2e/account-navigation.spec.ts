@@ -105,6 +105,9 @@ test("desktop shell shows the signed-in account and dual-role task switch (#96)"
     await fixture.signIn(context, baseURL!);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
+    await expect(page.getByRole("button", { name: "Buka menu akun" })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText("Pelatih Hardiyanto Wibowo")).toHaveCount(0);
     const account = page.getByLabel("Akun masuk");
     await expect(account.getByText(fixture.name)).toBeVisible();

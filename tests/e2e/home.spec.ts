@@ -26,6 +26,7 @@ test("guardian home shows child identity and next-practice action without scroll
     await expect(page.getByRole("heading", { name: /Selamat/ })).toHaveCount(0);
     for (const theme of ["dark", "light"] as const) {
       await changeAppAppearance(page, theme);
+      await page.keyboard.press("Escape");
       await page.screenshot({
         path: info.outputPath(`guardian-${theme}.png`),
         fullPage: true,
