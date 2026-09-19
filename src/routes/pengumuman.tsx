@@ -21,6 +21,8 @@ function Page() {
     queryKey: ["announcements"],
     queryFn: () => listAnnouncements(),
   });
+  const visible = (data ?? []).filter((item) => !!item.archivedAt === archived);
+  const empty = !isPending && !isError && visible.length === 0;
 
   return (
     <AppShell>
@@ -28,7 +30,7 @@ function Page() {
         kicker="Papan klub"
         title="Pengumuman"
         description="Perubahan jadwal, tenggat kejuaraan, dan pesan pelatih. Membuka isi dicatat terpisah dari konfirmasi pengumuman penting."
-        action={canPost ? <AnnouncementComposer /> : undefined}
+        action={canPost && !empty ? <AnnouncementComposer /> : undefined}
       />
       <Button variant="secondary" onClick={() => setArchived(!archived)}>
         {archived ? "Lihat pengumuman aktif" : "Lihat arsip"}
@@ -37,7 +39,7 @@ function Page() {
         <div className="h-48 animate-pulse rounded-2xl bg-muted" />
       ) : isError ? (
         <QueryError retry={() => refetch()} />
-      ) : !data?.filter((item) => !!item.archivedAt === archived).length ? (
+      ) : empty ? (
         <EmptyState
           title={archived ? "Belum ada arsip" : "Belum ada pengumuman"}
           description={
@@ -51,9 +53,7 @@ function Page() {
         />
       ) : (
         <div className="grid gap-2">
-          {data
-            .filter((item) => !!item.archivedAt === archived)
-            .map((item) => (
+          {visible.map((item) => (
               <Link
                 key={item.id}
                 to="/pengumuman/$id"
