@@ -75,7 +75,6 @@ for (const role of ["guardian", "coach", "combined"] as const) {
       await page.keyboard.press("Escape");
       for (const theme of ["dark", "light"]) {
         await changeAppAppearance(page, theme);
-        await account.click();
         await expect(popover).toBeVisible();
         await page.screenshot({
           path: info.outputPath(`account-${theme}.png`),
@@ -106,6 +105,9 @@ test("desktop shell shows the signed-in account and dual-role task switch (#96)"
     await fixture.signIn(context, baseURL!);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
+    await expect(page.getByRole("button", { name: "Buka menu akun" })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText("Pelatih Hardiyanto Wibowo")).toHaveCount(0);
     const account = page.getByLabel("Akun masuk");
     await expect(account.getByText(fixture.name)).toBeVisible();
@@ -182,7 +184,7 @@ test("gate marker keeps sign-out unavailable", async ({ page, context, baseURL }
     expect(await page.evaluate(() => document.cookie)).toContain("__Host-grok_gate_session=");
     await page.getByRole("button", { name: "Buka menu akun" }).click();
     await expect(page.getByRole("button", { name: "Keluar", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Tampilan", exact: true })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Tampilan", exact: true })).toBeVisible();
   } finally {
     await fixture.cleanup();
   }
@@ -207,7 +209,6 @@ test("navigation and account reflow with enlarged text and reserve bottom space"
       await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
       for (const theme of ["dark", "light"]) {
         await changeAppAppearance(page, theme);
-        await page.getByRole("button", { name: "Buka menu akun" }).click();
         const menu = page.getByRole("dialog", { name: "Akun", exact: true });
         await expect(menu.getByText(fixture.email, { exact: true })).toBeVisible();
         const overflowing = await page.evaluate(() =>

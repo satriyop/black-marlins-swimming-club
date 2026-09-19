@@ -10,8 +10,6 @@ import { Field, Input } from "@/components/ui/input";
 import { QueryError } from "@/components/ui/query-error";
 import { cn, formatDateId } from "@/lib/utils";
 
-import { AppearanceSelect } from "@/components/settings/appearance-select";
-
 function StatusCard({
   tone,
   icon: Icon,
@@ -85,9 +83,6 @@ function Page() {
       : "";
   return (
     <main className="mx-auto grid max-w-md gap-4 px-4 py-12">
-      <div className="justify-self-end">
-        <AppearanceSelect />
-      </div>
       <img
         src="/images/crest.jpg"
         alt="Black Marlins Swimming Club"

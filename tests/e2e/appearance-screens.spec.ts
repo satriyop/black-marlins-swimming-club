@@ -22,6 +22,7 @@ for (const width of [390, 1440]) {
         await expect(page.locator("#main-content")).not.toContainText("Memuat");
         for (const theme of ["dark", "light"]) {
           await changeAppAppearance(page, theme);
+          await page.keyboard.press("Escape");
           await page.evaluate(() => document.fonts.ready);
           await page.screenshot({
             path: info.outputPath(`${name}-${theme}.png`),

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AppearanceChoices } from "@/components/settings/appearance-select";
 import type { AppUser } from "@/lib/auth/use-current-user";
 
 export function AccountMenu({
@@ -46,6 +47,7 @@ export function AccountMenu({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
+          role="dialog"
           aria-label="Akun"
           align="end"
           sideOffset={8}
@@ -75,6 +77,7 @@ export function AccountMenu({
             )}
           </div>
           {children}
+          <AppearanceChoices />
           {onSignOut && (
             <div className="grid gap-2 border-t border-border pt-4">
               {error && (
