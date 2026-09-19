@@ -378,7 +378,7 @@ function UninvitedHelp() {
     <div className="mx-auto max-w-lg">
       <EmptyState
         title={UNINVITED_MESSAGE}
-        description="Skuad klub tidak ditampilkan sampai admin mengundang akun ini. Staf dan wali masuk dengan Google. Akun perenang memakai email dan password."
+        description="Skuad klub tidak ditampilkan sampai admin mengundang akun ini. Staf, wali, dan perenang masuk dengan Google."
       />
       <div className="mt-4 grid gap-3 rounded-2xl bg-card p-5 text-sm shadow-border">
         <PublicContactLines info={info} />

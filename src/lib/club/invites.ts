@@ -200,13 +200,6 @@ export async function createInvite(
       throw new Error("Email ini sudah staf klub.");
     }
   }
-  if (input.kind === "swimmer_account") {
-    const taken = await actor.sql<{
-      n: number;
-    }>`select count(*)::int as n from "user" where lower(email) = ${email}`;
-    if ((taken[0]?.n ?? 0) > 0) throw new Error("Email ini sudah terpakai.");
-  }
-
   const pending = await actor.sql<{
     kind: string;
     payload: { role?: StaffRole | null; swimmerIds?: number[] } | string;
@@ -376,7 +369,7 @@ export async function acceptPendingInvitesForEmail(
       and accepted_at is null
       and revoked_at is null
       and expires_at > now()
-      and kind in ('staff', 'guardian')
+      and kind in ('staff', 'guardian', 'swimmer_account')
   `;
   for (const row of pending) {
     await acceptInvite(sql, { token: row.token, userId, email });

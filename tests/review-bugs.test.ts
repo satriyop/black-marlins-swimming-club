@@ -3,9 +3,7 @@ import { listPracticeAttendance } from "../src/lib/club/attendance";
 import { getDashboardData, meetEntryNames } from "../src/lib/club/dashboard";
 import { hatsFor } from "../src/lib/club/hats";
 import {
-  acceptInvite,
   acceptPendingInvitesForEmail,
-  acceptSwimmerInvite,
   createInvite,
   listInvites,
 } from "../src/lib/club/invites";
@@ -32,24 +30,24 @@ test("accept staff invite by matching email grants coach", async () => {
   expect((await hatsFor(h.actor("usr_hardi"))).staff).toBe("coach");
 });
 
-test("accept swimmer_account invite creates a password login linked to that perenang", async () => {
+test("Google login consumes a pending swimmer invite and links that perenang", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number; full_name: string }>`select id, full_name from swimmers`;
   const luigi = kids.find((s) => s.full_name === "Perenang Tiga")!;
-  const invite = await createInvite(h.actor(RATIH_ID), {
+  await createInvite(h.actor(RATIH_ID), {
     kind: "swimmer_account",
     email: "luigi@example.com",
     swimmerIds: [luigi.id],
   });
-  const { userId } = await acceptSwimmerInvite(h.sql, { token: invite.token, password: "renang123" });
-  const linked = await h.sql<{ user_id: string | null }>`select user_id from swimmers where id = ${luigi.id}`;
-  expect(linked[0]?.user_id).toBe(userId);
-  const accounts = await h.sql<{ providerId: string; password: string | null }>`
-    select "providerId" as "providerId", password from account where "userId" = ${userId}
+  await h.sql`
+    insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+    values ('usr_luigi', 'Luigi', 'luigi@example.com', true, now(), now())
   `;
-  expect(accounts[0]?.providerId).toBe("credential");
-  expect(accounts[0]?.password).toBeTruthy();
+  await acceptPendingInvitesForEmail(h.sql, "usr_luigi");
+  const linked = await h.sql<{ user_id: string | null }>`select user_id from swimmers where id = ${luigi.id}`;
+  expect(linked[0]?.user_id).toBe("usr_luigi");
+  expect((await hatsFor(h.actor("usr_luigi"))).selfSwimmerId).toBe(luigi.id);
 });
 
 test("weaker staff invite does not downgrade superadmin", async () => {

@@ -6,21 +6,18 @@ import { emailAndPasswordEnabled } from "../src/lib/auth/email-password";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("Masuk source has Google and password sign-in and no public register", () => {
+test("Masuk source has Google sign-in and no public register or password form", () => {
   const src = readFileSync(join(root, "src/components/auth/login-screen.tsx"), "utf8");
-  const client = readFileSync(join(root, "src/lib/auth/client.ts"), "utf8");
   const auth = readFileSync(join(root, "src/lib/auth/server.ts"), "utf8");
   expect(src).toContain("Masuk dengan Google");
-  expect(src).toContain('type="password"');
-  expect(src).toContain("signInWithPassword");
+  expect(src).not.toContain("signInWithPassword");
+  expect(src).not.toContain("Masuk dengan password");
   expect(src.toLowerCase()).not.toContain("daftar akun");
   expect(src.toLowerCase()).not.toContain("sign up");
-  expect(client).toContain("signInWithPassword");
-  expect(client).toContain("authClient.signIn.email");
   expect(src).toContain("callbackURL: dest");
   expect(src).toContain("errorCallbackURL");
   expect(auth).toContain("disableSignUp: true");
-  expect(emailAndPasswordEnabled).toBe(true);
+  expect(emailAndPasswordEnabled).toBe(false);
 });
 
 test("detail route files are flattened siblings", () => {
