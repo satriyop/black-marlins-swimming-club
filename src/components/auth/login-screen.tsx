@@ -83,7 +83,7 @@ export function LoginScreen({
       />
       <div className="absolute inset-0 login-overlay" />
       <div className="relative mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12">
-        <div className="mb-6 w-full max-w-48 self-end">
+        <div className="mb-6 self-end">
           <AppearanceSelect />
         </div>
         <div className="rise-in mb-8 flex flex-col items-center text-center">

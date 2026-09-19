@@ -72,16 +72,17 @@ for (const role of ["guardian", "coach", "combined"] as const) {
         await popover.getByRole("button", { name: "Urus klub", exact: true }).click();
         await expect(nav.getByRole("link", { name: "Skuad", exact: true })).toBeVisible();
       } else await expect(popover.getByRole("group", { name: "Tampilan tugas" })).toHaveCount(0);
+      await page.keyboard.press("Escape");
       for (const theme of ["dark", "light"]) {
-        await popover.getByLabel("Tampilan", { exact: true }).focus();
-        await popover.getByLabel("Tampilan", { exact: true }).selectOption(theme);
-        await expect(popover.getByLabel("Tampilan", { exact: true })).toBeFocused();
+        await changeAppAppearance(page, theme);
+        await account.click();
+        await expect(popover).toBeVisible();
         await page.screenshot({
           path: info.outputPath(`account-${theme}.png`),
           animations: "disabled",
         });
+        await page.keyboard.press("Escape");
       }
-      await page.keyboard.press("Escape");
       await expect(account).toBeFocused();
       await expect(popover).toHaveCount(0);
       await nav.getByRole("link", { name: "Hari Ini" }).click();
@@ -181,7 +182,7 @@ test("gate marker keeps sign-out unavailable", async ({ page, context, baseURL }
     expect(await page.evaluate(() => document.cookie)).toContain("__Host-grok_gate_session=");
     await page.getByRole("button", { name: "Buka menu akun" }).click();
     await expect(page.getByRole("button", { name: "Keluar", exact: true })).toHaveCount(0);
-    await expect(page.getByLabel("Tampilan", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Tampilan", exact: true })).toBeVisible();
   } finally {
     await fixture.cleanup();
   }

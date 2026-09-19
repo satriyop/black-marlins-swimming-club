@@ -2,7 +2,7 @@ import * as Popover from "@radix-ui/react-popover";
 import * as Avatar from "@radix-ui/react-avatar";
 import { useState, type ReactNode } from "react";
 import { X } from "lucide-react";
-import { AppearanceSelect } from "@/components/settings/appearance-select";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { AppUser } from "@/lib/auth/use-current-user";
@@ -75,7 +75,6 @@ export function AccountMenu({
             )}
           </div>
           {children}
-          <AppearanceSelect />
           {onSignOut && (
             <div className="grid gap-2 border-t border-border pt-4">
               {error && (
