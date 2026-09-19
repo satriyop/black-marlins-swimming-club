@@ -1,8 +1,10 @@
 import { QueryError } from "@/components/ui/query-error";
-import { formatDateId } from "@/lib/utils";
+import { cn, formatDateId } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { MoreHorizontal } from "lucide-react";
+import * as Popover from "@radix-ui/react-popover";
 import { toast } from "sonner";
 import {
   createClubInvite,
@@ -25,7 +27,13 @@ import {
   unlinkClubGuardian,
 } from "@/lib/server/fns";
 import { accessHelpKindLabel } from "@/lib/club/members";
+import {
+  groupInviteHistory,
+  groupedSwimmerIds,
+  liveInvites,
+} from "@/lib/club/invite-list";
 import { canSeeUndangan } from "@/lib/club/nav";
+import type { InviteRow } from "@/lib/club/invites";
 import { AppShell, EmptyState, PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Field, Input, SelectNative } from "@/components/ui/input";
@@ -42,6 +50,103 @@ function staffRoleLabel(role: StaffRole): string {
   if (role === "club_admin") return "Admin klub";
   if (role === "superadmin") return "Superadmin";
   return "Pelatih";
+}
+
+function inviteKindLabel(invite: InviteRow): string {
+  if (invite.kind === "guardian") return "Wali";
+  if (invite.kind === "swimmer_account") return "Akun perenang";
+  return "Staf";
+}
+
+function inviteStatusLabel(status: InviteRow["status"]): string {
+  if (status === "accepted") return "Diterima";
+  if (status === "expired") return "Kedaluwarsa";
+  if (status === "revoked") return "Dibatalkan";
+  return "Menunggu";
+}
+
+function RowActions({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <Button type="button" size="icon" variant="ghost" aria-label={label}>
+          <MoreHorizontal />
+        </Button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          className="z-50 grid min-w-52 gap-1 rounded-xl border border-input bg-popover p-1 text-popover-foreground shadow-elevated"
+        >
+          {children}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+function InviteSummary({
+  email,
+  kindLabel,
+  role,
+  swimmerLabel,
+  statusLabel,
+  invitedBy,
+  expiresAt,
+  acceptedAt,
+  revokedAt,
+}: {
+  email: string | null;
+  kindLabel: string;
+  role?: StaffRole | null;
+  swimmerLabel: string | null;
+  statusLabel: string;
+  invitedBy?: string | null;
+  expiresAt: string;
+  acceptedAt?: string | null;
+  revokedAt?: string | null;
+}) {
+  return (
+    <>
+      <p className="font-medium [overflow-wrap:anywhere]">{email}</p>
+      <p className="text-muted-foreground [overflow-wrap:anywhere]">
+        {kindLabel}
+        {role ? ` · ${staffRoleLabel(role)}` : ""}
+        {swimmerLabel ? ` · ${swimmerLabel}` : ""}
+        {` · ${statusLabel}`}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {invitedBy ? `Oleh ${invitedBy}` : "Diundang"}
+        {` · ${formatDateId(expiresAt)}`}
+        {acceptedAt ? ` · diterima ${formatDateId(acceptedAt)}` : ""}
+        {revokedAt ? ` · dicabut ${formatDateId(revokedAt)}` : ""}
+      </p>
+    </>
+  );
+}
+
+function RowActionButton({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick: () => void | Promise<void>;
+}) {
+  return (
+    <Popover.Close asChild>
+      <button
+        type="button"
+        className={cn(
+          "min-h-11 rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-muted",
+        )}
+        onClick={() => void onClick()}
+      >
+        {children}
+      </button>
+    </Popover.Close>
+  );
 }
 
 async function copyText(text: string): Promise<boolean> {
@@ -116,6 +221,10 @@ function Page() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const allInvites = invites.data ?? [];
+  const live = liveInvites(allInvites);
+  const history = groupInviteHistory(allInvites);
 
   if (access.data && hats && !canSeeUndangan(hats)) {
     return (
@@ -314,109 +423,163 @@ function Page() {
             <p role="status">Memuat undangan…</p>
           ) : invites.isError ? (
             <QueryError retry={() => invites.refetch()} />
-          ) : !invites.data?.length ? (
-            <p className="text-sm text-muted-foreground">Belum ada undangan.</p>
           ) : (
-            <ul className="grid gap-2">
-              {invites.data.map((inv) => {
-                const url = acceptUrl(inv.acceptPath);
-                const status = inv.status ?? "pending";
-                return (
-                  <li
-                    key={inv.id}
-                    className="grid gap-2 rounded-2xl bg-card p-4 text-sm shadow-border"
-                  >
-                    <p className="font-medium">{inv.email}</p>
-                    <p className="text-muted-foreground">
-                      {inv.kind === "guardian"
-                        ? "Wali"
-                        : inv.kind === "swimmer_account"
-                          ? "Akun perenang"
-                          : "Staf"}
-                      {inv.payload.role
-                        ? ` · ${inv.payload.role === "coach" ? "Pelatih" : inv.payload.role === "club_admin" ? "Admin klub" : "Superadmin"}`
-                        : ""}
-                      {inv.kind === "guardian" && !inv.payload.swimmerIds?.length
-                        ? " · Anak belum di sistem"
-                        : inv.payload.swimmerIds?.length
-                          ? ` · ${swimmerName(inv.payload.swimmerIds)}`
-                          : ""}
-                      {` · ${status === "pending" ? "Menunggu" : status === "accepted" ? "Diterima" : status === "expired" ? "Kedaluwarsa" : "Dibatalkan"}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {inv.invitedBy ? `Oleh ${inv.invitedBy}` : "Diundang"}
-                      {` · ${formatDateId(inv.expiresAt)}`}
-                      {inv.acceptedAt ? ` · diterima ${formatDateId(inv.acceptedAt)}` : ""}
-                      {inv.revokedAt ? ` · dicabut ${formatDateId(inv.revokedAt)}` : ""}
-                    </p>
-                    {status === "pending" || status === "expired" ? (
-                      <div className="flex flex-wrap gap-2">
-                        {status === "pending" ? (
-                          <>
-                            <Input
-                              aria-label={`Tautan untuk ${inv.email}`}
-                              readOnly
-                              value={url}
-                              className="font-mono text-xs"
-                              onFocus={(e) => e.currentTarget.select()}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={async () => {
-                                const ok = await copyText(url);
-                                toast.success(ok ? "Tautan disalin" : "Salin manual dari kotak tautan");
-                              }}
-                            >
-                              Salin
-                            </Button>
-                          </>
-                        ) : null}
-                        {staffOk ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={async () => {
-                                try {
-                                  await revokeClubInvite({ data: { id: inv.id } });
-                                  toast.success("Undangan dibatalkan");
-                                  await qc.invalidateQueries({ queryKey: ["invites"] });
-                                } catch (e) {
-                                  toast.error(e instanceof Error ? e.message : "Gagal");
-                                }
-                              }}
-                            >
-                              Cabut
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={async () => {
-                                try {
-                                  const next = await recreateClubInvite({ data: { id: inv.id } });
-                                  const copied = await copyText(acceptUrl(next.acceptPath));
-                                  toast.success(
-                                    copied
-                                      ? "Tautan baru disalin. Bagikan sendiri; email tidak terkirim otomatis."
-                                      : "Tautan baru dibuat. Bagikan sendiri.",
-                                  );
-                                  await qc.invalidateQueries({ queryKey: ["invites"] });
-                                } catch (e) {
-                                  toast.error(e instanceof Error ? e.message : "Gagal");
-                                }
-                              }}
-                            >
-                              Buat tautan baru
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="grid gap-3">
+              {live.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {history.length ? "Tidak ada undangan menunggu." : "Belum ada undangan."}
+                </p>
+              ) : (
+                <ul className="grid gap-2">
+                  {live.map((inv) => {
+                    const url = acceptUrl(inv.acceptPath);
+                    const status = inv.status ?? "pending";
+                    return (
+                      <li
+                        key={inv.id}
+                        className="grid gap-2 rounded-2xl bg-card p-4 text-sm shadow-border"
+                      >
+                        <InviteSummary
+                          email={inv.email}
+                          kindLabel={inviteKindLabel(inv)}
+                          role={inv.payload.role}
+                          swimmerLabel={
+                            inv.kind === "guardian" && !inv.payload.swimmerIds?.length
+                              ? "Anak belum di sistem"
+                              : inv.payload.swimmerIds?.length
+                                ? swimmerName(inv.payload.swimmerIds)
+                                : null
+                          }
+                          statusLabel={inviteStatusLabel(status)}
+                          invitedBy={inv.invitedBy}
+                          expiresAt={inv.expiresAt}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {status === "pending" ? (
+                            <>
+                              <Input
+                                aria-label={`Tautan untuk ${inv.email}`}
+                                readOnly
+                                value={url}
+                                className="font-mono text-xs"
+                                onFocus={(e) => e.currentTarget.select()}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={async () => {
+                                  const ok = await copyText(url);
+                                  toast.success(ok ? "Tautan disalin" : "Salin manual dari kotak tautan");
+                                }}
+                              >
+                                Salin
+                              </Button>
+                            </>
+                          ) : null}
+                          {staffOk ? (
+                            <>
+                              {status === "pending" ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={async () => {
+                                    try {
+                                      await revokeClubInvite({ data: { id: inv.id } });
+                                      toast.success("Undangan dibatalkan");
+                                      await qc.invalidateQueries({ queryKey: ["invites"] });
+                                    } catch (e) {
+                                      toast.error(e instanceof Error ? e.message : "Gagal");
+                                    }
+                                  }}
+                                >
+                                  Cabut
+                                </Button>
+                              ) : null}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    const next = await recreateClubInvite({ data: { id: inv.id } });
+                                    const copied = await copyText(acceptUrl(next.acceptPath));
+                                    toast.success(
+                                      copied
+                                        ? "Tautan baru disalin. Bagikan sendiri; email tidak terkirim otomatis."
+                                        : "Tautan baru dibuat. Bagikan sendiri.",
+                                    );
+                                    await qc.invalidateQueries({ queryKey: ["invites"] });
+                                  } catch (e) {
+                                    toast.error(e instanceof Error ? e.message : "Gagal");
+                                  }
+                                }}
+                              >
+                                Buat tautan baru
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {history.length > 0 ? (
+                <details className="rounded-2xl bg-card p-4 shadow-border">
+                  <summary className="min-h-11 cursor-pointer text-sm font-semibold">
+                    Riwayat undangan ({history.length})
+                  </summary>
+                  <ul className="mt-3 grid gap-2">
+                    {history.map((item) => {
+                      if (item.kind === "guardian-group") {
+                        const ids = groupedSwimmerIds(item.invites);
+                        const latest = item.invites
+                          .map((inv) => inv.acceptedAt)
+                          .filter(Boolean)
+                          .sort()
+                          .at(-1);
+                        return (
+                          <li key={item.key} className="grid gap-1 rounded-xl bg-muted/40 p-3 text-sm">
+                            <p className="font-medium">{item.email}</p>
+                            <p className="text-muted-foreground">
+                              Wali
+                              {ids.length ? ` · ${swimmerName(ids)}` : ""}
+                              {` · Diterima`}
+                            </p>
+                            {latest ? (
+                              <p className="text-xs text-muted-foreground">
+                                diterima {formatDateId(latest)}
+                              </p>
+                            ) : null}
+                          </li>
+                        );
+                      }
+                      const inv = item.invite;
+                      return (
+                        <li key={item.key} className="grid gap-1 rounded-xl bg-muted/40 p-3 text-sm">
+                          <InviteSummary
+                            email={inv.email}
+                            kindLabel={inviteKindLabel(inv)}
+                            role={inv.payload.role}
+                            swimmerLabel={
+                              inv.kind === "guardian" && !inv.payload.swimmerIds?.length
+                                ? "Anak belum di sistem"
+                                : inv.payload.swimmerIds?.length
+                                  ? swimmerName(inv.payload.swimmerIds)
+                                  : null
+                            }
+                            statusLabel={inviteStatusLabel(inv.status)}
+                            invitedBy={inv.invitedBy}
+                            expiresAt={inv.expiresAt}
+                            acceptedAt={inv.acceptedAt}
+                            revokedAt={inv.revokedAt}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </details>
+              ) : null}
+            </div>
           )}
         </div>
       </div>
@@ -460,70 +623,75 @@ function MembersDirectory() {
     <section className="mb-8">
       <h2 className="font-display mb-3 text-2xl">Anggota aktif</h2>
       <ul className="grid gap-2">
-        {(members.data ?? []).map((m) => (
+        {(members.data ?? []).map((m) => {
+          const hasRevoke = Boolean(m.staffRole || m.swimmerIds.length);
+          return (
           <li key={m.userId} className="rounded-2xl bg-card p-4 text-sm shadow-border">
-            <p className="font-medium">{m.name}</p>
-            <p className="text-muted-foreground">
-              {m.email}
-              {m.staffRole
-                ? ` · ${m.staffRole === "coach" ? "Pelatih" : m.staffRole === "club_admin" ? "Admin klub" : "Superadmin"}`
-                : ""}
-              {m.swimmerNames.length ? ` · Wali: ${m.swimmerNames.join(", ")}` : m.family ? " · Wali (belum ada anak)" : ""}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {m.staffRole ? (
-                <>
-                  <SelectNative
-                    key={`${m.userId}-${m.staffRole}`}
-                    value={m.staffRole}
-                    onChange={async (e) => {
-                      const role = e.target.value as StaffRole;
-                      if (!confirm(`Ubah peran ${m.name} menjadi ${role}?`)) return;
-                      try {
-                        await setClubStaffRole({ data: { userId: m.userId, role } });
-                        toast.success("Peran diperbarui");
-                        await qc.invalidateQueries({ queryKey: ["members"] });
-                        await qc.invalidateQueries({ queryKey: ["access"] });
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Gagal");
-                      }
-                    }}
-                  >
-                    <option value="coach">Pelatih</option>
-                    <option value="club_admin">Admin klub</option>
-                    {access.data?.hats.staff === "superadmin" ? (
-                      <option value="superadmin">Superadmin</option>
-                    ) : null}
-                  </SelectNative>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={async () => {
-                      if (!confirm(`Cabut peran staf ${m.name}? Akses wali tetap ada.`)) return;
-                      try {
-                        await revokeClubStaffRole({ data: { userId: m.userId } });
-                        toast.success("Peran staf dicabut");
-                        await qc.invalidateQueries({ queryKey: ["members"] });
-                        await qc.invalidateQueries({ queryKey: ["access"] });
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Gagal");
-                      }
-                    }}
-                  >
-                    Cabut staf
-                  </Button>
-                </>
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-medium [overflow-wrap:anywhere]">{m.name}</p>
+                <p className="text-muted-foreground [overflow-wrap:anywhere]">
+                  {m.email}
+                  {m.staffRole ? ` · ${staffRoleLabel(m.staffRole)}` : ""}
+                  {m.swimmerNames.length
+                    ? ` · Wali: ${m.swimmerNames.join(", ")}`
+                    : m.family
+                      ? " · Wali (belum ada anak)"
+                      : ""}
+                </p>
+              </div>
+              {hasRevoke ? (
+                <RowActions label={`Aksi untuk ${m.name}`}>
+                  {m.staffRole ? (
+                    <RowActionButton
+                      onClick={async () => {
+                        if (!confirm(`Cabut peran staf ${m.name}? Akses wali tetap ada.`)) return;
+                        try {
+                          await revokeClubStaffRole({ data: { userId: m.userId } });
+                          toast.success("Peran staf dicabut");
+                          await qc.invalidateQueries({ queryKey: ["members"] });
+                          await qc.invalidateQueries({ queryKey: ["access"] });
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Gagal");
+                        }
+                      }}
+                    >
+                      Cabut staf
+                    </RowActionButton>
+                  ) : null}
+                  {m.swimmerIds.map((id, i) => (
+                    <RowActionButton
+                      key={id}
+                      onClick={async () => {
+                        if (!confirm(`Putuskan wali ${m.name} dari ${m.swimmerNames[i]}? Data atlet tetap ada.`)) return;
+                        try {
+                          await unlinkClubGuardian({ data: { userId: m.userId, swimmerId: id } });
+                          toast.success("Tautan wali diputus");
+                          await qc.invalidateQueries({ queryKey: ["members"] });
+                          await qc.invalidateQueries({ queryKey: ["access"] });
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Gagal");
+                        }
+                      }}
+                    >
+                      Putuskan {m.swimmerNames[i]}
+                    </RowActionButton>
+                  ))}
+                </RowActions>
               ) : null}
-              {m.swimmerIds.map((id, i) => (
-                <Button
-                  key={id}
-                  type="button"
-                  variant="ghost"
-                  onClick={async () => {
-                    if (!confirm(`Putuskan wali ${m.name} dari ${m.swimmerNames[i]}? Data atlet tetap ada.`)) return;
+            </div>
+            {m.staffRole ? (
+              <div className="mt-2">
+                <SelectNative
+                  key={`${m.userId}-${m.staffRole}`}
+                  aria-label={`Peran ${m.name}`}
+                  value={m.staffRole}
+                  onChange={async (e) => {
+                    const role = e.target.value as StaffRole;
+                    if (!confirm(`Ubah peran ${m.name} menjadi ${role}?`)) return;
                     try {
-                      await unlinkClubGuardian({ data: { userId: m.userId, swimmerId: id } });
-                      toast.success("Tautan wali diputus");
+                      await setClubStaffRole({ data: { userId: m.userId, role } });
+                      toast.success("Peran diperbarui");
                       await qc.invalidateQueries({ queryKey: ["members"] });
                       await qc.invalidateQueries({ queryKey: ["access"] });
                     } catch (err) {
@@ -531,12 +699,17 @@ function MembersDirectory() {
                     }
                   }}
                 >
-                  Putuskan {m.swimmerNames[i]?.split(" ")[0]}
-                </Button>
-              ))}
-            </div>
+                  <option value="coach">Pelatih</option>
+                  <option value="club_admin">Admin klub</option>
+                  {access.data?.hats.staff === "superadmin" ? (
+                    <option value="superadmin">Superadmin</option>
+                  ) : null}
+                </SelectNative>
+              </div>
+            ) : null}
           </li>
-        ))}
+          );
+        })}
       </ul>
       <form
         className="mt-4 flex flex-wrap items-end gap-2"
