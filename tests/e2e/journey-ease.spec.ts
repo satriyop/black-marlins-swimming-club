@@ -38,7 +38,7 @@ test("guardian finds tomorrow's recurring practice from home and sends an early 
     await expect(page.getByText("Belum ada latihan terjadwal")).toHaveCount(0);
     await page.getByRole("link", { name: "Lihat jadwal" }).click();
     const day = page.locator("li", { hasText: "Latihan Besok Uji" });
-    await day.locator("summary", { hasText: "Laporkan izin anak" }).click();
+    await day.getByRole("button", { name: "Izin", exact: true }).click();
     await day.getByLabel("Alasan untuk Perenang Contoh (opsional)").fill("Demam");
     await day.getByRole("button", { name: "Sakit" }).click();
     await expect(day.getByText("Izin terkirim: sakit · Demam")).toBeVisible();

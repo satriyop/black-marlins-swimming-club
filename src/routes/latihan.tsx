@@ -37,8 +37,9 @@ export const Route = createFileRoute("/latihan")({
 });
 
 function Page() {
-  const { hats } = useAccess();
+  const { hats, taskView } = useAccess();
   const canCreate = canWritePractice(hats);
+  const familyView = taskView === "family";
   const { view, page = 1 } = Route.useSearch();
   const history = view === "history";
   const historyQuery = useQuery({
@@ -80,6 +81,7 @@ function Page() {
           todayRows={todayRows}
           upcomingRows={upcomingRows}
           canCreate={canCreate}
+          familyView={familyView}
         />
       )}
     </AppShell>
@@ -91,11 +93,13 @@ function Overview({
   todayRows,
   upcomingRows,
   canCreate,
+  familyView,
 }: {
   today: string;
   todayRows: ScheduledTrainingDay[];
   upcomingRows: ScheduledTrainingDay[];
   canCreate: boolean;
+  familyView: boolean;
 }) {
   return (
     <div className="grid gap-8">
@@ -143,40 +147,77 @@ function Overview({
           </h2>
           <ul className="overflow-hidden rounded-2xl bg-card shadow-border">
             {upcomingRows.map((practice) => (
-              <li
+              <UpcomingRow
                 key={`${practice.scheduleId}:${practice.date}`}
-                className="border-b border-border last:border-0"
-              >
-                <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="font-medium">{practice.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDateId(practice.date, "EEEE, d MMM")} ·{" "}
-                      {practice.startTime ?? "Jam belum ditentukan"}
-                      {practice.location ? ` · ${practice.location}` : ""}
-                    </p>
-                    {practice.focus || practice.totalMeters ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {practice.focus ? `Fokus: ${practice.focus}` : "Program latihan"}
-                        {practice.totalMeters ? ` · ${practice.totalMeters.toLocaleString("id-ID")} m` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {practice.practiceStatus === "cancelled"
-                      ? "Dibatalkan"
-                      : practice.practiceStatus === "completed"
-                        ? "Selesai"
-                        : "Terjadwal"}
-                  </span>
-                </div>
-                <PlannedAbsence trainingDay={practice} />
-              </li>
+                practice={practice}
+                familyView={familyView}
+              />
             ))}
           </ul>
         </section>
       ) : null}
     </div>
+  );
+}
+
+function upcomingStatus(practice: ScheduledTrainingDay): string {
+  if (practice.practiceStatus === "cancelled") return "Dibatalkan";
+  if (practice.practiceStatus === "completed") return "Selesai";
+  return "Terjadwal";
+}
+
+function canOfferPlannedAbsence(trainingDay: ScheduledTrainingDay): boolean {
+  if (trainingDay.practiceId != null || trainingDay.familySwimmers.length === 0) return false;
+  const active = trainingDay.familySwimmers.some((swimmer) => swimmer.notice?.status === "active");
+  return trainingDay.noticeEditable || active;
+}
+
+function UpcomingRow({
+  practice,
+  familyView,
+}: {
+  practice: ScheduledTrainingDay;
+  familyView: boolean;
+}) {
+  const [izinOpen, setIzinOpen] = useState(false);
+  const showIzin = familyView && canOfferPlannedAbsence(practice);
+  const active = practice.familySwimmers.filter((swimmer) => swimmer.notice?.status === "active").length;
+  return (
+    <li className="border-b border-border last:border-0">
+      <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <p className="font-medium">{practice.title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatDateId(practice.date, "EEEE, d MMM")} · {practice.startTime ?? "Jam belum ditentukan"}
+            {practice.location ? ` · ${practice.location}` : ""}
+          </p>
+          {practice.focus || practice.totalMeters ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {practice.focus ? `Fokus: ${practice.focus}` : "Program latihan"}
+              {practice.totalMeters ? ` · ${practice.totalMeters.toLocaleString("id-ID")} m` : ""}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-xs text-muted-foreground">{upcomingStatus(practice)}</span>
+          {showIzin ? (
+            <button
+              type="button"
+              className="min-h-11 text-sm font-semibold text-primary"
+              aria-expanded={izinOpen}
+              onClick={() => setIzinOpen((open) => !open)}
+            >
+              {active ? `${active} izin terkirim` : "Izin"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {showIzin && izinOpen ? (
+        <div className="px-4 pb-3">
+          <PlannedAbsenceForm trainingDay={practice} />
+        </div>
+      ) : null}
+    </li>
   );
 }
 
@@ -267,16 +308,23 @@ function TodayCard({
 }
 
 function PlannedAbsence({ trainingDay }: { trainingDay: ScheduledTrainingDay }) {
-  if (trainingDay.practiceId != null || trainingDay.familySwimmers.length === 0) return null;
+  if (!canOfferPlannedAbsence(trainingDay)) return null;
   const active = trainingDay.familySwimmers.filter(
     (swimmer) => swimmer.notice?.status === "active",
   ).length;
-  if (!trainingDay.noticeEditable && active === 0) return null;
   return (
     <details className="border-t border-border px-4 py-3 text-sm">
       <summary className="min-h-11 cursor-pointer font-semibold text-primary">
         {active ? `${active} izin sudah dikirim` : "Laporkan izin anak"}
       </summary>
+      <PlannedAbsenceForm trainingDay={trainingDay} />
+    </details>
+  );
+}
+
+function PlannedAbsenceForm({ trainingDay }: { trainingDay: ScheduledTrainingDay }) {
+  return (
+    <>
       <p className="mb-3 text-muted-foreground">
         {absenceCutoffLabel(trainingDay.date, trainingDay.startTime)}. Izin ini tidak mengganti
         catatan kehadiran akhir pelatih.
@@ -286,7 +334,7 @@ function PlannedAbsence({ trainingDay }: { trainingDay: ScheduledTrainingDay }) 
           <PlannedAbsenceRow key={swimmer.id} trainingDay={trainingDay} swimmer={swimmer} />
         ))}
       </div>
-    </details>
+    </>
   );
 }
 
