@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AppearanceSelect } from "@/components/settings/appearance-select";
 import { RedirectToSignIn, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState, type AppUser } from "@/lib/auth/use-current-user";
 import { Splash } from "@/components/auth/login-screen";
@@ -157,7 +156,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             </p>
             <div className="ml-auto flex min-w-0 items-center gap-2">
               {dual ? <TaskViewSwitch compact current={access.data.taskView} /> : null}
-              <AppearanceSelect />
               <UserButton roles={roles}>
                 {dual ? <TaskViewSwitch current={access.data.taskView} /> : null}
                 <OnboardingHelp />

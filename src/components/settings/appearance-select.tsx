@@ -11,6 +11,33 @@ const CHOICES: { value: Appearance; label: string; Icon: typeof Sun }[] = [
   { value: "dark", label: "Gelap", Icon: Moon },
 ];
 
+export function AppearanceChoices() {
+  const appearance = useAppearance();
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-semibold">Tampilan</p>
+      <div role="group" aria-label="Tampilan" className="grid gap-1">
+        {CHOICES.map(({ value, label, Icon }) => (
+          <button
+            type="button"
+            key={value}
+            role="menuitemradio"
+            aria-checked={appearance === value}
+            className={cn(
+              "flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-muted",
+              appearance === value && "bg-selected font-semibold text-primary",
+            )}
+            onClick={() => setAppearance(value)}
+          >
+            <Icon />
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AppearanceSelect() {
   const appearance = useAppearance();
   const [open, setOpen] = useState(false);

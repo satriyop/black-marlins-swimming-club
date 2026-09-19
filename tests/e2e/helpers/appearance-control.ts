@@ -7,9 +7,13 @@ const LABELS: Record<string, string> = {
 };
 
 export async function changeAppAppearance(page: Page, theme: string) {
-  const trigger = page.getByRole("button", { name: "Tampilan", exact: true });
-  await trigger.scrollIntoViewIfNeeded();
-  await trigger.click();
+  const header = page.getByRole("button", { name: "Tampilan", exact: true });
+  if (await header.count()) {
+    await header.scrollIntoViewIfNeeded();
+    await header.click();
+  } else {
+    await page.getByRole("button", { name: "Buka menu akun" }).click();
+  }
   await page.getByRole("menuitemradio", { name: LABELS[theme] }).click();
   if (theme === "dark" || theme === "light") {
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
@@ -19,7 +23,9 @@ export async function changeAppAppearance(page: Page, theme: string) {
 }
 
 export async function expectAppearanceChoice(page: Page, theme: string) {
-  await page.getByRole("button", { name: "Tampilan", exact: true }).click();
+  const header = page.getByRole("button", { name: "Tampilan", exact: true });
+  if (await header.count()) await header.click();
+  else await page.getByRole("button", { name: "Buka menu akun" }).click();
   await expect(page.getByRole("menuitemradio", { name: LABELS[theme] })).toHaveAttribute(
     "aria-checked",
     "true",
