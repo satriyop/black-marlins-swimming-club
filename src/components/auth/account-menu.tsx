@@ -50,20 +50,22 @@ export function AccountMenu({
           align="end"
           sideOffset={8}
           collisionPadding={12}
-          className="z-50 grid max-h-[var(--radix-popover-content-available-height)] w-[calc(100vw-1.5rem)] max-w-sm gap-5 overflow-y-auto rounded-2xl border border-input bg-popover p-4 text-popover-foreground shadow-elevated"
+          className="z-50 grid max-h-[var(--radix-popover-content-available-height)] w-[min(24rem,calc(100vw-1.5rem))] gap-5 overflow-y-auto rounded-2xl border border-input bg-popover p-4 text-popover-foreground shadow-elevated"
         >
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-              <h2 className="text-card-title">{name}</h2>
-              {user.primaryEmail && (
-                <p className="text-sm text-muted-foreground">{user.primaryEmail}</p>
-              )}
+          <div className="grid min-w-0 gap-1">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <h2 className="min-w-0 text-card-title break-words">{name}</h2>
+              <Popover.Close asChild>
+                <Button size="icon" variant="ghost" aria-label="Tutup menu akun" className="shrink-0">
+                  <X />
+                </Button>
+              </Popover.Close>
             </div>
-            <Popover.Close asChild>
-              <Button size="icon" variant="ghost" aria-label="Tutup menu akun" className="shrink-0">
-                <X />
-              </Button>
-            </Popover.Close>
+            {user.primaryEmail && (
+              <p className="min-w-0 break-all text-sm text-muted-foreground" title={user.primaryEmail}>
+                {user.primaryEmail}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2" aria-label="Peran akun">
             {roles.length ? (
