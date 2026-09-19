@@ -49,7 +49,12 @@ for (const role of ["guardian", "coach", "combined"] as const) {
       await page.keyboard.press("Enter");
       const popover = page.getByRole("dialog", { name: "Akun", exact: true });
       await expect(popover.getByRole("heading", { name: fixture.name, exact: true })).toBeVisible();
-      await expect(popover.getByText(fixture.email, { exact: true })).toBeVisible();
+      const email = popover.getByText(fixture.email, { exact: true });
+      await expect(email).toBeVisible();
+      const emailBox = await email.boundingBox();
+      expect(emailBox, "email box").toBeTruthy();
+      expect(emailBox!.width, "email uses the sheet width (#95)").toBeGreaterThan(200);
+      expect(emailBox!.height, "email is not letter-wrapped (#95)").toBeLessThan(64);
       await expect(account.locator("img")).toHaveCount(0); // Failed avatar falls back to initials.
       const roles = popover.getByLabel("Peran akun");
       for (const label of role === "combined"
