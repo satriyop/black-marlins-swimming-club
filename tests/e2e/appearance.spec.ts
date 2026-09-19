@@ -1,8 +1,10 @@
 import { expect, test } from "./helpers/browser-test";
 import { changeAppAppearance, expectAppearanceChoice } from "./helpers/appearance-control";
 
+const fixture = "http://127.0.0.1:3012/tests/fixtures/visual.html";
+
 for (const path of ["/login", "/terima"]) {
-  test(`appearance persists on ${path} without hydration errors`, async ({ page }) => {
+  test(`${path} follows the device and has no appearance control`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
@@ -10,24 +12,20 @@ for (const path of ["/login", "/terima"]) {
     });
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto(path);
+    await expect(page.getByRole("button", { name: "Tampilan", exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Tampilan", { exact: true })).toHaveCount(0);
     await expect(page.locator("html")).toHaveAttribute("data-appearance", "system");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     if (path === "/login") await page.getByLabel("Email akun perenang").fill("draft@example.test");
-    await changeAppAppearance(page, "light");
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    if (path === "/login")
-      await expect(page.getByLabel("Email akun perenang")).toHaveValue("draft@example.test");
-    await expect(page.locator('meta[name="theme-color"]').first()).toHaveAttribute(
-      "content",
-      "#f4f7f6",
-    );
-    // Inspect the page before React can execute: the head script must apply the stored mode.
+    await page.evaluate(() => localStorage.setItem("bmsc.appearance", "light"));
     await page.route(/\/assets\/.*\.js(?:\?.*)?$/, (route) => route.abort());
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await page.unroute(/\/assets\/.*\.js(?:\?.*)?$/);
     await page.reload();
-    await expectAppearanceChoice(page, "light");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    if (path === "/login")
+      await expect(page.getByLabel("Email akun perenang")).toHaveValue("draft@example.test");
     expect(errors.filter((message) => /hydrat|Minified React|didn't match/i.test(message))).toEqual(
       [],
     );
@@ -37,7 +35,7 @@ for (const path of ["/login", "/terima"]) {
 test("system follows device changes, explicit choice overrides and storage syncs", async ({
   page,
 }) => {
-  await page.goto("/login");
+  await page.goto(fixture);
   await changeAppAppearance(page, "system");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -61,18 +59,16 @@ test("denied storage keeps a working appearance control", async ({ page }) => {
       },
     }),
   );
-  await page.goto("/login");
-  await page.getByLabel("Email akun perenang").fill("unsaved@example.test");
+  await page.goto(fixture);
   await changeAppAppearance(page, "light");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await expect(page.getByLabel("Email akun perenang")).toHaveValue("unsaved@example.test");
   await page.reload();
   await expectAppearanceChoice(page, "system");
 });
 
 for (const theme of ["dark", "light"]) {
   test(`modal and toast use the ${theme} appearance`, async ({ page }, info) => {
-    await page.goto("http://127.0.0.1:3012/tests/fixtures/visual.html");
+    await page.goto(fixture);
     await changeAppAppearance(page, theme);
     await page.getByRole("button", { name: "Buka konfirmasi", exact: true }).click();
     await page.getByLabel("Lokasi baru").fill("Kolam kedua");
@@ -88,6 +84,6 @@ test("invalid stored choice follows the device", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("bmsc.appearance", "invalid"));
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/login");
-  await expectAppearanceChoice(page, "system");
+  await expect(page.locator("html")).toHaveAttribute("data-appearance", "system");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
