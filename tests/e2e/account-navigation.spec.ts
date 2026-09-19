@@ -156,7 +156,7 @@ test("sign-out exposes pending and retryable failure, then signs out", async ({
     await expect(page.getByRole("button", { name: "Keluar", exact: true })).toBeEnabled();
     await page.unroute("**/api/auth/sign-out");
     await page.getByRole("button", { name: "Keluar", exact: true }).click();
-    await expect(page.getByLabel("Email akun perenang")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Masuk dengan Google" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Buka menu akun" })).toHaveCount(0);
   } finally {
     await fixture.cleanup();

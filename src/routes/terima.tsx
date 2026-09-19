@@ -6,7 +6,6 @@ import { acceptClubInvite, getInvitePreview, getPublicClubContact } from "@/lib/
 import { ADULT_PROVIDERS, signIn, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/input";
 import { QueryError } from "@/components/ui/query-error";
 import { cn, formatDateId } from "@/lib/utils";
 
@@ -54,8 +53,6 @@ export const Route = createFileRoute("/terima")({
 function Page() {
   const { token } = Route.useSearch();
   const { user, isPending: sessionPending } = useCurrentUserState();
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [signInError, setSignInError] = useState("");
   const preview = useQuery({
     queryKey: ["invite-preview", token],
@@ -100,18 +97,16 @@ function Page() {
           }
         >
           <p className="text-sm text-muted-foreground">
-            {mut.variables?.password
-              ? "Masuk dengan email pada undangan dan password yang baru Anda buat."
-              : data?.state === "pending" && data.kind === "guardian"
-                ? "Anda sudah bergabung sebagai wali. Hari Ini menampilkan anak terhubung, atau Daftarkan anak jika belum ada di skuad."
-                : data?.state === "pending" && data.kind === "staff"
-                  ? "Anda sudah bergabung sebagai staf. Buka klub untuk melihat peran dan latihan berikutnya."
+            {data?.state === "pending" && data.kind === "guardian"
+              ? "Anda sudah bergabung sebagai wali. Hari Ini menampilkan anak terhubung, atau Daftarkan anak jika belum ada di skuad."
+              : data?.state === "pending" && data.kind === "staff"
+                ? "Anda sudah bergabung sebagai staf. Buka klub untuk melihat peran dan latihan berikutnya."
+                : data?.state === "pending" && data.kind === "swimmer_account"
+                  ? "Anda sudah terhubung sebagai perenang. Masuk dengan Google yang sama."
                   : "Anda sudah dapat membuka klub. Peran dan anak terhubung tampil di Hari Ini."}
           </p>
           <Button asChild>
-            <Link to={mut.variables?.password ? "/login" : "/"}>
-              {mut.variables?.password ? "Masuk ke akun perenang" : "Buka klub"}
-            </Link>
+            <Link to="/">Buka klub</Link>
           </Button>
         </StatusCard>
       ) : !/^[a-f0-9]{48}$/.test(token) ||
@@ -162,41 +157,7 @@ function Page() {
             <p className="text-card-title">{data.clubName}</p>
             <p className="mt-1 text-sm font-semibold text-primary">{role}</p>
           </div>
-          {data.kind === "swimmer_account" ? (
-            <form
-              className="grid gap-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                mut.mutate({ password });
-              }}
-            >
-              <p className="text-sm text-muted-foreground">
-                Buat password untuk akun perenang pada undangan ini.
-              </p>
-              <Field label="Password baru" hint="Minimal 8 karakter.">
-                <Input
-                  autoComplete="new-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={8}
-                  maxLength={128}
-                  required
-                />
-              </Field>
-              <label className="flex min-h-11 items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={showPassword}
-                  onChange={(e) => setShowPassword(e.target.checked)}
-                />
-                Tampilkan password
-              </label>
-              <Button disabled={mut.isPending}>
-                {mut.isPending ? "Membuat akun…" : "Buat akun perenang"}
-              </Button>
-            </form>
-          ) : user ? (
+          {user ? (
             <>
               <p className="text-sm">
                 Anda masuk sebagai <strong>{user.primaryEmail}</strong>. Gunakan akun Google yang

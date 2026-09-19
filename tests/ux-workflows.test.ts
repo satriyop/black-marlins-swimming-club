@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import {
   previewInvite,
   createInvite,
-  acceptSwimmerInvite,
+  acceptInvite,
   listInvites,
 } from "../src/lib/club/invites";
 import { seedClub, RATIH_ID } from "../src/lib/club/seed";
@@ -68,7 +68,15 @@ test("invitation preview selects the right flow without exposing email or child 
   const listed = await listInvites(h.actor(RATIH_ID));
   expect(typeof listed[0].expiresAt).toBe("string");
   if (preview.state === "pending") expect(typeof preview.expiresAt).toBe("string");
-  await acceptSwimmerInvite(h.sql, { token: invite.token, password: "local-password-123" });
+  await h.sql`
+    insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+    values ('usr_preview_child', 'Preview', 'preview-child@example.invalid', true, now(), now())
+  `;
+  await acceptInvite(h.sql, {
+    token: invite.token,
+    userId: "usr_preview_child",
+    email: "preview-child@example.invalid",
+  });
   expect(await previewInvite(h.sql, invite.token)).toEqual({ state: "accepted" });
 });
 

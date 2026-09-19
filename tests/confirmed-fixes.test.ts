@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 import { getDashboardData } from "../src/lib/club/dashboard";
 import { hatsFor } from "../src/lib/club/hats";
-import { acceptSwimmerInvite, createInvite } from "../src/lib/club/invites";
+import { acceptPendingInvitesForEmail, createInvite } from "../src/lib/club/invites";
 import { savePracticeRecord } from "../src/lib/club/practice";
 import { saveResult } from "../src/lib/club/results";
 import { AZKIYA_EMAIL, AZKIYA_ID, RATIH_ID, SATRIYO_ID, seedClub } from "../src/lib/club/seed";
@@ -12,20 +12,24 @@ import { createClubHarness } from "./harness";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("swimmer invite cannot attach a password to an existing staff user", async () => {
+test("swimmer invite can target an existing Google user and login links the perenang", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number }>`select id from swimmers limit 1`;
-  await expect(
-    createInvite(h.actor(RATIH_ID), {
-      kind: "swimmer_account",
-      email: AZKIYA_EMAIL,
-      swimmerIds: [kids[0]!.id],
-    }),
-  ).rejects.toThrow(/sudah terpakai/);
+  await createInvite(h.actor(RATIH_ID), {
+    kind: "swimmer_account",
+    email: AZKIYA_EMAIL,
+    swimmerIds: [kids[0]!.id],
+  });
+  await acceptPendingInvitesForEmail(h.sql, AZKIYA_ID);
+  const linked = await h.sql<{ user_id: string | null }>`
+    select user_id from swimmers where id = ${kids[0]!.id}
+  `;
+  expect(linked[0]?.user_id).toBe(AZKIYA_ID);
+  expect((await hatsFor(h.actor(AZKIYA_ID))).selfSwimmerId).toBe(kids[0]!.id);
 });
 
-test("expired swimmer invite does not create a credential", async () => {
+test("expired swimmer invite does not attach a perenang", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   const kids = await h.sql<{ id: number }>`select id from swimmers limit 1`;
@@ -35,17 +39,15 @@ test("expired swimmer invite does not create a credential", async () => {
     swimmerIds: [kids[0]!.id],
   });
   await h.sql`update invites set expires_at = now() - interval '1 day' where token = ${invite.token}`;
-  await expect(
-    acceptSwimmerInvite(h.sql, { token: invite.token, password: "renang123" }),
-  ).rejects.toThrow(/tidak berlaku/);
-  const users = await h.sql<{
-    n: number;
-  }>`select count(*)::int as n from "user" where email = 'anak-baru@example.com'`;
-  expect(users[0]?.n).toBe(0);
-  const accounts = await h.sql<{
-    n: number;
-  }>`select count(*)::int as n from account where password is not null`;
-  expect(accounts[0]?.n).toBe(0);
+  await h.sql`
+    insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+    values ('usr_anak', 'Anak', 'anak-baru@example.com', true, now(), now())
+  `;
+  await acceptPendingInvitesForEmail(h.sql, "usr_anak");
+  const linked = await h.sql<{ user_id: string | null }>`
+    select user_id from swimmers where id = ${kids[0]!.id}
+  `;
+  expect(linked[0]?.user_id).toBeNull();
 });
 
 test("seedClub does not restore deleted staff", async () => {

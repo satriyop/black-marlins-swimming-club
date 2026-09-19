@@ -16,7 +16,6 @@ for (const path of ["/login", "/terima"]) {
     await expect(page.getByLabel("Tampilan", { exact: true })).toHaveCount(0);
     await expect(page.locator("html")).toHaveAttribute("data-appearance", "system");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    if (path === "/login") await page.getByLabel("Email akun perenang").fill("draft@example.test");
     await page.evaluate(() => localStorage.setItem("bmsc.appearance", "light"));
     await page.route(/\/assets\/.*\.js(?:\?.*)?$/, (route) => route.abort());
     await page.reload({ waitUntil: "domcontentloaded" });

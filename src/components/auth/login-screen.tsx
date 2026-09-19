@@ -1,9 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ADULT_PROVIDERS, authEnabled, signIn, signInWithPassword } from "@/lib/auth/client";
+import { ADULT_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
 import { getPublicClubContact } from "@/lib/server/fns";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/input";
 import { MarlinMark } from "@/components/swim/mark";
 
 import { InstallAppButton, InstallAppDialog } from "@/components/pwa/install-app";
@@ -55,23 +54,8 @@ export function LoginScreen({
   errorCode?: string;
 }) {
   const google = ADULT_PROVIDERS.find((p) => p.idp === "google");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
-
-  async function onPassword(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setPending(true);
-    try {
-      await signInWithPassword(email, password, { callbackURL: next ?? "/" });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Masuk gagal");
-      setPending(false);
-    }
-  }
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
@@ -121,7 +105,7 @@ export function LoginScreen({
                 </Button>
               ) : null}
               <p className="text-center text-xs text-muted-foreground">
-                Staf dan wali masuk dengan akun Google.
+                Staf, wali, dan perenang masuk dengan akun Google.
               </p>
               {(error || errorCode) && (
                 <p role="alert" className="text-sm text-destructive">
@@ -131,37 +115,6 @@ export function LoginScreen({
                       : "Masuk gagal. Silakan coba lagi.")}
                 </p>
               )}
-              <div className="relative my-1">
-                <div className="absolute inset-x-0 top-1/2 border-t border-border" />
-                <p className="relative mx-auto w-fit bg-card px-2 text-xs text-muted-foreground">
-                  Akun perenang
-                </p>
-              </div>
-              <form className="grid gap-3" onSubmit={(e) => void onPassword(e)}>
-                <Field label="Email akun perenang">
-                  <Input
-                    name="email"
-                    type="email"
-                    autoComplete="username"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </Field>
-                <Field label="Password">
-                  <Input
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </Field>
-                <Button type="submit" variant="outline" disabled={pending}>
-                  {pending ? "Masuk…" : "Masuk dengan password"}
-                </Button>
-              </form>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Masuk belum diaktifkan.</p>
