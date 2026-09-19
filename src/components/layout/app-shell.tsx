@@ -14,7 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RedirectToSignIn, UserButton } from "@/lib/auth/gates";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, type AppUser } from "@/lib/auth/use-current-user";
 import { Splash } from "@/components/auth/login-screen";
 import { signOut } from "@/lib/auth/client";
 import { returnPathForLocation } from "@/lib/auth/return-path";
@@ -29,8 +29,7 @@ import {
 import { accessHelpKindLabel } from "@/lib/club/members";
 import { isDualRole, navItemsFor, roleLabels, type NavItem } from "@/lib/club/nav";
 import { UNINVITED_MESSAGE } from "@/lib/club/access";
-import { cn } from "@/lib/utils";
-import { MarlinMark } from "@/components/swim/mark";
+import { cn, initials } from "@/lib/utils";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -136,15 +135,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             onOpen={() => setInstallOpen(true)}
             className="mt-3 bg-transparent text-sm text-muted-foreground hover:text-foreground"
           />
-          <div className="mt-auto rounded-2xl bg-card p-4 shadow-border">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <MarlinMark className="size-5" />
-              <span>Pelatih Hardiyanto Wibowo</span>
-            </div>
-          </div>
+          <SignedInAccount user={user} />
         </aside>
         <div className="app-shell-content flex min-w-0 flex-1 flex-col">
-          <header className="flex min-h-16 items-center justify-between gap-3 border-b border-border/70 px-4 py-2 md:px-8">
+          <header className="flex min-h-16 items-center gap-3 border-b border-border/70 px-4 py-2 md:px-8">
             <Link
               to="/"
               aria-label="BMSC — Hari Ini"
@@ -157,13 +151,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               />
               <span className="font-display text-lg leading-none">BMSC</span>
             </Link>
-            <p className="hidden min-w-0 text-sm text-muted-foreground [overflow-wrap:anywhere] md:block">
+            <p className="hidden min-w-0 flex-1 text-sm text-muted-foreground [overflow-wrap:anywhere] md:block">
               Black Marlins Swimming Club
             </p>
-            <UserButton roles={roles}>
-              {dual ? <TaskViewSwitch current={access.data.taskView} /> : null}
-              <OnboardingHelp />
-            </UserButton>
+            <div className="ml-auto flex min-w-0 items-center gap-2">
+              {dual ? <TaskViewSwitch compact current={access.data.taskView} /> : null}
+              <UserButton roles={roles}>
+                {dual ? <TaskViewSwitch current={access.data.taskView} /> : null}
+                <OnboardingHelp />
+              </UserButton>
+            </div>
           </header>
           <main id="main-content" className="flex-1 px-4 py-6 md:px-8 md:py-8">
             {invited ? children : <UninvitedHelp />}
@@ -265,7 +262,32 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function TaskViewSwitch({ current }: { current: "club" | "family" | "self" }) {
+function SignedInAccount({ user }: { user: AppUser }) {
+  const name = user.displayName || user.primaryEmail || "Akun";
+  return (
+    <div className="mt-auto min-w-0 rounded-2xl bg-card p-3 shadow-border" aria-label="Akun masuk">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-selected text-xs font-semibold">
+          <span aria-hidden="true">{initials(name)}</span>
+        </span>
+        <div className="min-w-0 [overflow-wrap:anywhere]">
+          <p className="text-sm font-semibold text-foreground">{name}</p>
+          {user.primaryEmail && user.displayName ? (
+            <p className="text-xs text-muted-foreground">{user.primaryEmail}</p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskViewSwitch({
+  current,
+  compact = false,
+}: {
+  current: "club" | "family" | "self";
+  compact?: boolean;
+}) {
   const qc = useQueryClient();
   const mut = useMutation({
     mutationFn: (view: "club" | "family") => saveClubTaskView({ data: { view } }),
@@ -276,17 +298,21 @@ function TaskViewSwitch({ current }: { current: "club" | "family" | "self" }) {
       ]),
   });
   return (
-    <div className="grid gap-2">
-      <p className="text-sm font-semibold">Tugas saat ini</p>
+    <div className={cn("grid gap-2", compact && "hidden min-w-0 md:grid")}>
+      {compact ? null : <p className="text-sm font-semibold">Tugas saat ini</p>}
       <div
         role="group"
         aria-label="Tampilan tugas"
-        className="grid grid-cols-2 rounded-lg border border-input p-1 text-sm"
+        className={cn(
+          "grid grid-cols-2 rounded-lg border border-input p-1 text-sm",
+          compact && "max-w-[13.5rem]",
+        )}
       >
         <button
           type="button"
           className={cn(
             "min-h-11 rounded-md px-2 py-2 font-medium",
+            compact && "px-2 text-xs sm:text-sm",
             current === "club" ? "bg-selected font-semibold text-primary" : "text-muted-foreground",
           )}
           disabled={mut.isPending}
@@ -299,6 +325,7 @@ function TaskViewSwitch({ current }: { current: "club" | "family" | "self" }) {
           type="button"
           className={cn(
             "min-h-11 rounded-md px-2 py-2 font-medium",
+            compact && "px-2 text-xs sm:text-sm",
             current === "family"
               ? "bg-selected font-semibold text-primary"
               : "text-muted-foreground",
