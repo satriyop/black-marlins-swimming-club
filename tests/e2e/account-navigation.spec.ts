@@ -90,6 +90,35 @@ for (const role of ["guardian", "coach", "combined"] as const) {
   });
 }
 
+test("desktop shell shows the signed-in account and dual-role task switch (#96)", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  const fixture = await createClubFixture("combined");
+  try {
+    await fixture.signIn(context, baseURL!);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.getByText("Pelatih Hardiyanto Wibowo")).toHaveCount(0);
+    const account = page.getByLabel("Akun masuk");
+    await expect(account.getByText(fixture.name)).toBeVisible();
+    await expect(account.getByText(fixture.email, { exact: true })).toBeVisible();
+    const headerSwitch = page.getByRole("banner").getByRole("group", { name: "Tampilan tugas" });
+    await expect(headerSwitch).toBeVisible();
+    await expect(headerSwitch.getByRole("button", { name: "Urus klub", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await headerSwitch.getByRole("button", { name: "Anak saya", exact: true }).click();
+    await expect(
+      page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Anak saya" }),
+    ).toBeVisible();
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("sign-out exposes pending and retryable failure, then signs out", async ({
   page,
   context,
