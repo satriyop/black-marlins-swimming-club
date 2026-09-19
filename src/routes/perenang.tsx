@@ -32,6 +32,14 @@ function Page() {
   const visible = (data ?? []).filter((s) =>
     familyView ? hats.guardianSwimmerIds.includes(s.id) || s.id === hats.selfSwimmerId : true,
   );
+  const empty = !isPending && !isError && visible.length === 0;
+  const createActions =
+    rosterCreate || enroll ? (
+      <div className="flex flex-wrap gap-2">
+        {rosterCreate ? <SwimmerDialog /> : null}
+        {enroll ? <SwimmerDialog asChild /> : null}
+      </div>
+    ) : undefined;
 
   return (
     <AppShell>
@@ -43,14 +51,7 @@ function Page() {
             ? "Anak yang terhubung dengan akun Anda."
             : "Anggota Black Marlins Swimming Club. Kelompok umur mengikuti aturan PRSI (usia per 31 Desember)."
         }
-        action={
-          rosterCreate || enroll ? (
-            <div className="flex flex-wrap gap-2">
-              {rosterCreate ? <SwimmerDialog /> : null}
-              {enroll ? <SwimmerDialog asChild /> : null}
-            </div>
-          ) : undefined
-        }
+        action={empty ? undefined : createActions}
       />
       {isPending ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -72,14 +73,7 @@ function Page() {
                   ? "Admin klub mendaftarkan perenang. Pelatih merencanakan sesi dan mencatat kehadiran."
                   : "Perenang yang terhubung dengan akun Anda akan tampil di sini."
           }
-          action={
-            rosterCreate || enroll ? (
-              <div className="flex flex-wrap gap-2">
-                {rosterCreate ? <SwimmerDialog /> : null}
-                {enroll ? <SwimmerDialog asChild /> : null}
-              </div>
-            ) : undefined
-          }
+          action={createActions}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

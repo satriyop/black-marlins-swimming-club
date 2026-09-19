@@ -25,6 +25,7 @@ function Page() {
     queryKey: ["meets"],
     queryFn: () => listMeets(),
   });
+  const empty = !isPending && !isError && !data?.length;
   return (
     <AppShell>
       <PageHeader
@@ -34,7 +35,7 @@ function Page() {
         action={
           <div className="flex flex-col items-end gap-2">
             <SyncConflictReview />
-            {canCreate ? <MeetDialog /> : null}
+            {canCreate && !empty ? <MeetDialog /> : null}
           </div>
         }
       />

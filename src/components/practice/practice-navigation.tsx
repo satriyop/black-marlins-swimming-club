@@ -13,14 +13,20 @@ export function PracticeNavigation({
 }) {
   const tabClass = (tab: typeof active) =>
     cn(
-      "inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold",
+      "inline-flex min-h-11 min-w-0 items-center justify-center rounded-md px-2 py-2 text-center text-sm font-semibold",
       active === tab
         ? "bg-selected text-primary"
         : "text-muted-foreground hover:bg-muted hover:text-foreground",
     );
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-      <nav aria-label="Tampilan latihan" className="flex flex-wrap gap-1">
+    <div className="mb-6 flex flex-col gap-3 border-b border-border pb-3 md:flex-row md:items-center md:justify-between">
+      <nav
+        aria-label="Tampilan latihan"
+        className={cn(
+          "grid w-full min-w-0 gap-1 rounded-lg border border-input p-1 md:max-w-md",
+          canManage ? "grid-cols-3" : "grid-cols-2",
+        )}
+      >
         <Link
           to="/latihan"
           search={{ view: undefined, page: undefined }}
