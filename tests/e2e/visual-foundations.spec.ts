@@ -1,4 +1,5 @@
 import { expect, test } from "./helpers/browser-test";
+import { changeAppAppearance } from "./helpers/appearance-control";
 
 const fixture = "http://127.0.0.1:3012/tests/fixtures/visual.html";
 test("shared controls keep usable actions, labels and dialog focus", async ({ page }) => {
@@ -25,7 +26,7 @@ for (const theme of ["dark", "light"]) {
       await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
       await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
       await page.goto(fixture);
-      await page.getByLabel("Tampilan").selectOption(theme);
+      await changeAppAppearance(page, theme);
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: info.outputPath("default.png"), fullPage: true });
       await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
@@ -59,7 +60,7 @@ for (const theme of ["dark", "light"]) {
   test(`semantic status and control text have measured contrast in ${theme}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(fixture);
-    await page.getByLabel("Tampilan").selectOption(theme);
+    await changeAppAppearance(page, theme);
     await page.evaluate(
       () =>
         new Promise<void>((resolve) =>
