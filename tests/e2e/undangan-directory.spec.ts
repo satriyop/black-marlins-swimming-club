@@ -6,6 +6,9 @@ test("admin keeps revoke in a per-row menu on Anggota (#100)", async ({ page, co
   try {
     await fixture.signIn(context, baseURL!);
     await page.goto("/undangan");
+    await expect(page.getByRole("button", { name: "Buka menu akun" })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByRole("heading", { name: "Anggota aktif" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Cabut staf" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Putuskan / })).toHaveCount(0);
