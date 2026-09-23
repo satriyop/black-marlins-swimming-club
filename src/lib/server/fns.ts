@@ -11,6 +11,7 @@ export {
   saveSwimmerGoal,
   saveSwimmer,
   deleteSwimmer,
+  setSwimmerLockerPin,
 } from "./fns-swimmers";
 export {
   listPractices,

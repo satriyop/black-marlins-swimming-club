@@ -32,6 +32,7 @@ import { eventCode } from "@/lib/swim/constants";
 import { formatTime } from "@/lib/swim/time";
 import { formatDateId } from "@/lib/utils";
 import { CoachFeedbackJournal } from "@/components/swim/coach-feedback-journal";
+import { LockerPinCard } from "@/components/swim/locker-pin";
 
 export const Route = createFileRoute("/perenang_/$id")({ component: Page });
 
@@ -116,6 +117,9 @@ function Page() {
           )}
         </div>
       </div>
+      {data.lockerPin.canManage ? (
+        <LockerPinCard swimmerId={swimmer.id} hasPin={data.lockerPin.hasPin} />
+      ) : null}
       <ProfileSummary attendance={attendance} totalMeters={totalMeters} pbs={pbs} />
       <GoalSection swimmerId={swimmer.id} goals={goals} canManage={goalCanManage} />
       {upcomingEntries.length > 0 ? (
