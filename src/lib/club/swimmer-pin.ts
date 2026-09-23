@@ -15,7 +15,7 @@ export function canManageSwimmerPin(hats: Hats, swimmerId: number, hasGuardian: 
 }
 
 export function assertPinShape(pin: string): void {
-  if (!/^\d{4}$/.test(pin)) throw new Error("PIN harus 4 angka.");
+  if (typeof pin !== "string" || !/^\d{4}$/.test(pin)) throw new Error("PIN harus 4 angka.");
 }
 
 export async function hashPin(pin: string): Promise<string> {
@@ -63,28 +63,31 @@ export async function setSwimmerPin(actor: Actor, input: { swimmerId: number; pi
     select id from swimmers where id = ${input.swimmerId} and club_id = ${clubId} limit 1
   `;
   if (!swimmers[0]) throw new Error("Perenang tidak ditemukan");
-  const guardians = await actor.sql<{ n: number }>`
-    select count(*)::int as n from guardians where swimmer_id = ${input.swimmerId}
-  `;
-  if (!canManageSwimmerPin(hats, input.swimmerId, (guardians[0]?.n ?? 0) > 0)) {
-    throw new Error("Tidak diizinkan");
-  }
   const pinHash = await hashPin(input.pin);
   await actor.sql.transaction(async (sql) => {
-    const existing = await sql<{ swimmer_id: number }>`
-      select swimmer_id from swimmer_credentials where swimmer_id = ${input.swimmerId} limit 1
-    `;
-    const action = existing[0] ? "reset" : "set";
     await sql`
+      select id from swimmers where id = ${input.swimmerId} and club_id = ${clubId} for update
+    `;
+    const guardians = await sql<{ n: number }>`
+      select count(*)::int as n from guardians where swimmer_id = ${input.swimmerId}
+    `;
+    if (!canManageSwimmerPin(hats, input.swimmerId, (guardians[0]?.n ?? 0) > 0)) {
+      throw new Error("Perenang tidak ditemukan");
+    }
+    const inserted = await sql<{ swimmer_id: number }>`
       insert into swimmer_credentials (swimmer_id, club_id, pin_hash, failed_attempts, locked_until, updated_at, updated_by)
       values (${input.swimmerId}, ${clubId}, ${pinHash}, 0, null, now(), ${actor.userId})
-      on conflict (swimmer_id) do update set
-        pin_hash = excluded.pin_hash,
-        failed_attempts = 0,
-        locked_until = null,
-        updated_at = now(),
-        updated_by = excluded.updated_by
+      on conflict (swimmer_id) do nothing
+      returning swimmer_id
     `;
+    const action = inserted[0] ? "set" : "reset";
+    if (!inserted[0]) {
+      await sql`
+        update swimmer_credentials
+        set pin_hash = ${pinHash}, failed_attempts = 0, locked_until = null, updated_at = now(), updated_by = ${actor.userId}
+        where swimmer_id = ${input.swimmerId} and club_id = ${clubId}
+      `;
+    }
     await sql`
       insert into swimmer_credential_events (club_id, swimmer_id, actor_id, action)
       values (${clubId}, ${input.swimmerId}, ${actor.userId}, ${action})

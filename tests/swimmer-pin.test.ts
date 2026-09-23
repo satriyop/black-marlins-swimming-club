@@ -10,7 +10,8 @@ async function swimmerId(sql: Awaited<ReturnType<typeof createClubHarness>>["sql
 
 test("pin hash does not store the digits", async () => {
   const stored = await hashPin("4821");
-  expect(stored).not.toContain("4821");
+  expect(stored.startsWith("scrypt$")).toBe(true);
+  expect(stored.split("$").slice(1)).not.toContain("4821");
   expect(await verifyPin("4821", stored)).toBe(true);
   expect(await verifyPin("0000", stored)).toBe(false);
 });
@@ -27,7 +28,7 @@ test("linked guardian can set and replace a locker pin", async () => {
   const rows = await h.sql<{ pin_hash: string; failed_attempts: number }>`
     select pin_hash, failed_attempts from swimmer_credentials where swimmer_id = ${id}
   `;
-  expect(rows[0]?.pin_hash).not.toContain("1357");
+  expect(rows[0]?.pin_hash.split("$").slice(1)).not.toContain("1357");
   expect(await verifyPin("1357", rows[0]!.pin_hash)).toBe(true);
   await h.sql`update swimmer_credentials set failed_attempts = 4, locked_until = now() + interval '5 minutes' where swimmer_id = ${id}`;
   await setSwimmerPin(h.actor(RATIH_ID), { swimmerId: id, pin: "2468" });
@@ -47,7 +48,7 @@ test("club admin cannot set a pin when a guardian exists", async () => {
   await seedClub(h.sql);
   const id = await swimmerId(h.sql, "Perenang Satu");
   await expect(setSwimmerPin(h.actor(AZKIYA_ID), { swimmerId: id, pin: "1111" })).rejects.toThrow(
-    /Tidak diizinkan/,
+    /tidak ditemukan/,
   );
 });
 
@@ -73,7 +74,7 @@ test("a coach cannot set another family's pin", async () => {
   await h.sql`insert into club_staff (club_id, user_id, role) values (${clubId}, 'usr_coach', 'coach')`;
   const id = await swimmerId(h.sql, "Perenang Satu");
   await expect(setSwimmerPin(h.actor("usr_coach"), { swimmerId: id, pin: "2222" })).rejects.toThrow(
-    /Tidak diizinkan/,
+    /tidak ditemukan/,
   );
 });
 
@@ -84,4 +85,7 @@ test("pin must be four digits", async () => {
   await expect(setSwimmerPin(h.actor(RATIH_ID), { swimmerId: id, pin: "12" })).rejects.toThrow(
     /4 angka/,
   );
+  await expect(
+    setSwimmerPin(h.actor(RATIH_ID), { swimmerId: id, pin: 1234 as unknown as string }),
+  ).rejects.toThrow(/4 angka/);
 });
