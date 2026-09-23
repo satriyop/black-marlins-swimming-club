@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ADULT_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
@@ -120,6 +121,11 @@ export function LoginScreen({
             <p className="text-sm text-muted-foreground">Masuk belum diaktifkan.</p>
           )}
         </div>
+        <p className="rise-in mt-6 text-center text-sm">
+          <Link to="/arena" className="text-muted-foreground underline">
+            Tablet kolam
+          </Link>
+        </p>
         <div className="rise-in mt-3 flex justify-center">
           <InstallAppButton surface="login" onOpen={() => setInstallOpen(true)} />
         </div>

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AktivitasRouteImport } from './routes/aktivitas'
+import { Route as ArenaRouteImport } from './routes/arena'
 import { Route as EventRouteImport } from './routes/event'
 import { Route as LatihanRouteImport } from './routes/latihan'
 import { Route as LoginRouteImport } from './routes/login'
@@ -38,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
 const AktivitasRoute = AktivitasRouteImport.update({
   id: '/aktivitas',
   path: '/aktivitas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArenaRoute = ArenaRouteImport.update({
+  id: '/arena',
+  path: '/arena',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventRoute = EventRouteImport.update({
@@ -135,6 +141,7 @@ const EventIdHarilombaSwimmerIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aktivitas': typeof AktivitasRoute
+  '/arena': typeof ArenaRoute
   '/event': typeof EventRoute
   '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/aktivitas': typeof AktivitasRoute
+  '/arena': typeof ArenaRoute
   '/event': typeof EventRoute
   '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/aktivitas': typeof AktivitasRoute
+  '/arena': typeof ArenaRoute
   '/event': typeof EventRoute
   '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/aktivitas'
+    | '/arena'
     | '/event'
     | '/latihan'
     | '/login'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/aktivitas'
+    | '/arena'
     | '/event'
     | '/latihan'
     | '/login'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/aktivitas'
+    | '/arena'
     | '/event'
     | '/latihan'
     | '/login'
@@ -271,6 +283,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AktivitasRoute: typeof AktivitasRoute
+  ArenaRoute: typeof ArenaRoute
   EventRoute: typeof EventRoute
   LatihanRoute: typeof LatihanRoute
   LoginRoute: typeof LoginRoute
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       path: '/aktivitas'
       fullPath: '/aktivitas'
       preLoaderRoute: typeof AktivitasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/arena': {
+      id: '/arena'
+      path: '/arena'
+      fullPath: '/arena'
+      preLoaderRoute: typeof ArenaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/event': {
@@ -439,6 +459,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AktivitasRoute: AktivitasRoute,
+  ArenaRoute: ArenaRoute,
   EventRoute: EventRoute,
   LatihanRoute: LatihanRoute,
   LoginRoute: LoginRoute,
