@@ -46,6 +46,7 @@ export function LockerPinCard({
       >
         <Field label={hasPin ? "PIN baru" : "PIN"}>
           <Input
+            type="password"
             inputMode="numeric"
             autoComplete="new-password"
             pattern="\d{4}"
@@ -57,6 +58,7 @@ export function LockerPinCard({
         </Field>
         <Field label="Ulangi PIN">
           <Input
+            type="password"
             inputMode="numeric"
             autoComplete="new-password"
             pattern="\d{4}"
