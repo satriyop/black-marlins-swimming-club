@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { lookupKiosk, readKioskGreeting, unlockKioskSession } from "@/lib/server/fns";
 import type { KioskMatch } from "@/lib/club/swimmer-kiosk";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,10 @@ export const Route = createFileRoute("/arena")({ component: Page });
 function Page() {
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const leave = useCallback(() => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    setToken(null);
+  }, []);
   useEffect(() => {
     setToken(sessionStorage.getItem(TOKEN_KEY));
     setReady(true);
@@ -20,10 +24,7 @@ function Page() {
     return (
       <Hello
         token={token}
-        onLeave={() => {
-          sessionStorage.removeItem(TOKEN_KEY);
-          setToken(null);
-        }}
+        onLeave={leave}
       />
     );
   }
@@ -94,7 +95,7 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
           }}
         >
           <p className="text-lg font-semibold">{chosen.label}</p>
-          <Keypad value={pin} onChange={setPin} max={4} label="PIN" />
+          <Keypad value={pin} onChange={setPin} max={4} mask label="PIN" />
           <Button type="submit" disabled={pending || pin.length !== 4}>
             {pending ? "Memeriksa…" : "Masuk"}
           </Button>
@@ -128,7 +129,7 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
             void find();
           }}
         >
-          <Keypad value={ddmm} onChange={setDdmm} max={4} label="Tanggal dan bulan, contoh 1505" />
+          <Keypad value={ddmm} onChange={setDdmm} max={4} mask={false} label="Tanggal dan bulan, contoh 1505" />
           <Button type="submit" disabled={pending || ddmm.length !== 4}>
             {pending ? "Mencari…" : "Lanjut"}
           </Button>
@@ -150,23 +151,22 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
 
 function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
   const [name, setName] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     readKioskGreeting({ data: { token } })
       .then((greeting) => {
         if (!cancelled) setName(greeting.fullName);
       })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Sesi habis.");
+      .catch(() => {
+        if (!cancelled) onLeave();
       });
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, onLeave]);
   return (
     <Shell>
-      {error ? <p role="alert">{error}</p> : <h1 className="font-display text-4xl">Halo, {name ?? "…"}</h1>}
+      <h1 className="font-display text-4xl">Halo, {name ?? "…"}</h1>
       <p className="mt-2 text-sm text-muted-foreground">Kamu sudah masuk di tablet kolam.</p>
       <Button type="button" className="mt-8" variant="outline" onClick={onLeave}>
         Keluar
@@ -180,18 +180,26 @@ function Keypad({
   onChange,
   max,
   label,
+  mask,
 }: {
   value: string;
   onChange: (next: string) => void;
   max: number;
   label: string;
+  mask: boolean;
 }) {
   return (
     <div>
       <p className="mb-2 text-sm font-medium">{label}</p>
       <p className="mb-3 font-mono text-3xl tracking-[0.3em]" aria-live="polite">
-        {"•".repeat(value.length)}
-        <span className="text-muted-foreground">{"•".repeat(Math.max(0, max - value.length))}</span>
+        {mask ? (
+          <>
+            {"•".repeat(value.length)}
+            <span className="text-muted-foreground">{"•".repeat(Math.max(0, max - value.length))}</span>
+          </>
+        ) : (
+          value.padEnd(max, "·")
+        )}
       </p>
       <div className="grid grid-cols-3 gap-2">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9", "hapus", "0", "kosong"].map((key) =>

@@ -28,6 +28,8 @@ test("same birthday returns both nicknames, and the other child's pin does not o
   await expect(unlockKiosk(h.sql, clubId, ken, "2468")).rejects.toThrow(/PIN salah/);
   const session = await unlockKiosk(h.sql, clubId, ken, "1357");
   expect((await kioskGreeting(h.sql, session.token)).fullName).toBe("Perenang Satu");
+  await setSwimmerPin(h.actor("usr_satriyo"), { swimmerId: ken, pin: "7777" });
+  await expect(kioskGreeting(h.sql, session.token)).rejects.toThrow(/habis/);
 });
 
 test("five wrong pins lock the locker even if the next pin is right", async () => {

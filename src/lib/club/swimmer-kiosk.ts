@@ -14,26 +14,29 @@ function kioskSecret(): string {
   return secret;
 }
 
-export function signKioskToken(clubId: number, swimmerId: number, exp: number): string {
-  const body = `${clubId}.${swimmerId}.${exp}`;
+export function signKioskToken(clubId: number, swimmerId: number, exp: number, issuedAt: number): string {
+  const body = `${clubId}.${swimmerId}.${exp}.${issuedAt}`;
   const sig = createHmac("sha256", kioskSecret()).update(body).digest("hex");
   return `${body}.${sig}`;
 }
 
-export function readKioskToken(token: string): { clubId: number; swimmerId: number } | null {
+export function readKioskToken(token: string): { clubId: number; swimmerId: number; issuedAt: number } | null {
   const parts = token.split(".");
-  if (parts.length !== 4) return null;
-  const [clubIdRaw, swimmerIdRaw, expRaw, sig] = parts;
+  if (parts.length !== 5) return null;
+  const [clubIdRaw, swimmerIdRaw, expRaw, issuedRaw, sig] = parts;
   const clubId = Number(clubIdRaw);
   const swimmerId = Number(swimmerIdRaw);
   const exp = Number(expRaw);
-  if (!Number.isInteger(clubId) || !Number.isInteger(swimmerId) || !Number.isFinite(exp)) return null;
+  const issuedAt = Number(issuedRaw);
+  if (!Number.isInteger(clubId) || !Number.isInteger(swimmerId) || !Number.isFinite(exp) || !Number.isFinite(issuedAt)) {
+    return null;
+  }
   if (exp < Date.now()) return null;
-  const expected = createHmac("sha256", kioskSecret()).update(`${clubId}.${swimmerId}.${exp}`).digest("hex");
+  const expected = createHmac("sha256", kioskSecret()).update(`${clubId}.${swimmerId}.${exp}.${issuedAt}`).digest("hex");
   const a = Buffer.from(sig!);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  return { clubId, swimmerId };
+  return { clubId, swimmerId, issuedAt };
 }
 
 function labelOf(row: { nickname: string | null; full_name: string }): string {
@@ -70,8 +73,9 @@ export async function unlockKiosk(
       pin_hash: string | null;
       failed_attempts: number | null;
       locked_until: string | null;
+      updated_at: string | null;
     }>`
-      select s.full_name, c.pin_hash, c.failed_attempts, c.locked_until
+      select s.full_name, c.pin_hash, c.failed_attempts, c.locked_until, c.updated_at
       from swimmers s
       left join swimmer_credentials c on c.swimmer_id = s.id and c.club_id = s.club_id
       where s.id = ${swimmerId} and s.club_id = ${clubId} and s.status = 'aktif'
@@ -104,8 +108,13 @@ export async function unlockKiosk(
       set failed_attempts = 0, locked_until = null
       where swimmer_id = ${swimmerId} and club_id = ${clubId}
     `;
-    const exp = Date.now() + SESSION_MS;
-    return { token: signKioskToken(clubId, swimmerId, exp), fullName: row.full_name };
+    const now = Date.now();
+    const credentialAt = row.updated_at ? new Date(row.updated_at).getTime() : now;
+    const exp = now + SESSION_MS;
+    return {
+      token: signKioskToken(clubId, swimmerId, exp, Math.max(now, credentialAt)),
+      fullName: row.full_name,
+    };
   });
   if ("error" in result) throw new Error(result.error);
   return result;
@@ -114,11 +123,16 @@ export async function unlockKiosk(
 export async function kioskGreeting(sql: Sql, token: string): Promise<{ fullName: string }> {
   const parsed = readKioskToken(token);
   if (!parsed) throw new Error("Sesi tablet habis. Masuk lagi.");
-  const rows = await sql<{ full_name: string }>`
-    select full_name from swimmers
-    where id = ${parsed.swimmerId} and club_id = ${parsed.clubId} and status = 'aktif'
+  const rows = await sql<{ full_name: string; updated_at: string | null }>`
+    select s.full_name, c.updated_at
+    from swimmers s
+    left join swimmer_credentials c on c.swimmer_id = s.id and c.club_id = s.club_id
+    where s.id = ${parsed.swimmerId} and s.club_id = ${parsed.clubId} and s.status = 'aktif'
     limit 1
   `;
-  if (!rows[0]) throw new Error("Sesi tablet habis. Masuk lagi.");
-  return { fullName: rows[0].full_name };
+  const row = rows[0];
+  if (!row?.updated_at || new Date(row.updated_at).getTime() > parsed.issuedAt) {
+    throw new Error("Sesi tablet habis. Masuk lagi.");
+  }
+  return { fullName: row.full_name };
 }
