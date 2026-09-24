@@ -40,6 +40,12 @@ test("five wrong pins lock the locker even if the next pin is right", async () =
   }
   await expect(unlockKiosk(h.sql, clubId, id, "0000")).rejects.toThrow(/terkunci/);
   await expect(unlockKiosk(h.sql, clubId, id, "9090")).rejects.toThrow(/terkunci/);
+  await h.sql`update swimmer_credentials set locked_until = now() - interval '1 minute' where swimmer_id = ${id}`;
+  await expect(unlockKiosk(h.sql, clubId, id, "0000")).rejects.toThrow(/PIN salah/);
+  const attempts = await h.sql<{ failed_attempts: number }>`
+    select failed_attempts from swimmer_credentials where swimmer_id = ${id}
+  `;
+  expect(Number(attempts[0]?.failed_attempts)).toBe(1);
 });
 
 test("a swimmer with no pin cannot enter the tablet", async () => {

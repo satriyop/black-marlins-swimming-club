@@ -42,7 +42,9 @@ function labelOf(row: { nickname: string | null; full_name: string }): string {
 }
 
 export async function lookupKioskSwimmers(sql: Sql, clubId: number, ddmm: string): Promise<KioskMatch[]> {
-  if (!/^\d{4}$/.test(ddmm)) throw new Error("Tanggal lahir harus 4 angka, tanggal lalu bulan.");
+  if (typeof ddmm !== "string" || !/^\d{4}$/.test(ddmm)) {
+    throw new Error("Tanggal lahir harus 4 angka, tanggal lalu bulan.");
+  }
   const rows = await sql<{ id: number; full_name: string; nickname: string | null }>`
     select id, full_name, nickname
     from swimmers
@@ -77,12 +79,14 @@ export async function unlockKiosk(
     `;
     const row = rows[0];
     if (!row?.pin_hash) return { error: "PIN belum diatur. Minta wali." };
-    if (row.locked_until && new Date(row.locked_until).getTime() > Date.now()) {
+    const lockUntil = row.locked_until ? new Date(row.locked_until).getTime() : 0;
+    if (lockUntil > Date.now()) {
       return { error: "PIN terkunci. Coba lagi beberapa menit, atau minta wali mengatur ulang." };
     }
     const ok = await verifyPin(pin, row.pin_hash);
     if (!ok) {
-      const fails = Number(row.failed_attempts ?? 0) + 1;
+      const prior = lockUntil > 0 ? 0 : Number(row.failed_attempts ?? 0);
+      const fails = prior + 1;
       const locked = fails >= MAX_FAILS ? new Date(Date.now() + LOCK_MS).toISOString() : null;
       await tx`
         update swimmer_credentials
