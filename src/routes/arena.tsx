@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { lookupKiosk, readKioskHome, unlockKioskSession } from "@/lib/server/fns";
+import { checkInKioskSession, lookupKiosk, readKioskHome, unlockKioskSession } from "@/lib/server/fns";
 import type { KioskHome, KioskMatch } from "@/lib/club/swimmer-kiosk";
 import { Button } from "@/components/ui/button";
 
@@ -151,6 +151,12 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
 
 function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
   const [home, setHome] = useState<KioskHome | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  function load() {
+    return readKioskHome({ data: { token } })
+      .then(setHome)
+      .catch(() => onLeave());
+  }
   useEffect(() => {
     let cancelled = false;
     readKioskHome({ data: { token } })
@@ -175,12 +181,25 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
         ) : (
           <ul className="mt-2 grid gap-2">
             {home?.today.map((item) => (
-              <li key={`${item.title}-${item.startTime}`} className="rounded-xl bg-card p-3 shadow-border">
+              <li key={item.seriesId} className="rounded-xl bg-card p-3 shadow-border">
                 <p className="font-medium">{item.title}</p>
                 <p className="text-sm text-muted-foreground">
                   {item.startTime ?? "Jam belum ditentukan"}
                   {item.location ? ` · ${item.location}` : ""}
                 </p>
+                <Button
+                  type="button"
+                  className="mt-3"
+                  disabled={item.checkedIn || busy === item.seriesId}
+                  onClick={() => {
+                    setBusy(item.seriesId);
+                    checkInKioskSession({ data: { token, seriesId: item.seriesId } })
+                      .then(() => load())
+                      .finally(() => setBusy(null));
+                  }}
+                >
+                  {item.checkedIn ? "Sudah lapor hadir" : "Saya hadir"}
+                </Button>
               </li>
             ))}
           </ul>

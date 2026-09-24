@@ -13,7 +13,7 @@ export {
   deleteSwimmer,
   setSwimmerLockerPin,
 } from "./fns-swimmers";
-export { lookupKiosk, unlockKioskSession, readKioskGreeting, readKioskHome } from "./fns-kiosk";
+export { lookupKiosk, unlockKioskSession, readKioskGreeting, readKioskHome, checkInKioskSession } from "./fns-kiosk";
 export {
   listPractices,
   getPractice,

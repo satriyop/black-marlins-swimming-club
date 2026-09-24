@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { createClubHarness } from "./harness";
 import { seedClub } from "../src/lib/club/seed";
 import { setSwimmerPin } from "../src/lib/club/swimmer-pin";
-import { kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "../src/lib/club/swimmer-kiosk";
+import { checkInKiosk, kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "../src/lib/club/swimmer-kiosk";
 import { isoWeekday } from "../src/lib/club/series";
 import { jakartaNowParts } from "../src/lib/utils";
 
@@ -77,6 +77,28 @@ test("the kid home shows this swimmer's session and personal best only", async (
   expect(home.today.some((item) => item.title === "Latihan Tablet" && item.location === "Umbul")).toBe(true);
   expect(home.pbs.map((item) => item.label)).toEqual(["50 Bebas"]);
   expect(home.pbs.some((item) => item.label.includes("Dada"))).toBe(false);
+  const before = await h.sql<{ n: number }>`
+    select count(*)::int as n from practice_attendance where swimmer_id = ${ken}
+  `;
+  const todaySession = home.today.find((item) => item.title === "Latihan Tablet");
+  expect(todaySession?.checkedIn).toBe(false);
+  await checkInKiosk(h.sql, session.token, todaySession!.seriesId);
+  await checkInKiosk(h.sql, session.token, todaySession!.seriesId);
+  const again = await kioskHome(h.sql, session.token);
+  expect(again.today.find((item) => item.seriesId === todaySession!.seriesId)?.checkedIn).toBe(true);
+  const rows = await h.sql<{ n: number }>`select count(*)::int as n from swimmer_checkins where swimmer_id = ${ken}`;
+  expect(rows[0]?.n).toBe(1);
+  const attendance = await h.sql<{ n: number }>`
+    select count(*)::int as n from practice_attendance where swimmer_id = ${ken}
+  `;
+  expect(attendance[0]?.n).toBe(before[0]?.n);
+  const otherDay = isoWeekday(today) === 7 ? 1 : isoWeekday(today) + 1;
+  const later = await h.sql<{ id: number }>`
+    insert into practice_series (club_id, title, weekday, start_time, location, kind, start_date, active)
+    values (${clubId}, 'Bukan Hari Ini', ${otherDay}, '16:00', 'Umbul', 'renang', ${today}::date, true)
+    returning id
+  `;
+  await expect(checkInKiosk(h.sql, session.token, later[0]!.id)).rejects.toThrow(/hari ini/);
 });
 
 test("a swimmer with no pin cannot enter the tablet", async () => {
