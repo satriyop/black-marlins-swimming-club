@@ -1,5 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Sql } from "@/lib/db";
+import { jakartaNowParts } from "@/lib/utils";
+import { ageGroupForDob } from "@/lib/swim/age";
+import { formatTime } from "@/lib/swim/time";
+import { strokeShort } from "@/lib/swim/constants";
+import { isoWeekday } from "./series";
 import { verifyPin } from "./swimmer-pin";
 
 const MAX_FAILS = 5;
@@ -135,4 +140,99 @@ export async function kioskGreeting(sql: Sql, token: string): Promise<{ fullName
     throw new Error("Sesi tablet habis. Masuk lagi.");
   }
   return { fullName: row.full_name };
+}
+
+export type KioskHome = {
+  fullName: string;
+  ageGroup: string;
+  today: { title: string; startTime: string | null; location: string | null }[];
+  upcoming: { date: string; title: string; startTime: string | null; location: string | null }[];
+  pbs: { label: string; time: string }[];
+};
+
+export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
+  const parsed = readKioskToken(token);
+  if (!parsed) throw new Error("Sesi tablet habis. Masuk lagi.");
+  const swimmer = await sql<{ full_name: string; date_of_birth: string; updated_at: string | null }>`
+    select s.full_name, s.date_of_birth::text as date_of_birth, c.updated_at
+    from swimmers s
+    left join swimmer_credentials c on c.swimmer_id = s.id and c.club_id = s.club_id
+    where s.id = ${parsed.swimmerId} and s.club_id = ${parsed.clubId} and s.status = 'aktif'
+    limit 1
+  `;
+  const who = swimmer[0];
+  if (!who?.updated_at || new Date(who.updated_at).getTime() > parsed.issuedAt) {
+    throw new Error("Sesi tablet habis. Masuk lagi.");
+  }
+  const today = jakartaNowParts().date;
+  const end = new Date(`${today}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + 6);
+  const toDate = end.toISOString().slice(0, 10);
+  const schedules = await sql<{
+    id: number;
+    title: string;
+    weekday: number;
+    start_time: string | null;
+    location: string | null;
+    start_date: string;
+    until_date: string | null;
+  }>`
+    select id, title, weekday, start_time::text as start_time, location,
+           start_date::text as start_date, until_date::text as until_date
+    from practice_series
+    where club_id = ${parsed.clubId} and active = true and start_date <= ${toDate}::date
+      and (until_date is null or until_date >= ${today}::date)
+  `;
+  const skips = await sql<{ series_id: number; skip_date: string }>`
+    select series_id, skip_date::text as skip_date from practice_series_skips
+    where skip_date between ${today}::date and ${toDate}::date
+  `;
+  const skipped = new Set(skips.map((row) => `${row.series_id}:${row.skip_date.slice(0, 10)}`));
+  const opened = await sql<{ series_id: number | null; occurrence_date: string; status: string }>`
+    select series_id, occurrence_date::text as occurrence_date, status
+    from practices
+    where club_id = ${parsed.clubId} and series_id is not null
+      and occurrence_date between ${today}::date and ${toDate}::date
+  `;
+  const openedStatus = new Map(
+    opened.map((row) => [`${row.series_id}:${row.occurrence_date.slice(0, 10)}`, row.status]),
+  );
+  const days: KioskHome["upcoming"] = [];
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = new Date(`${today}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+    const day = date.toISOString().slice(0, 10);
+    for (const schedule of schedules) {
+      if (day < schedule.start_date.slice(0, 10)) continue;
+      if (schedule.until_date && day > schedule.until_date.slice(0, 10)) continue;
+      if (isoWeekday(day) !== Number(schedule.weekday)) continue;
+      if (skipped.has(`${schedule.id}:${day}`)) continue;
+      if (openedStatus.get(`${schedule.id}:${day}`) === "cancelled") continue;
+      days.push({
+        date: day,
+        title: schedule.title,
+        startTime: schedule.start_time?.slice(0, 5) ?? null,
+        location: schedule.location,
+      });
+    }
+  }
+  days.sort((a, b) => `${a.date}T${a.startTime ?? ""}`.localeCompare(`${b.date}T${b.startTime ?? ""}`));
+  const pbs = await sql<{ stroke: string; distance_m: number; time_ms: number }>`
+    select stroke, distance_m, time_ms from results
+    where club_id = ${parsed.clubId} and swimmer_id = ${parsed.swimmerId}
+      and is_pb = true and time_ms is not null
+    order by stroke, distance_m
+  `;
+  return {
+    fullName: who.full_name,
+    ageGroup: ageGroupForDob(who.date_of_birth.slice(0, 10)).label,
+    today: days
+      .filter((day) => day.date === today)
+      .map(({ title, startTime, location }) => ({ title, startTime, location })),
+    upcoming: days.filter((day) => day.date !== today),
+    pbs: pbs.map((row) => ({
+      label: `${row.distance_m} ${strokeShort(row.stroke)}`,
+      time: formatTime(Number(row.time_ms)),
+    })),
+  };
 }

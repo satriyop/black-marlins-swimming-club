@@ -2,7 +2,9 @@ import { expect, test } from "vitest";
 import { createClubHarness } from "./harness";
 import { seedClub } from "../src/lib/club/seed";
 import { setSwimmerPin } from "../src/lib/club/swimmer-pin";
-import { kioskGreeting, lookupKioskSwimmers, unlockKiosk } from "../src/lib/club/swimmer-kiosk";
+import { kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "../src/lib/club/swimmer-kiosk";
+import { isoWeekday } from "../src/lib/club/series";
+import { jakartaNowParts } from "../src/lib/utils";
 
 process.env.BETTER_AUTH_SECRET ??= "kiosk-test-secret";
 
@@ -48,6 +50,33 @@ test("five wrong pins lock the locker even if the next pin is right", async () =
     select failed_attempts from swimmer_credentials where swimmer_id = ${id}
   `;
   expect(Number(attempts[0]?.failed_attempts)).toBe(1);
+});
+
+test("the kid home shows this swimmer's session and personal best only", async () => {
+  const h = await createClubHarness();
+  const clubId = await seedClub(h.sql);
+  const ken = await idOf(h.sql, "Perenang Satu");
+  const other = await idOf(h.sql, "Perenang Dua");
+  const today = jakartaNowParts().date;
+  await h.sql`
+    insert into practice_series (club_id, title, weekday, start_time, location, kind, start_date, active)
+    values (${clubId}, 'Latihan Tablet', ${isoWeekday(today)}, '16:00', 'Umbul', 'renang', ${today}::date, true)
+  `;
+  await h.sql`
+    insert into results (club_id, swimmer_id, result_date, stroke, distance_m, course, time_ms, status, kind, is_pb)
+    values (${clubId}, ${ken}, ${today}::date, 'bebas', 50, '50', 32100, 'selesai', 'official', true)
+  `;
+  await h.sql`
+    insert into results (club_id, swimmer_id, result_date, stroke, distance_m, course, time_ms, status, kind, is_pb)
+    values (${clubId}, ${other}, ${today}::date, 'dada', 100, '50', 90000, 'selesai', 'official', true)
+  `;
+  await setSwimmerPin(h.actor("usr_satriyo"), { swimmerId: ken, pin: "1357" });
+  const session = await unlockKiosk(h.sql, clubId, ken, "1357");
+  const home = await kioskHome(h.sql, session.token);
+  expect(home.fullName).toBe("Perenang Satu");
+  expect(home.today.some((item) => item.title === "Latihan Tablet" && item.location === "Umbul")).toBe(true);
+  expect(home.pbs.map((item) => item.label)).toEqual(["50 Bebas"]);
+  expect(home.pbs.some((item) => item.label.includes("Dada"))).toBe(false);
 });
 
 test("a swimmer with no pin cannot enter the tablet", async () => {
