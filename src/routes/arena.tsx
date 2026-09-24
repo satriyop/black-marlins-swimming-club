@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { lookupKiosk, readKioskGreeting, unlockKioskSession } from "@/lib/server/fns";
-import type { KioskMatch } from "@/lib/club/swimmer-kiosk";
+import { lookupKiosk, readKioskHome, unlockKioskSession } from "@/lib/server/fns";
+import type { KioskHome, KioskMatch } from "@/lib/club/swimmer-kiosk";
 import { Button } from "@/components/ui/button";
 
 const TOKEN_KEY = "bmsc.kiosk";
@@ -150,12 +150,12 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
 }
 
 function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
-  const [name, setName] = useState<string | null>(null);
+  const [home, setHome] = useState<KioskHome | null>(null);
   useEffect(() => {
     let cancelled = false;
-    readKioskGreeting({ data: { token } })
-      .then((greeting) => {
-        if (!cancelled) setName(greeting.fullName);
+    readKioskHome({ data: { token } })
+      .then((next) => {
+        if (!cancelled) setHome(next);
       })
       .catch(() => {
         if (!cancelled) onLeave();
@@ -166,8 +166,60 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
   }, [token, onLeave]);
   return (
     <Shell>
-      <h1 className="font-display text-4xl">Halo, {name ?? "…"}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Kamu sudah masuk di tablet kolam.</p>
+      <h1 className="font-display text-4xl">Halo, {home?.fullName ?? "…"}</h1>
+      {home ? <p className="mt-1 text-sm font-semibold text-primary">{home.ageGroup}</p> : null}
+      <section className="mt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Hari ini</h2>
+        {home && home.today.length === 0 ? (
+          <p className="mt-2 text-sm">Tidak ada latihan hari ini.</p>
+        ) : (
+          <ul className="mt-2 grid gap-2">
+            {home?.today.map((item) => (
+              <li key={`${item.title}-${item.startTime}`} className="rounded-xl bg-card p-3 shadow-border">
+                <p className="font-medium">{item.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {item.startTime ?? "Jam belum ditentukan"}
+                  {item.location ? ` · ${item.location}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="mt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tujuh hari</h2>
+        {home && home.upcoming.length === 0 ? (
+          <p className="mt-2 text-sm">Tidak ada latihan lain minggu ini.</p>
+        ) : (
+          <ul className="mt-2 grid gap-2">
+            {home?.upcoming.map((item) => (
+              <li key={`${item.date}-${item.title}-${item.startTime}`} className="text-sm">
+                <span className="font-medium">{item.title}</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {item.date.slice(8, 10)}/{item.date.slice(5, 7)} · {item.startTime ?? "—"}
+                  {item.location ? ` · ${item.location}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="mt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Rekor pribadi</h2>
+        {home && home.pbs.length === 0 ? (
+          <p className="mt-2 text-sm">Belum ada rekor.</p>
+        ) : (
+          <ul className="mt-2 grid gap-1">
+            {home?.pbs.map((item) => (
+              <li key={item.label} className="flex justify-between text-sm">
+                <span>{item.label}</span>
+                <span className="font-semibold">{item.time}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <Button type="button" className="mt-8" variant="outline" onClick={onLeave}>
         Keluar
       </Button>
