@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { createClubHarness } from "./harness";
 import { seedClub } from "../src/lib/club/seed";
 import { setSwimmerPin } from "../src/lib/club/swimmer-pin";
-import { checkInKiosk, kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "../src/lib/club/swimmer-kiosk";
+import { checkInKiosk, kioskGreeting, kioskHome, lookupKioskSwimmers, pbShareText, unlockKiosk } from "../src/lib/club/swimmer-kiosk";
 import { isoWeekday } from "../src/lib/club/series";
 import { jakartaNowParts } from "../src/lib/utils";
 
@@ -75,7 +75,14 @@ test("the kid home shows this swimmer's session and personal best only", async (
   const home = await kioskHome(h.sql, session.token);
   expect(home.fullName).toBe("Perenang Satu");
   expect(home.today.some((item) => item.title === "Latihan Tablet" && item.location === "Umbul")).toBe(true);
+  expect(home.clubName.length).toBeGreaterThan(0);
   expect(home.pbs.map((item) => item.label)).toEqual(["50 Bebas"]);
+  expect(pbShareText({ name: home.fullName, club: home.clubName, label: "50 Bebas", time: home.pbs[0]!.time })).toContain(
+    "50 Bebas",
+  );
+  expect(pbShareText({ name: home.fullName, club: home.clubName, label: "50 Bebas", time: home.pbs[0]!.time })).not.toContain(
+    "Dada",
+  );
   expect(home.pbs.some((item) => item.label.includes("Dada"))).toBe(false);
   const before = await h.sql<{ n: number }>`
     select count(*)::int as n from practice_attendance where swimmer_id = ${ken}
