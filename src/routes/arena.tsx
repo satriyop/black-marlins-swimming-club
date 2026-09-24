@@ -152,6 +152,7 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
 function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
   const [home, setHome] = useState<KioskHome | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
   function load() {
     return readKioskHome({ data: { token } })
       .then(setHome)
@@ -193,8 +194,12 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
                   disabled={item.checkedIn || busy === item.seriesId}
                   onClick={() => {
                     setBusy(item.seriesId);
+                    setCheckError(null);
                     checkInKioskSession({ data: { token, seriesId: item.seriesId } })
                       .then(() => load())
+                      .catch((err: unknown) => {
+                        setCheckError(err instanceof Error ? err.message : "Gagal lapor hadir.");
+                      })
                       .finally(() => setBusy(null));
                   }}
                 >
@@ -204,6 +209,11 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
             ))}
           </ul>
         )}
+        {checkError ? (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {checkError}
+          </p>
+        ) : null}
       </section>
       <section className="mt-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tujuh hari</h2>
