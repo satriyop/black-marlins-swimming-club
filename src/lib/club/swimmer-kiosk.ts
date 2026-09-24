@@ -145,7 +145,7 @@ export async function kioskGreeting(sql: Sql, token: string): Promise<{ fullName
 export type KioskHome = {
   fullName: string;
   ageGroup: string;
-  today: { title: string; startTime: string | null; location: string | null }[];
+  today: { seriesId: number; title: string; startTime: string | null; location: string | null; checkedIn: boolean }[];
   upcoming: { date: string; title: string; startTime: string | null; location: string | null }[];
   pbs: { label: string; time: string }[];
 };
@@ -197,7 +197,7 @@ export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
   const openedStatus = new Map(
     opened.map((row) => [`${row.series_id}:${row.occurrence_date.slice(0, 10)}`, row.status]),
   );
-  const days: KioskHome["upcoming"] = [];
+  const days: { seriesId: number; date: string; title: string; startTime: string | null; location: string | null }[] = [];
   for (let offset = 0; offset < 7; offset += 1) {
     const date = new Date(`${today}T00:00:00Z`);
     date.setUTCDate(date.getUTCDate() + offset);
@@ -209,6 +209,7 @@ export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
       if (skipped.has(`${schedule.id}:${day}`)) continue;
       if (openedStatus.get(`${schedule.id}:${day}`) === "cancelled") continue;
       days.push({
+        seriesId: schedule.id,
         date: day,
         title: schedule.title,
         startTime: schedule.start_time?.slice(0, 5) ?? null,
@@ -217,6 +218,11 @@ export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
     }
   }
   days.sort((a, b) => `${a.date}T${a.startTime ?? ""}`.localeCompare(`${b.date}T${b.startTime ?? ""}`));
+  const checkins = await sql<{ series_id: number }>`
+    select series_id from swimmer_checkins
+    where club_id = ${parsed.clubId} and swimmer_id = ${parsed.swimmerId} and session_date = ${today}::date
+  `;
+  const checked = new Set(checkins.map((row) => row.series_id));
   const pbs = await sql<{ stroke: string; distance_m: number; time_ms: number }>`
     select stroke, distance_m, time_ms from results
     where club_id = ${parsed.clubId} and swimmer_id = ${parsed.swimmerId}
@@ -228,11 +234,38 @@ export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
     ageGroup: ageGroupForDob(who.date_of_birth.slice(0, 10)).label,
     today: days
       .filter((day) => day.date === today)
-      .map(({ title, startTime, location }) => ({ title, startTime, location })),
-    upcoming: days.filter((day) => day.date !== today),
+      .map(({ seriesId, title, startTime, location }) => ({
+        seriesId,
+        title,
+        startTime,
+        location,
+        checkedIn: checked.has(seriesId),
+      })),
+    upcoming: days.filter((day) => day.date !== today).map(({ date, title, startTime, location }) => ({
+      date,
+      title,
+      startTime,
+      location,
+    })),
     pbs: pbs.map((row) => ({
       label: `${row.distance_m} ${strokeShort(row.stroke)}`,
       time: formatTime(Number(row.time_ms)),
     })),
   };
+}
+
+export async function checkInKiosk(sql: Sql, token: string, seriesId: number): Promise<{ checkedIn: true }> {
+  if (!Number.isInteger(seriesId)) throw new Error("Bukan latihan hari ini.");
+  const parsed = readKioskToken(token);
+  if (!parsed) throw new Error("Sesi tablet habis. Masuk lagi.");
+  const home = await kioskHome(sql, token);
+  if (!home.today.some((item) => item.seriesId === seriesId)) {
+    throw new Error("Bukan latihan hari ini.");
+  }
+  await sql`
+    insert into swimmer_checkins (club_id, swimmer_id, series_id, session_date)
+    values (${parsed.clubId}, ${parsed.swimmerId}, ${seriesId}, ${jakartaNowParts().date}::date)
+    on conflict (swimmer_id, series_id, session_date) do nothing
+  `;
+  return { checkedIn: true };
 }

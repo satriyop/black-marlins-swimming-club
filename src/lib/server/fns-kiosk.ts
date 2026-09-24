@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
-import { kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "@/lib/club/swimmer-kiosk";
+import { checkInKiosk, kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "@/lib/club/swimmer-kiosk";
 
 async function clubId(sql: Sql): Promise<number> {
   const rows = await sql<{ id: number }>`select id from clubs order by id limit 1`;
@@ -40,3 +40,12 @@ export const readKioskHome = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data }) => kioskHome(await getSql(), data.token));
+
+export const checkInKioskSession = createServerFn({ method: "POST" })
+  .validator((input: { token: string; seriesId: number }) => {
+    if (!input || typeof input.token !== "string" || !Number.isInteger(input.seriesId)) {
+      throw new Error("Bukan latihan hari ini.");
+    }
+    return input;
+  })
+  .handler(async ({ data }) => checkInKiosk(await getSql(), data.token, data.seriesId));

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { lookupKiosk, readKioskHome, unlockKioskSession } from "@/lib/server/fns";
+import { checkInKioskSession, lookupKiosk, readKioskHome, unlockKioskSession } from "@/lib/server/fns";
 import type { KioskHome, KioskMatch } from "@/lib/club/swimmer-kiosk";
 import { Button } from "@/components/ui/button";
 
@@ -151,6 +151,13 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
 
 function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
   const [home, setHome] = useState<KioskHome | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  function load() {
+    return readKioskHome({ data: { token } })
+      .then(setHome)
+      .catch(() => onLeave());
+  }
   useEffect(() => {
     let cancelled = false;
     readKioskHome({ data: { token } })
@@ -175,16 +182,38 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
         ) : (
           <ul className="mt-2 grid gap-2">
             {home?.today.map((item) => (
-              <li key={`${item.title}-${item.startTime}`} className="rounded-xl bg-card p-3 shadow-border">
+              <li key={item.seriesId} className="rounded-xl bg-card p-3 shadow-border">
                 <p className="font-medium">{item.title}</p>
                 <p className="text-sm text-muted-foreground">
                   {item.startTime ?? "Jam belum ditentukan"}
                   {item.location ? ` · ${item.location}` : ""}
                 </p>
+                <Button
+                  type="button"
+                  className="mt-3"
+                  disabled={item.checkedIn || busy === item.seriesId}
+                  onClick={() => {
+                    setBusy(item.seriesId);
+                    setCheckError(null);
+                    checkInKioskSession({ data: { token, seriesId: item.seriesId } })
+                      .then(() => load())
+                      .catch((err: unknown) => {
+                        setCheckError(err instanceof Error ? err.message : "Gagal lapor hadir.");
+                      })
+                      .finally(() => setBusy(null));
+                  }}
+                >
+                  {item.checkedIn ? "Sudah lapor hadir" : "Saya hadir"}
+                </Button>
               </li>
             ))}
           </ul>
         )}
+        {checkError ? (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {checkError}
+          </p>
+        ) : null}
       </section>
       <section className="mt-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tujuh hari</h2>
