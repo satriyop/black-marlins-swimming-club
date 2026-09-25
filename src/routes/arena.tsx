@@ -285,12 +285,9 @@ async function sharePbCard(input: { name: string; club: string; label: string; t
   ctx.font = "600 42px sans-serif";
   ctx.fillText("REKOR PRIBADI", 80, 160);
   ctx.fillStyle = "#f4f7f6";
-  ctx.font = "700 72px sans-serif";
-  ctx.fillText(input.name, 80, 320);
-  ctx.font = "700 140px sans-serif";
-  ctx.fillText(input.time, 80, 560);
-  ctx.font = "500 56px sans-serif";
-  ctx.fillText(input.label, 80, 680);
+  drawFitted(ctx, input.name, 80, 320, 920, 72);
+  drawFitted(ctx, input.time, 80, 560, 920, 140);
+  drawFitted(ctx, input.label, 80, 680, 920, 56);
   ctx.fillStyle = "#94a3b8";
   ctx.font = "500 40px sans-serif";
   ctx.fillText(input.club, 80, 1200);
@@ -298,15 +295,36 @@ async function sharePbCard(input: { name: string; club: string; label: string; t
   if (!blob) return;
   const file = new File([blob], "rekor-pribadi.png", { type: "image/png" });
   if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: input.label, text });
-    return;
+    try {
+      await navigator.share({ files: [file], title: input.label, text });
+      return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+    }
   }
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = "rekor-pribadi.png";
   link.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function drawFitted(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  size: number,
+) {
+  let next = size;
+  ctx.font = `700 ${next}px sans-serif`;
+  while (next > 28 && ctx.measureText(text).width > maxWidth) {
+    next -= 4;
+    ctx.font = `700 ${next}px sans-serif`;
+  }
+  ctx.fillText(text, x, y, maxWidth);
 }
 
 function Keypad({
