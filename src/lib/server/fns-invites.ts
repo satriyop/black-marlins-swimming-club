@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { loadClub, requireClub } from "@/lib/club/context";
+import { UnknownClubHostError } from "@/lib/club/hostname";
+import { resolveRequestClub } from "@/lib/club/request-club.server";
 import { getSql } from "@/lib/db";
 import {
   acceptInvite,
@@ -115,7 +117,14 @@ export const listClubAdminHandoff = createServerFn({ method: "GET" }).middleware
 });
 
 export const getPublicClubContact = createServerFn({ method: "GET" }).handler(async () => {
-  return loadPublicClubContact(await getSql());
+  const sql = await getSql();
+  try {
+    const id = await resolveRequestClub(sql);
+    return loadPublicClubContact(sql, id ?? undefined);
+  } catch (err) {
+    if (err instanceof UnknownClubHostError) return null;
+    throw err;
+  }
 });
 
 export const saveClubSupportContact = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { email?: string; phone?: string; url?: string }) => input).handler(async ({ context, data }) => {

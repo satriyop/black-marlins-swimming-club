@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Navigate } from "@tanstack/react-router";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { safeReturnPath } from "@/lib/auth/return-path";
 import { LoginScreen, Splash } from "@/components/auth/login-screen";
@@ -11,17 +11,20 @@ export const Route = createFileRoute("/login")({
   component: Login,
 });
 
+const rootRoute = getRouteApi("__root__");
+
 function Login() {
+  const chrome = rootRoute.useLoaderData();
   const { next, error } = Route.useSearch();
   const dest = safeReturnPath(next) ?? "/";
   const { user, isPending } = useCurrentUserState();
-  if (isPending) return <Splash label="Menyiapkan masuk…" />;
+  if (isPending) return <Splash chrome={chrome} label="Menyiapkan masuk…" />;
   if (user) {
     if (dest === "/") return <Navigate to="/" />;
     if (typeof window !== "undefined") {
       window.location.replace(dest);
     }
-    return <Splash label="Membuka halaman…" />;
+    return <Splash chrome={chrome} label="Membuka halaman…" />;
   }
   return <LoginScreen next={dest === "/" ? null : dest} errorCode={error} />;
 }

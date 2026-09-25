@@ -1,9 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { soleClubId } from "@/lib/club/membership";
+import { resolveRequestClub } from "@/lib/club/request-club.server";
 import { checkInKiosk, kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "@/lib/club/swimmer-kiosk";
 
 async function clubId(sql: Sql): Promise<number> {
+  const fromHost = await resolveRequestClub(sql);
+  if (fromHost != null) return fromHost;
   const id = await soleClubId(sql);
   if (id == null) throw new Error("Klub belum siap.");
   return id;
