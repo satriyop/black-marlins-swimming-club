@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
@@ -44,11 +44,14 @@ function deadlineLabel(iso: string): string {
 
 export const Route = createFileRoute("/")({ loader: () => fetchSessionUser(), component: Home });
 
+const rootRoute = getRouteApi("__root__");
+
 function Home() {
+  const chrome = rootRoute.useLoaderData();
   const ssrUser = Route.useLoaderData();
   const { user, isPending } = useCurrentUserState();
   if (user) return <Dashboard />;
-  if (ssrUser && isPending) return <Splash label="Memuat klub…" />;
+  if (ssrUser && isPending) return <Splash chrome={chrome} label="Memuat klub…" />;
   return <LoginScreen />;
 }
 

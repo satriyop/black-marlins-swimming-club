@@ -151,9 +151,11 @@ export function InstallAppButton({
 export function InstallAppDialog({
   open,
   onOpenChange,
+  appName = "Black Marlins",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  appName?: string;
 }) {
   const { standalone, platform, promptAvailable, requestInstall } = useInstallPrompt();
   const [pending, setPending] = useState(false);
@@ -178,7 +180,7 @@ export function InstallAppDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title="Pasang Black Marlins"
+        title={`Pasang ${appName}`}
         description="Buka klub lebih cepat dari layar utama perangkat ini."
       >
         <div className="grid gap-4 text-sm">
@@ -201,7 +203,7 @@ export function InstallAppDialog({
           {promptAvailable ? (
             <>
               <p className="text-muted-foreground">
-                Browser siap memasang Black Marlins sebagai aplikasi di perangkat ini.
+                Browser siap memasang {appName} sebagai aplikasi di perangkat ini.
               </p>
               <Button type="button" size="lg" disabled={pending} onClick={() => void install()}>
                 <Download />

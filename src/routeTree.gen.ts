@@ -15,6 +15,7 @@ import { Route as ArenaRouteImport } from './routes/arena'
 import { Route as EventRouteImport } from './routes/event'
 import { Route as LatihanRouteImport } from './routes/latihan'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ManifestDotwebmanifestRouteImport } from './routes/manifest[.]webmanifest'
 import { Route as PengumumanRouteImport } from './routes/pengumuman'
 import { Route as PerenangRouteImport } from './routes/perenang'
 import { Route as TerimaRouteImport } from './routes/terima'
@@ -59,6 +60,11 @@ const LatihanRoute = LatihanRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManifestDotwebmanifestRoute = ManifestDotwebmanifestRouteImport.update({
+  id: '/manifest.webmanifest',
+  path: '/manifest.webmanifest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PengumumanRoute = PengumumanRouteImport.update({
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/event': typeof EventRoute
   '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/pengumuman': typeof PengumumanRoute
   '/perenang': typeof PerenangRoute
   '/terima': typeof TerimaRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByTo {
   '/event': typeof EventRoute
   '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/pengumuman': typeof PengumumanRoute
   '/perenang': typeof PerenangRoute
   '/terima': typeof TerimaRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/event': typeof EventRoute
   '/latihan': typeof LatihanRoute
   '/login': typeof LoginRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/pengumuman': typeof PengumumanRoute
   '/perenang': typeof PerenangRoute
   '/terima': typeof TerimaRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/event'
     | '/latihan'
     | '/login'
+    | '/manifest.webmanifest'
     | '/pengumuman'
     | '/perenang'
     | '/terima'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/event'
     | '/latihan'
     | '/login'
+    | '/manifest.webmanifest'
     | '/pengumuman'
     | '/perenang'
     | '/terima'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/event'
     | '/latihan'
     | '/login'
+    | '/manifest.webmanifest'
     | '/pengumuman'
     | '/perenang'
     | '/terima'
@@ -287,6 +299,7 @@ export interface RootRouteChildren {
   EventRoute: typeof EventRoute
   LatihanRoute: typeof LatihanRoute
   LoginRoute: typeof LoginRoute
+  ManifestDotwebmanifestRoute: typeof ManifestDotwebmanifestRoute
   PengumumanRoute: typeof PengumumanRoute
   PerenangRoute: typeof PerenangRoute
   TerimaRoute: typeof TerimaRoute
@@ -346,6 +359,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manifest.webmanifest': {
+      id: '/manifest.webmanifest'
+      path: '/manifest.webmanifest'
+      fullPath: '/manifest.webmanifest'
+      preLoaderRoute: typeof ManifestDotwebmanifestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pengumuman': {
@@ -463,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   EventRoute: EventRoute,
   LatihanRoute: LatihanRoute,
   LoginRoute: LoginRoute,
+  ManifestDotwebmanifestRoute: ManifestDotwebmanifestRoute,
   PengumumanRoute: PengumumanRoute,
   PerenangRoute: PerenangRoute,
   TerimaRoute: TerimaRoute,

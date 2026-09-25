@@ -3,14 +3,17 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { detectInstallPlatform, isStandaloneDisplay } from "../src/lib/pwa/install";
+import { clubManifest } from "../src/lib/pwa/manifest";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("PWA identity", () => {
   test("manifest launches at the stable authenticated home boundary", () => {
-    const manifest = JSON.parse(
-      readFileSync(join(root, "public/manifest.webmanifest"), "utf8"),
-    ) as Record<string, unknown>;
+    const manifest = clubManifest({
+      name: "Black Marlins Swimming Club Klaten",
+      shortName: "BMSC",
+      slug: "bmsc",
+    });
     expect(manifest).toMatchObject({
       id: "/",
       start_url: "/",

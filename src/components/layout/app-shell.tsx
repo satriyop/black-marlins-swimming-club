@@ -1,6 +1,6 @@
 import { useMobileNavSpace } from "@/components/layout/use-mobile-nav-space";
 import { EmptyState } from "@/components/ui/page-header";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { getRouteApi, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDays,
   LayoutDashboard,
@@ -36,6 +36,8 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { QueryError } from "@/components/ui/query-error";
 import { InstallAppButton, InstallAppDialog } from "@/components/pwa/install-app";
 
+const rootRoute = getRouteApi("__root__");
+
 const ICONS: Record<NavItem["to"], typeof LayoutDashboard> = {
   "/": LayoutDashboard,
   "/perenang": Users,
@@ -53,6 +55,7 @@ function navActive(pathname: string, to: string) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const navRef = useMobileNavSpace();
+  const chrome = rootRoute.useLoaderData();
   const { user, isPending } = useCurrentUserState();
   const [moreOpen, setMoreOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
@@ -63,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     enabled: Boolean(user),
   });
 
-  if (isPending) return <Splash />;
+  if (isPending) return <Splash chrome={chrome} />;
   if (!user) return <RedirectToSignIn />;
   if (access.isError)
     return (
@@ -74,7 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       </main>
     );
-  if (access.isPending || !access.data) return <Splash label="Memuat akses…" />;
+  if (access.isPending || !access.data) return <Splash chrome={chrome} label="Memuat akses…" />;
 
   const items = navItemsFor(access.data.hats, access.data.taskView);
   const invited = access.data.invited;
@@ -99,14 +102,24 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="relative mx-auto flex min-h-dvh max-w-7xl">
         <aside className="sticky top-0 hidden h-dvh w-60 max-w-[30vw] shrink-0 flex-col overflow-y-auto [overflow-wrap:anywhere] border-r border-border/80 px-4 py-6 md:flex">
           <Link to="/" className="mb-8 flex items-center gap-3 px-2">
-            <img
-              src="/images/crest.jpg"
-              alt=""
-              className="size-11 rounded-full object-cover outline outline-1 -outline-offset-1 outline-white/10"
-            />
+            {chrome?.crestSrc ? (
+              <img
+                src={chrome.crestSrc}
+                alt=""
+                className="size-11 rounded-full object-cover outline outline-1 -outline-offset-1 outline-white/10"
+              />
+            ) : (
+              <span className="grid size-11 place-items-center rounded-full bg-muted font-display text-sm">
+                {(chrome?.shortName ?? "Klub").slice(0, 3)}
+              </span>
+            )}
             <div className="min-w-0">
-              <p className="font-display text-xl leading-none text-foreground">BMSC</p>
-              <p className="mt-1 truncate text-xs text-muted-foreground">Klaten · Jateng</p>
+              <p className="font-display text-xl leading-none text-foreground">
+                {chrome?.marlins ? "BMSC" : chrome?.shortName ?? "Klub"}
+              </p>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {chrome?.marlins ? "Klaten · Jateng" : chrome ? `${chrome.city} · ${chrome.province}` : ""}
+              </p>
             </div>
           </Link>
           <nav aria-label="Navigasi utama" className="grid gap-1">
@@ -141,18 +154,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           <header className="flex min-h-16 flex-wrap items-center gap-3 border-b border-border/70 px-4 py-2 md:px-8">
             <Link
               to="/"
-              aria-label="BMSC — Hari Ini"
+              aria-label={`${chrome?.marlins ? "BMSC" : chrome?.shortName ?? "Klub"} — Hari Ini`}
               className="flex min-h-11 min-w-0 items-center gap-2 md:hidden"
             >
-              <img
-                src="/images/crest.jpg"
-                alt=""
-                className="size-9 shrink-0 rounded-full object-cover"
-              />
-              <span className="font-display text-lg leading-none">BMSC</span>
+              {chrome?.crestSrc ? (
+                <img src={chrome.crestSrc} alt="" className="size-9 shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted font-display text-xs">
+                  {(chrome?.shortName ?? "Klub").slice(0, 3)}
+                </span>
+              )}
+              <span className="font-display text-lg leading-none">
+                {chrome?.marlins ? "BMSC" : chrome?.shortName ?? "Klub"}
+              </span>
             </Link>
             <p className="hidden min-w-0 flex-1 text-sm text-muted-foreground [overflow-wrap:anywhere] md:block">
-              Black Marlins Swimming Club
+              {chrome?.marlins ? "Black Marlins Swimming Club" : chrome?.name ?? "Klub"}
             </p>
             <div className="ml-auto flex min-w-0 items-center gap-2">
               {dual ? <TaskViewSwitch compact current={access.data.taskView} /> : null}
@@ -257,7 +274,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Dialog>
         )}
       </nav>
-      <InstallAppDialog open={installOpen} onOpenChange={setInstallOpen} />
+      <InstallAppDialog
+        open={installOpen}
+        onOpenChange={setInstallOpen}
+        appName={chrome?.marlins ? "Black Marlins" : chrome?.shortName ?? "Klub"}
+      />
     </div>
   );
 }
