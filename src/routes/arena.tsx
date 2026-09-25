@@ -82,7 +82,7 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
 
   return (
     <Shell>
-      <h1 className="font-display text-5xl">Tablet kolam</h1>
+      <h1 className="font-display text-5xl [overflow-wrap:anywhere]">Tablet kolam</h1>
       <p className="mt-3 text-lg text-muted-foreground">
         Tanggal lahir, lalu PIN dari wali. Bukan masuk Google.
       </p>
@@ -94,7 +94,7 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
             void unlock();
           }}
         >
-          <p className="text-2xl font-semibold">{chosen.label}</p>
+          <p className="text-2xl font-semibold [overflow-wrap:anywhere]">{chosen.label}</p>
           <Keypad value={pin} onChange={setPin} max={4} mask label="PIN" />
           <Button type="submit" className="min-h-16 text-lg" disabled={pending || pin.length !== 4}>
             {pending ? "Memeriksa…" : "Masuk"}
@@ -117,7 +117,7 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
         <div className="mt-6 grid gap-2">
           <p className="text-lg text-muted-foreground">Pilih nama.</p>
           {matches.map((match) => (
-            <Button key={match.id} type="button" variant="outline" className="min-h-16 text-xl" onClick={() => setChosen(match)}>
+            <Button key={match.id} type="button" variant="outline" className="min-h-16 text-xl [overflow-wrap:anywhere]" onClick={() => setChosen(match)}>
               {match.label}
             </Button>
           ))}
@@ -174,7 +174,7 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
   }, [token, onLeave]);
   return (
     <Shell>
-      <h1 className="font-display text-5xl leading-none">Halo, {home?.fullName ?? "…"}</h1>
+      <h1 className="font-display text-5xl leading-none [overflow-wrap:anywhere]">Halo, {home?.fullName ?? "…"}</h1>
       {home ? <p className="mt-2 text-xl font-semibold text-primary">{home.ageGroup}</p> : null}
       <section className="mt-8">
         <h2 className="text-lg font-semibold">Hari ini</h2>
