@@ -82,8 +82,8 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
 
   return (
     <Shell>
-      <h1 className="font-display text-4xl">Tablet kolam</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <h1 className="font-display text-5xl [overflow-wrap:anywhere]">Tablet kolam</h1>
+      <p className="mt-3 text-lg text-muted-foreground">
         Tanggal lahir, lalu PIN dari wali. Bukan masuk Google.
       </p>
       {chosen ? (
@@ -94,14 +94,15 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
             void unlock();
           }}
         >
-          <p className="text-lg font-semibold">{chosen.label}</p>
+          <p className="text-2xl font-semibold [overflow-wrap:anywhere]">{chosen.label}</p>
           <Keypad value={pin} onChange={setPin} max={4} mask label="PIN" />
-          <Button type="submit" disabled={pending || pin.length !== 4}>
+          <Button type="submit" className="min-h-16 text-lg" disabled={pending || pin.length !== 4}>
             {pending ? "Memeriksa…" : "Masuk"}
           </Button>
           <Button
             type="button"
             variant="ghost"
+            className="min-h-14 text-lg"
             onClick={() => {
               setChosen(null);
               setMatches(null);
@@ -114,9 +115,9 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
         </form>
       ) : matches && matches.length > 1 ? (
         <div className="mt-6 grid gap-2">
-          <p className="text-sm text-muted-foreground">Pilih nama.</p>
+          <p className="text-lg text-muted-foreground">Pilih nama.</p>
           {matches.map((match) => (
-            <Button key={match.id} type="button" variant="outline" onClick={() => setChosen(match)}>
+            <Button key={match.id} type="button" variant="outline" className="min-h-16 text-xl [overflow-wrap:anywhere]" onClick={() => setChosen(match)}>
               {match.label}
             </Button>
           ))}
@@ -130,17 +131,17 @@ function Login({ onUnlock }: { onUnlock: (token: string) => void }) {
           }}
         >
           <Keypad value={ddmm} onChange={setDdmm} max={4} mask={false} label="Tanggal dan bulan, contoh 1505" />
-          <Button type="submit" disabled={pending || ddmm.length !== 4}>
+          <Button type="submit" className="min-h-16 text-lg" disabled={pending || ddmm.length !== 4}>
             {pending ? "Mencari…" : "Lanjut"}
           </Button>
         </form>
       )}
       {error ? (
-        <p role="alert" className="mt-4 text-sm text-destructive">
+        <p role="alert" className="mt-4 text-lg text-destructive">
           {error}
         </p>
       ) : null}
-      <p className="mt-8 text-center text-sm">
+      <p className="mt-8 text-center text-lg">
         <Link to="/login" search={{ next: undefined, error: undefined }} className="text-muted-foreground underline">
           Masuk staf atau wali
         </Link>
@@ -173,24 +174,24 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
   }, [token, onLeave]);
   return (
     <Shell>
-      <h1 className="font-display text-4xl">Halo, {home?.fullName ?? "…"}</h1>
-      {home ? <p className="mt-1 text-sm font-semibold text-primary">{home.ageGroup}</p> : null}
-      <section className="mt-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Hari ini</h2>
+      <h1 className="font-display text-5xl leading-none [overflow-wrap:anywhere]">Halo, {home?.fullName ?? "…"}</h1>
+      {home ? <p className="mt-2 text-xl font-semibold text-primary">{home.ageGroup}</p> : null}
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold">Hari ini</h2>
         {home && home.today.length === 0 ? (
-          <p className="mt-2 text-sm">Tidak ada latihan hari ini.</p>
+          <p className="mt-3 text-lg">Tidak ada latihan hari ini.</p>
         ) : (
-          <ul className="mt-2 grid gap-2">
+          <ul className="mt-3 grid gap-3">
             {home?.today.map((item) => (
-              <li key={item.seriesId} className="rounded-xl bg-card p-3 shadow-border">
-                <p className="font-medium">{item.title}</p>
-                <p className="text-sm text-muted-foreground">
+              <li key={item.seriesId} className="rounded-2xl bg-card p-4 shadow-border">
+                <p className="text-xl font-semibold">{item.title}</p>
+                <p className="mt-1 text-lg text-muted-foreground">
                   {item.startTime ?? "Jam belum ditentukan"}
                   {item.location ? ` · ${item.location}` : ""}
                 </p>
                 <Button
                   type="button"
-                  className="mt-3"
+                  className="mt-4 min-h-16 w-full text-lg"
                   disabled={item.checkedIn || busy === item.seriesId}
                   onClick={() => {
                     setBusy(item.seriesId);
@@ -210,44 +211,44 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
           </ul>
         )}
         {checkError ? (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-3 text-lg text-destructive">
             {checkError}
           </p>
         ) : null}
       </section>
-      <section className="mt-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tujuh hari</h2>
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold">Tujuh hari</h2>
         {home && home.upcoming.length === 0 ? (
-          <p className="mt-2 text-sm">Tidak ada latihan lain minggu ini.</p>
+          <p className="mt-3 text-lg">Tidak ada latihan lain minggu ini.</p>
         ) : (
-          <ul className="mt-2 grid gap-2">
+          <ul className="mt-3 grid gap-3">
             {home?.upcoming.map((item) => (
-              <li key={`${item.date}-${item.title}-${item.startTime}`} className="text-sm">
-                <span className="font-medium">{item.title}</span>
-                <span className="text-muted-foreground">
-                  {" "}
-                  · {item.date.slice(8, 10)}/{item.date.slice(5, 7)} · {item.startTime ?? "—"}
+              <li key={`${item.date}-${item.title}-${item.startTime}`} className="rounded-2xl bg-card p-4 shadow-border">
+                <p className="text-lg font-semibold">{item.title}</p>
+                <p className="mt-1 text-base text-muted-foreground">
+                  {item.date.slice(8, 10)}/{item.date.slice(5, 7)} · {item.startTime ?? "—"}
                   {item.location ? ` · ${item.location}` : ""}
-                </span>
+                </p>
               </li>
             ))}
           </ul>
         )}
       </section>
-      <section className="mt-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Rekor pribadi</h2>
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold">Rekor pribadi</h2>
         {home && home.pbs.length === 0 ? (
-          <p className="mt-2 text-sm">Belum ada rekor.</p>
+          <p className="mt-3 text-lg">Belum ada rekor.</p>
         ) : (
-          <ul className="mt-2 grid gap-1">
+          <ul className="mt-3 grid gap-3">
             {home?.pbs.map((item) => (
-              <li key={`${item.label}-${item.time}`} className="flex items-center justify-between gap-3 text-sm">
-                <span>
+              <li key={`${item.label}-${item.time}`} className="flex items-center justify-between gap-3 rounded-2xl bg-card p-4 shadow-border">
+                <span className="text-lg">
                   {item.label} <span className="font-semibold">{item.time}</span>
                 </span>
                 <Button
                   type="button"
                   variant="outline"
+                  className="min-h-14 shrink-0 text-base"
                   onClick={() => {
                     if (!home) return;
                     void sharePbCard({
@@ -265,7 +266,7 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
           </ul>
         )}
       </section>
-      <Button type="button" className="mt-8" variant="outline" onClick={onLeave}>
+      <Button type="button" className="mt-10 min-h-16 text-lg" variant="outline" onClick={onLeave}>
         Keluar
       </Button>
     </Shell>
@@ -342,8 +343,8 @@ function Keypad({
 }) {
   return (
     <div>
-      <p className="mb-2 text-sm font-medium">{label}</p>
-      <p className="mb-3 font-mono text-3xl tracking-[0.3em]" aria-live="polite">
+      <p className="mb-3 text-lg font-medium">{label}</p>
+      <p className="mb-4 font-mono text-5xl tracking-[0.3em]" aria-live="polite">
         {mask ? (
           <>
             {"•".repeat(value.length)}
@@ -353,7 +354,7 @@ function Keypad({
           value.padEnd(max, "·")
         )}
       </p>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9", "hapus", "0", "kosong"].map((key) =>
           key === "kosong" ? (
             <span key={key} />
@@ -362,7 +363,7 @@ function Keypad({
               key={key}
               type="button"
               variant="outline"
-              className="min-h-14 text-lg"
+              className="min-h-16 text-2xl"
               onClick={() => {
                 if (key === "hapus") onChange(value.slice(0, -1));
                 else if (value.length < max) onChange(value + key);
@@ -379,6 +380,9 @@ function Keypad({
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">{children}</main>
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col px-5 py-8">
+      <img src="/images/crest.jpg" alt="" className="mb-6 size-16 rounded-full object-cover" />
+      {children}
+    </main>
   );
 }
