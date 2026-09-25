@@ -117,8 +117,11 @@ sudo bash scripts/bmsc.sh sync-meets
 ### Daily Spectra meet-catalog sync
 
 `scripts/run-sync-spectra-meets.mjs` pages through Spectra's public event
-catalog and upserts in-region meets (see `scripts/spectra-parse.mjs` for the
-region filter and `sync-spectra-meets.mjs` for the conflict-safe upsert).
+catalog once and upserts each in-region meet onto every Club whose sport is
+`renang` (see `scripts/spectra-parse.mjs` for the region filter and
+`sync-spectra-meets.mjs` for the conflict-safe upsert). `npm run db:sync-spectra-meets`
+passes `--all-renang`. One Club is `node scripts/run-sync-spectra-meets.mjs --club bmsc`.
+An empty second Club is `node scripts/provision-club.mjs` with `--slug`, not `db:seed`.
 One-time setup on aidev:
 
 ```bash

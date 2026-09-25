@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
  * Idempotent club + adult account seed. Safe to re-run. Does not import kiko times.
- *   DATABASE_URL=… node scripts/seed-club.mjs
+ *   DATABASE_URL=… node scripts/seed-club.mjs --club bmsc
+ *
+ * The roster in the seed file belongs to that file's slug (bmsc unless the
+ * file says otherwise). Another slug is refused, so Apta is never filled
+ * with the Black Marlins roster. Create an empty Club with provision-club.mjs.
  *
  * Reads the club's real roster from data/seed.local.json and its real training venues from
  * data/default-training-schedules.local.json, if present (both gitignored, never committed --
@@ -37,8 +41,26 @@ const SEED = loadJson(existsSync(LOCAL_SEED_PATH) ? LOCAL_SEED_PATH : EXAMPLE_SE
 // to the committed synthetic example in that case, so there's nothing to load here.
 const localSchedules = existsSync(LOCAL_SCHEDULES_PATH) ? loadJson(LOCAL_SCHEDULES_PATH) : undefined;
 
-/** @param {import('pg').PoolClient} client */
-export async function seedClubPg(client) {
+export function parseSeedArgs(argv) {
+  const flag = argv.indexOf("--club");
+  const club = flag === -1 ? null : argv[flag + 1];
+  if (!club || club.startsWith("--")) throw new Error("--club <slug-or-hostname> is required");
+  return { club };
+}
+
+/**
+ * @param {import('pg').PoolClient} client
+ * @param {{ clubRef: string }} options
+ */
+export async function seedClubPg(client, { clubRef }) {
+  const seedSlug = SEED.club.slug || "bmsc";
+  const seedHostname = SEED.club.hostname || "bmsc.klaten.org";
+  const ref = String(clubRef).toLowerCase();
+  if (ref !== seedSlug.toLowerCase() && ref !== seedHostname.toLowerCase()) {
+    throw new Error(
+      `This seed file is ${seedSlug}. Provision ${clubRef} with scripts/provision-club.mjs; it will not receive this roster.`,
+    );
+  }
   const [superadmin, clubAdmin, guardian] = SEED.adults;
   const ids = {};
   for (const adult of SEED.adults) {
@@ -54,14 +76,26 @@ export async function seedClubPg(client) {
     }
   }
   let clubId;
-  const club = await client.query("select id from clubs limit 1");
+  const club = await client.query(
+    `select id from clubs where lower(slug) = lower($1) or lower(hostname) = lower($1)`,
+    [ref],
+  );
   if (club.rows[0]) clubId = club.rows[0].id;
   else {
     const inserted = await client.query(
       `insert into clubs (name, short_name, city, province, country, coach_name, slug, hostname, sport)
-       values ($1, $2, $3, $4, $5, $6, 'bmsc', 'bmsc.klaten.org', 'renang')
+       values ($1, $2, $3, $4, $5, $6, $7, $8, 'renang')
        returning id`,
-      [SEED.club.name, SEED.club.shortName, SEED.club.city, SEED.club.province, SEED.club.country, SEED.club.coachName],
+      [
+        SEED.club.name,
+        SEED.club.shortName,
+        SEED.club.city,
+        SEED.club.province,
+        SEED.club.country,
+        SEED.club.coachName,
+        seedSlug,
+        seedHostname,
+      ],
     );
     clubId = inserted.rows[0].id;
   }
@@ -100,6 +134,13 @@ export async function seedClubPg(client) {
 }
 
 async function main() {
+  let clubRef;
+  try {
+    clubRef = parseSeedArgs(process.argv.slice(2)).club;
+  } catch (err) {
+    console.error(`[seed] ${err?.message || err}`);
+    process.exit(1);
+  }
   if (!databaseUrl) {
     console.error("[seed] DATABASE_URL is required");
     process.exit(1);
@@ -108,7 +149,7 @@ async function main() {
   const client = await pool.connect();
   try {
     await client.query("begin");
-    const clubId = await seedClubPg(client);
+    const clubId = await seedClubPg(client, { clubRef });
     const schedules = await ensureDefaultTrainingSchedules(client.query.bind(client), clubId, localSchedules);
     await client.query("commit");
     console.log(

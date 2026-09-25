@@ -5,7 +5,9 @@
     "city": "Klaten",
     "province": "Jawa Tengah",
     "country": "Indonesia",
-    "coachName": "Hardiyanto Wibowo"
+    "coachName": "Hardiyanto Wibowo",
+    "slug": "bmsc",
+    "hostname": "bmsc.klaten.org"
   },
   "adults": [
     { "fallbackId": "usr_admin_utama", "name": "Admin Utama", "email": "superadmin@example.com", "role": "superadmin" },

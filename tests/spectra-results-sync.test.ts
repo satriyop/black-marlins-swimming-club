@@ -51,6 +51,54 @@ async function seedSyncedMeet(sql: Awaited<ReturnType<typeof createClubHarness>>
   );
 }
 
+test("a result lands on the linked club's meet copy and not the other club's", async () => {
+  const { sql, actor } = await createClubHarness();
+  const clubs = await sql.query<{ id: number }>(
+    `insert into clubs (name, short_name, city, province, coach_name, slug, sport)
+     values
+      ('Black Marlins', 'BMSC', 'Klaten', 'Jawa Tengah', 'Coach', 'bmsc', 'renang'),
+      ('Apta', 'Apta', 'Klaten', 'Jawa Tengah', 'Ketua', 'apta', 'renang')
+     returning id`,
+  );
+  const bmsc = clubs[0]!.id;
+  const apta = clubs[1]!.id;
+  await seedSyncedMeet(sql, bmsc, "POPDAJATENG2026");
+  await seedSyncedMeet(sql, apta, "POPDAJATENG2026");
+  const swimmers = await sql.query<{ id: number }>(
+    `insert into swimmers (club_id, full_name, date_of_birth, gender, nationality, status, spectra_athlete_id)
+     values
+      ($1, 'Bima Marlin', '2013-01-01', 'putra', 'Indonesia', 'aktif', '43720'),
+      ($2, 'Alya Apta', '2013-01-01', 'putri', 'Indonesia', 'aktif', '43720')
+     returning id`,
+    [bmsc, apta],
+  );
+
+  await syncSpectraResultsForSwimmer(
+    { ...actor("usr_coach"), clubId: apta },
+    { swimmerId: swimmers[1]!.id, athleteId: "43720" },
+    { fetchAthleteHistory: async () => [HISTORY_ROW] },
+  );
+
+  const rows = await sql.query<{ slug: string; n: number }>(
+    `select c.slug, count(r.id)::int as n
+     from clubs c left join results r on r.club_id = c.id
+     group by c.slug order by c.slug`,
+  );
+  expect(rows.map((row) => ({ slug: row.slug, n: Number(row.n) }))).toEqual([
+    { slug: "apta", n: 1 },
+    { slug: "bmsc", n: 0 },
+  ]);
+  const linked = await sql.query<{ slug: string; spectra_athlete_id: string | null }>(
+    `select c.slug, s.spectra_athlete_id
+     from swimmers s join clubs c on c.id = s.club_id
+     order by c.slug`,
+  );
+  expect(linked).toEqual([
+    { slug: "apta", spectra_athlete_id: "43720" },
+    { slug: "bmsc", spectra_athlete_id: "43720" },
+  ]);
+});
+
 test("imports a new result for an already-matched swimmer, skipping relays and DNS rows", async () => {
   const { sql, actor } = await createClubHarness();
   const { clubId, swimmerId } = await seedClubAndSwimmer(sql);
