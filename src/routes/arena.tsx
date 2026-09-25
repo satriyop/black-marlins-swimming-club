@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { checkInKioskSession, lookupKiosk, readKioskHome, unlockKioskSession } from "@/lib/server/fns";
-import type { KioskHome, KioskMatch } from "@/lib/club/swimmer-kiosk";
+import { pbShareText, type KioskHome, type KioskMatch } from "@/lib/club/swimmer-kiosk";
 import { Button } from "@/components/ui/button";
 
 const TOKEN_KEY = "bmsc.kiosk";
@@ -241,9 +241,25 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
         ) : (
           <ul className="mt-2 grid gap-1">
             {home?.pbs.map((item) => (
-              <li key={item.label} className="flex justify-between text-sm">
-                <span>{item.label}</span>
-                <span className="font-semibold">{item.time}</span>
+              <li key={`${item.label}-${item.time}`} className="flex items-center justify-between gap-3 text-sm">
+                <span>
+                  {item.label} <span className="font-semibold">{item.time}</span>
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (!home) return;
+                    void sharePbCard({
+                      name: home.fullName,
+                      club: home.clubName,
+                      label: item.label,
+                      time: item.time,
+                    }).catch(() => undefined);
+                  }}
+                >
+                  Bagikan
+                </Button>
               </li>
             ))}
           </ul>
@@ -254,6 +270,61 @@ function Hello({ token, onLeave }: { token: string; onLeave: () => void }) {
       </Button>
     </Shell>
   );
+}
+
+async function sharePbCard(input: { name: string; club: string; label: string; time: string }) {
+  const text = pbShareText(input);
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1350;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.fillStyle = "#061018";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#5eead4";
+  ctx.font = "600 42px sans-serif";
+  ctx.fillText("REKOR PRIBADI", 80, 160);
+  ctx.fillStyle = "#f4f7f6";
+  drawFitted(ctx, input.name, 80, 320, 920, 72);
+  drawFitted(ctx, input.time, 80, 560, 920, 140);
+  drawFitted(ctx, input.label, 80, 680, 920, 56);
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "500 40px sans-serif";
+  ctx.fillText(input.club, 80, 1200);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return;
+  const file = new File([blob], "rekor-pribadi.png", { type: "image/png" });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: input.label, text });
+      return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "rekor-pribadi.png";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function drawFitted(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  size: number,
+) {
+  let next = size;
+  ctx.font = `700 ${next}px sans-serif`;
+  while (next > 28 && ctx.measureText(text).width > maxWidth) {
+    next -= 4;
+    ctx.font = `700 ${next}px sans-serif`;
+  }
+  ctx.fillText(text, x, y, maxWidth);
 }
 
 function Keypad({

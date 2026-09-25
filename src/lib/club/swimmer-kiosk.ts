@@ -144,11 +144,16 @@ export async function kioskGreeting(sql: Sql, token: string): Promise<{ fullName
 
 export type KioskHome = {
   fullName: string;
+  clubName: string;
   ageGroup: string;
   today: { seriesId: number; title: string; startTime: string | null; location: string | null; checkedIn: boolean }[];
   upcoming: { date: string; title: string; startTime: string | null; location: string | null }[];
   pbs: { label: string; time: string }[];
 };
+
+export function pbShareText(input: { name: string; club: string; label: string; time: string }): string {
+  return `${input.name}\n${input.label} · ${input.time}\n${input.club}`;
+}
 
 export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
   const parsed = readKioskToken(token);
@@ -223,6 +228,7 @@ export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
     where club_id = ${parsed.clubId} and swimmer_id = ${parsed.swimmerId} and session_date = ${today}::date
   `;
   const checked = new Set(checkins.map((row) => row.series_id));
+  const clubs = await sql<{ name: string }>`select name from clubs where id = ${parsed.clubId} limit 1`;
   const pbs = await sql<{ stroke: string; distance_m: number; time_ms: number }>`
     select stroke, distance_m, time_ms from results
     where club_id = ${parsed.clubId} and swimmer_id = ${parsed.swimmerId}
@@ -231,6 +237,7 @@ export async function kioskHome(sql: Sql, token: string): Promise<KioskHome> {
   `;
   return {
     fullName: who.full_name,
+    clubName: clubs[0]?.name ?? "",
     ageGroup: ageGroupForDob(who.date_of_birth.slice(0, 10)).label,
     today: days
       .filter((day) => day.date === today)
