@@ -1,6 +1,6 @@
 import type { Actor } from "./actor";
 import { hatsFor, type StaffRole } from "./hats";
-import { clubIdFor } from "./membership";
+import { clubIdFor, contextClubId, soleClubId } from "./membership";
 import { canInviteStaff, canRevokeStaff } from "./permissions";
 
 export type MemberRow = {
@@ -209,13 +209,9 @@ export async function submitAccessHelp(
   actor: Actor,
   input: { kind: "missing_child" | "wrong_link" | "access"; message: string },
 ): Promise<{ ok: true }> {
-  let clubId = await clubIdFor(actor);
-  if (clubId == null) {
-    const only = await actor.sql<{ id: number }>`select id from clubs order by id limit 1`;
-    clubId = only[0]?.id ?? null;
-  }
+  const clubId = await contextClubId(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
-  const hats = await hatsFor(actor);
+  const hats = await hatsFor({ ...actor, clubId });
   if (input.kind !== "access" && !hats.family && hats.guardianSwimmerIds.length === 0) {
     throw new Error("Tidak diizinkan");
   }
@@ -236,7 +232,12 @@ export type PublicClubContact = {
   supportUrl: string | null;
 };
 
-export async function getPublicClubContact(sql: Actor["sql"]): Promise<PublicClubContact | null> {
+export async function getPublicClubContact(
+  sql: Actor["sql"],
+  clubId?: number,
+): Promise<PublicClubContact | null> {
+  const id = clubId ?? (await soleClubId(sql));
+  if (id == null) return null;
   const rows = await sql<{
     name: string;
     city: string;
@@ -244,7 +245,7 @@ export async function getPublicClubContact(sql: Actor["sql"]): Promise<PublicClu
     support_phone: string | null;
     support_url: string | null;
   }>`
-    select name, city, support_email, support_phone, support_url from clubs order by id limit 1
+    select name, city, support_email, support_phone, support_url from clubs where id = ${id}
   `;
   const row = rows[0];
   if (!row) return null;
@@ -290,6 +291,8 @@ export function accessHelpKindLabel(kind: string): string {
 }
 
 export async function listMyAccessHelp(actor: Actor) {
+  const clubId = await contextClubId(actor);
+  if (clubId == null) return [];
   return actor.sql<{
     id: number;
     kind: string;
@@ -299,7 +302,7 @@ export async function listMyAccessHelp(actor: Actor) {
   }>`
     select id, kind, message, created_at::text, resolved_at::text
     from access_help_requests
-    where user_id = ${actor.userId}
+    where user_id = ${actor.userId} and club_id = ${clubId}
     order by created_at desc
     limit 8
   `;

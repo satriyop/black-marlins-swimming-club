@@ -29,7 +29,7 @@ Keep existing URL paths (`/perenang`, `/latihan`, `/event`, `/aktivitas`). Ident
 
 | UI (id) | Code (en) | Meaning |
 |---|---|---|
-| Klub | `club` | The single tenant. |
+| Klub | `club` | A tenant: one Hostname, one roster, one set of Hats. |
 | Pengguna | `user` | A Better Auth login. Not a hat. |
 | Superadmin | `superadmin` | Owner. All club powers plus grant/revoke `superadmin`. |
 | Admin klub | `club_admin` | Office staff for **this** club. Full club data. May invite `club_admin` and `coach` **in this club**. Cannot grant `superadmin`. |

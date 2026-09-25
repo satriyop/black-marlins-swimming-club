@@ -58,8 +58,8 @@ export async function seedClubPg(client) {
   if (club.rows[0]) clubId = club.rows[0].id;
   else {
     const inserted = await client.query(
-      `insert into clubs (name, short_name, city, province, country, coach_name)
-       values ($1, $2, $3, $4, $5, $6)
+      `insert into clubs (name, short_name, city, province, country, coach_name, slug, hostname, sport)
+       values ($1, $2, $3, $4, $5, $6, 'bmsc', 'bmsc.klaten.org', 'renang')
        returning id`,
       [SEED.club.name, SEED.club.shortName, SEED.club.city, SEED.club.province, SEED.club.country, SEED.club.coachName],
     );

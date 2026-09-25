@@ -77,8 +77,8 @@ export async function createClubHarness() {
 
   return {
     sql,
-    actor(userId: string) {
-      return { sql, userId };
+    actor(userId: string, clubId?: number) {
+      return clubId == null ? { sql, userId } : { sql, userId, clubId };
     },
     async insertSwimmer(input: {
       userId: string;

@@ -25,8 +25,7 @@ export const getDashboard = createServerFn({ method: "GET" })
   });
 
 export const getAccess = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
-  const { sql, userId } = await loadClub(context.userId);
-  return accessFor({ sql, userId });
+  return accessFor(await loadClub(context.userId));
 });
 
 export const saveClubTaskView = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { view: TaskView }) => input).handler(async ({ context, data }) => {
@@ -54,13 +53,12 @@ export const getClub = createServerFn({ method: "GET" }).middleware([authMiddlew
 });
 
 export const listSwimmers = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async ({ context }) => {
-  const { sql, userId } = await loadClub(context.userId);
-  return listSwimmersFor({ sql, userId });
+  return listSwimmersFor(await loadClub(context.userId));
 });
 
 export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
-  const { sql, clubId, userId } = await requireClub(context.userId);
-  const actor = { sql, userId };
+  const actor = await requireClub(context.userId);
+  const { sql, clubId, userId } = actor;
   const [hats, prefs] = await Promise.all([hatsFor(actor), loadPrefs(actor)]);
   const staffView = hats.staff != null && prefs.taskView === "club";
   const rows = await sql<SwimmerRow>`select * from swimmers where id = ${data.id} and club_id = ${clubId} limit 1`;

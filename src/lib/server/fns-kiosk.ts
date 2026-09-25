@@ -1,11 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
+import { soleClubId } from "@/lib/club/membership";
 import { checkInKiosk, kioskGreeting, kioskHome, lookupKioskSwimmers, unlockKiosk } from "@/lib/club/swimmer-kiosk";
 
 async function clubId(sql: Sql): Promise<number> {
-  const rows = await sql<{ id: number }>`select id from clubs order by id limit 1`;
-  if (!rows[0]) throw new Error("Klub belum siap.");
-  return rows[0].id;
+  const id = await soleClubId(sql);
+  if (id == null) throw new Error("Klub belum siap.");
+  return id;
 }
 
 export const lookupKiosk = createServerFn({ method: "POST" })
