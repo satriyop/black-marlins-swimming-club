@@ -1,6 +1,7 @@
 import type { Actor } from "./actor";
 import { defaultTaskView, type TaskView } from "./home-view";
 import { hatsFor } from "./hats";
+import { contextClubId } from "./membership";
 
 export type ClubPrefs = {
   taskView: TaskView;
@@ -65,13 +66,16 @@ export async function listNewGrants(actor: Actor, grantsAckedAt: string | null):
   const users = await actor.sql<{ email: string }>`select email from "user" where id = ${actor.userId} limit 1`;
   const email = users[0]?.email;
   if (!email) return [];
+  const clubId = await contextClubId(actor);
+  if (clubId == null) return [];
   const rows = await actor.sql<{
     kind: "staff" | "guardian";
     payload: { swimmerIds?: number[]; role?: string } | null;
   }>`
     select kind, payload
     from invites
-    where lower(email) = ${email.toLowerCase()}
+    where club_id = ${clubId}
+      and lower(email) = ${email.toLowerCase()}
       and kind in ('staff', 'guardian')
       and accepted_at is not null
       and (

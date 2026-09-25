@@ -102,7 +102,7 @@ export async function seedClub(sql: Sql): Promise<number> {
   const ratihId = await ensureUser(sql, RATIH_ID, "Wali Contoh", RATIH_EMAIL);
 
   const clubs = await sql<{ id: number }>`
-    insert into clubs (name, short_name, city, province, country, coach_name, venue, motto)
+    insert into clubs (name, short_name, city, province, country, coach_name, venue, motto, slug, hostname, sport)
     values (
       'Black Marlins Swimming Club Klaten',
       'BMSC',
@@ -111,7 +111,10 @@ export async function seedClub(sql: Sql): Promise<number> {
       'Indonesia',
       'Hardiyanto Wibowo',
       null,
-      null
+      null,
+      'bmsc',
+      'bmsc.klaten.org',
+      'renang'
     )
     returning id
   `;
