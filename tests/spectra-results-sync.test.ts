@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { createClubHarness } from "./harness";
+import { linkSpectraSwimmer } from "../src/lib/club/spectra-link";
 import { syncSpectraResultsForSwimmer } from "../src/lib/club/spectra-results-sync";
 
 const HISTORY_ROW = {
@@ -50,6 +51,101 @@ async function seedSyncedMeet(sql: Awaited<ReturnType<typeof createClubHarness>>
     [clubId, spectraCode],
   );
 }
+
+test("a result lands on the linked club's meet copy and not the other club's", async () => {
+  const { sql, actor } = await createClubHarness();
+  const clubs = await sql.query<{ id: number }>(
+    `insert into clubs (name, short_name, city, province, coach_name, slug, sport)
+     values
+      ('Black Marlins', 'BMSC', 'Klaten', 'Jawa Tengah', 'Coach', 'bmsc', 'renang'),
+      ('Apta', 'Apta', 'Klaten', 'Jawa Tengah', 'Ketua', 'apta', 'renang')
+     returning id`,
+  );
+  const bmsc = clubs[0]!.id;
+  const apta = clubs[1]!.id;
+  await seedSyncedMeet(sql, bmsc, "POPDAJATENG2026");
+  await seedSyncedMeet(sql, apta, "POPDAJATENG2026");
+  const swimmers = await sql.query<{ id: number }>(
+    `insert into swimmers (club_id, full_name, date_of_birth, gender, nationality, status, spectra_athlete_id)
+     values
+      ($1, 'Bima Marlin', '2013-01-01', 'putra', 'Indonesia', 'aktif', '43720'),
+      ($2, 'Alya Apta', '2013-01-01', 'putri', 'Indonesia', 'aktif', '43720')
+     returning id`,
+    [bmsc, apta],
+  );
+
+  await syncSpectraResultsForSwimmer(
+    { ...actor("usr_coach"), clubId: apta },
+    { swimmerId: swimmers[1]!.id, athleteId: "43720" },
+    { fetchAthleteHistory: async () => [HISTORY_ROW] },
+  );
+
+  const rows = await sql.query<{ slug: string; n: number }>(
+    `select c.slug, count(r.id)::int as n
+     from clubs c left join results r on r.club_id = c.id
+     group by c.slug order by c.slug`,
+  );
+  expect(rows.map((row) => ({ slug: row.slug, n: Number(row.n) }))).toEqual([
+    { slug: "apta", n: 1 },
+    { slug: "bmsc", n: 0 },
+  ]);
+  const linked = await sql.query<{ slug: string; spectra_athlete_id: string | null }>(
+    `select c.slug, s.spectra_athlete_id
+     from swimmers s join clubs c on c.id = s.club_id
+     order by c.slug`,
+  );
+  expect(linked).toEqual([
+    { slug: "apta", spectra_athlete_id: "43720" },
+    { slug: "bmsc", spectra_athlete_id: "43720" },
+  ]);
+});
+
+test("an Apta link cannot attach a Black Marlins swimmer id", async () => {
+  const { sql, actor } = await createClubHarness();
+  const clubs = await sql.query<{ id: number }>(
+    `insert into clubs (name, short_name, city, province, coach_name, slug, sport)
+     values
+      ('Black Marlins', 'BMSC', 'Klaten', 'Jawa Tengah', 'Coach', 'bmsc', 'renang'),
+      ('Apta', 'Apta', 'Klaten', 'Jawa Tengah', 'Ketua', 'apta', 'renang')
+     returning id`,
+  );
+  const swimmer = await sql.query<{ id: number }>(
+    `insert into swimmers (club_id, full_name, date_of_birth, gender)
+     values ($1, 'Bima Marlin', '2014-03-02', 'putra') returning id`,
+    [clubs[0]!.id],
+  );
+  await sql.query(
+    `insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+     values ('usr_apta', 'Admin Apta', 'apta@example.test', true, now(), now())`,
+  );
+  await sql.query(
+    `insert into club_staff (club_id, user_id, role) values ($1, 'usr_apta', 'club_admin')`,
+    [clubs[1]!.id],
+  );
+
+  await expect(
+    linkSpectraSwimmer(
+      { ...actor("usr_apta"), clubId: clubs[1]!.id },
+      {
+        swimmerId: swimmer[0]!.id,
+        match: {
+          athleteId: "999",
+          fullName: "Bima Marlin",
+          dateOfBirth: "2014-03-02",
+          gender: "putra",
+          club: "Apta",
+        },
+      },
+    ),
+  ).rejects.toThrow("Perenang tidak ditemukan");
+
+  const linked = await sql.query<{ spectra_athlete_id: string | null }>(
+    "select spectra_athlete_id from swimmers",
+  );
+  expect(linked[0]?.spectra_athlete_id).toBeNull();
+  const results = await sql.query<{ n: number }>("select count(*)::int as n from results");
+  expect(Number(results[0]?.n)).toBe(0);
+});
 
 test("imports a new result for an already-matched swimmer, skipping relays and DNS rows", async () => {
   const { sql, actor } = await createClubHarness();

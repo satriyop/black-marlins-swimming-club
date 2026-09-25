@@ -52,6 +52,11 @@ export async function syncSpectraResultsForSwimmer(
   skippedUnrecognized: number;
   skippedDuplicate: number;
 }> {
+  const owned = await actor.sql<{ id: number }>`
+    select id from swimmers where id = ${input.swimmerId} and club_id = ${actor.clubId} limit 1
+  `;
+  if (!owned[0]) throw new Error("Perenang tidak ditemukan");
+
   const rawRows = await fetchAthleteHistory(input.athleteId);
   // A linked athlete was discovered from at least one published race result,
   // so their history cannot legitimately be empty. Spectra returns [] during

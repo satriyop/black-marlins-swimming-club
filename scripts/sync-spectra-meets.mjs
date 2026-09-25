@@ -1,8 +1,8 @@
 /**
- * Sync the public Spectra SwimPro event catalog into this club's `meets`
- * table -- the daily/server-side half of the Spectra integration (see
- * docs discussion: swimmer bio sync is client-triggered on add, this is
- * scheduled and unattended). Safe to re-run: matches by spectra_event_code,
+ * Sync the public Spectra SwimPro event catalog into every swim Club's
+ * `meets` table -- one fetch, then a copy per Club whose sport is `renang`.
+ * A non-swim Club gets nothing. Pass `club` (slug or hostname) to write
+ * one Club only. Safe to re-run: matches by spectra_event_code,
  * only auto-applies a field when the local row still agrees with what we
  * last synced (see diffAgainstSnapshot in spectra-parse.mjs), and never
  * overwrites a field a coach has hand-edited since -- that goes to
@@ -66,14 +66,33 @@ async function upsertConflict(query, clubId, meetId, field, localValue, incoming
   );
 }
 
-export async function syncSpectraMeets(query, { fetchEvents = fetchEventsList } = {}) {
-  const club = await query("select id from clubs limit 1");
-  if (!club[0]) throw new Error("No club row -- seed the club first");
-  const clubId = club[0].id;
+export function parseSyncArgs(argv) {
+  const clubFlag = argv.indexOf("--club");
+  const club = clubFlag === -1 ? null : argv[clubFlag + 1];
+  const allRenang = argv.includes("--all-renang");
+  if (allRenang && club) throw new Error("Pass --club or --all-renang, not both");
+  if (!allRenang && !club) throw new Error("Pass --club <slug-or-hostname> or --all-renang");
+  return { club: club || null, allRenang };
+}
 
-  const rawRows = await fetchEvents();
-  const events = rawRows.map(normalizeEventRow).filter(inRegion);
+async function targetClubs(query, club) {
+  if (club) {
+    const rows = await query(
+      `select id, sport from clubs where lower(slug) = lower($1) or lower(hostname) = lower($1)`,
+      [club],
+    );
+    if (!rows[0]) throw new Error(`No club matches ${club}`);
+    return rows.filter((row) => row.sport === "renang");
+  }
+  const rows = await query(`select id, sport from clubs where sport = 'renang' order by id`);
+  if (!rows.length) {
+    const any = await query("select id from clubs");
+    if (!any.length) throw new Error("No club row -- seed the club first");
+  }
+  return rows;
+}
 
+async function applyCatalog(query, clubId, events) {
   let inserted = 0;
   let updated = 0;
   let conflicted = 0;
@@ -152,5 +171,21 @@ export async function syncSpectraMeets(query, { fetchEvents = fetchEventsList } 
     }
   }
 
-  return { total: events.length, inserted, updated, conflicted, unchanged };
+  return { inserted, updated, conflicted, unchanged };
+}
+
+/** One catalog fetch, then a Meet copy on every `renang` Club. `club` limits that to one slug or hostname. */
+export async function syncSpectraMeets(query, { fetchEvents = fetchEventsList, club = null } = {}) {
+  const targets = await targetClubs(query, club);
+  const rawRows = await fetchEvents();
+  const events = rawRows.map(normalizeEventRow).filter(inRegion);
+  const totals = { total: events.length, inserted: 0, updated: 0, conflicted: 0, unchanged: 0 };
+  for (const target of targets) {
+    const stats = await applyCatalog(query, target.id, events);
+    totals.inserted += stats.inserted;
+    totals.updated += stats.updated;
+    totals.conflicted += stats.conflicted;
+    totals.unchanged += stats.unchanged;
+  }
+  return totals;
 }

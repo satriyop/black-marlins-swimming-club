@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { createClubHarness } from "./harness";
-import { syncSpectraMeets } from "../scripts/sync-spectra-meets.mjs";
+import { parseSyncArgs, syncSpectraMeets } from "../scripts/sync-spectra-meets.mjs";
 
 const JATENG_EVENT = {
   kode: "KRASBMSV2026",
@@ -60,6 +60,120 @@ test("first sync inserts an in-region meet and skips an out-of-region one", asyn
     status: "rencana",
     spectra_event_code: "KRASBMSV2026",
   });
+});
+
+test("one catalog event is copied onto every renang club and skipped for another sport", async () => {
+  const { sql } = await createClubHarness();
+  await sql.query(
+    `insert into clubs (name, short_name, city, province, coach_name, slug, hostname, sport)
+     values
+      ('Black Marlins', 'BMSC', 'Klaten', 'Jawa Tengah', 'Coach', 'bmsc', 'bmsc.klaten.org', 'renang'),
+      ('Apta', 'Apta', 'Klaten', 'Jawa Tengah', 'Ketua', 'apta', 'apta.klaten.org', 'renang'),
+      ('Panahan', 'PAN', 'Klaten', 'Jawa Tengah', 'Pelatih', 'panah', 'panah.klaten.org', 'panahan')`,
+  );
+
+  const stats = await syncSpectraMeets(sql.query, {
+    fetchEvents: async () => [JATENG_EVENT, OUT_OF_REGION_EVENT],
+  });
+
+  expect(stats.total).toBe(1);
+  expect(stats.inserted).toBe(2);
+  const rows = await sql.query<{ slug: string; n: number }>(
+    `select c.slug, count(m.id)::int as n
+     from clubs c left join meets m on m.club_id = c.id
+     group by c.slug order by c.slug`,
+  );
+  expect(rows.map((row) => ({ slug: row.slug, n: Number(row.n) }))).toEqual([
+    { slug: "apta", n: 1 },
+    { slug: "bmsc", n: 1 },
+    { slug: "panah", n: 0 },
+  ]);
+});
+
+test("a hand edit, entry, and result stay on that club's meet copy", async () => {
+  const { sql } = await createClubHarness();
+  await sql.query(
+    `insert into clubs (name, short_name, city, province, coach_name, slug, hostname, sport)
+     values
+      ('Black Marlins', 'BMSC', 'Klaten', 'Jawa Tengah', 'Coach', 'bmsc', 'bmsc.klaten.org', 'renang'),
+      ('Apta', 'Apta', 'Klaten', 'Jawa Tengah', 'Ketua', 'apta', 'apta.klaten.org', 'renang')`,
+  );
+  await syncSpectraMeets(sql.query, { fetchEvents: async () => [JATENG_EVENT] });
+
+  const bmsc = await sql.query<{ id: number }>("select id from clubs where slug = 'bmsc'");
+  const meet = await sql.query<{ id: number }>(
+    "select id from meets where club_id = $1",
+    [bmsc[0]!.id],
+  );
+  const swimmer = await sql.query<{ id: number }>(
+    `insert into swimmers (club_id, full_name, date_of_birth, gender)
+     values ($1, 'Bima Marlin', '2014-03-02', 'putra') returning id`,
+    [bmsc[0]!.id],
+  );
+  await sql.query("update meets set status = 'batal' where id = $1", [meet[0]!.id]);
+  await sql.query(
+    `insert into meet_entries (club_id, meet_id, swimmer_id, stroke, distance_m)
+     values ($1, $2, $3, 'bebas', 50)`,
+    [bmsc[0]!.id, meet[0]!.id, swimmer[0]!.id],
+  );
+  await sql.query(
+    `insert into results (club_id, swimmer_id, meet_id, result_date, stroke, distance_m, course, time_ms)
+     values ($1, $2, $3, '2026-08-28', 'bebas', 50, '50', 32000)`,
+    [bmsc[0]!.id, swimmer[0]!.id, meet[0]!.id],
+  );
+
+  const stats = await syncSpectraMeets(sql.query, {
+    fetchEvents: async () => [{ ...JATENG_EVENT, status: "RUNNING" }],
+  });
+  expect(stats).toMatchObject({ inserted: 0, updated: 1, conflicted: 1 });
+
+  const meets = await sql.query<{ slug: string; status: string }>(
+    `select c.slug, m.status from meets m join clubs c on c.id = m.club_id order by c.slug`,
+  );
+  expect(meets).toEqual([
+    { slug: "apta", status: "berlangsung" },
+    { slug: "bmsc", status: "batal" },
+  ]);
+  const conflicts = await sql.query<{ club_slug: string }>(
+    `select c.slug as club_slug from sync_conflicts s join clubs c on c.id = s.club_id`,
+  );
+  expect(conflicts.map((row) => row.club_slug)).toEqual(["bmsc"]);
+  const aptaId = (await sql.query<{ id: number }>("select id from clubs where slug = 'apta'"))[0]!.id;
+  const entries = await sql.query<{ n: number }>(
+    "select count(*)::int as n from meet_entries where club_id = $1",
+    [aptaId],
+  );
+  const results = await sql.query<{ n: number }>(
+    "select count(*)::int as n from results where club_id = $1",
+    [aptaId],
+  );
+  expect(Number(entries[0]?.n)).toBe(0);
+  expect(Number(results[0]?.n)).toBe(0);
+});
+
+test("a named club receives the catalog and the other swim club does not", async () => {
+  const { sql } = await createClubHarness();
+  await sql.query(
+    `insert into clubs (name, short_name, city, province, coach_name, slug, hostname, sport)
+     values
+      ('Black Marlins', 'BMSC', 'Klaten', 'Jawa Tengah', 'Coach', 'bmsc', 'bmsc.klaten.org', 'renang'),
+      ('Apta', 'Apta', 'Klaten', 'Jawa Tengah', 'Ketua', 'apta', 'apta.klaten.org', 'renang')`,
+  );
+  const stats = await syncSpectraMeets(sql.query, {
+    fetchEvents: async () => [JATENG_EVENT],
+    club: "apta.klaten.org",
+  });
+  expect(stats.inserted).toBe(1);
+  const rows = await sql.query<{ slug: string }>(
+    `select c.slug from meets m join clubs c on c.id = m.club_id`,
+  );
+  expect(rows.map((row) => row.slug)).toEqual(["apta"]);
+});
+
+test("the spectra script refuses to guess a club", () => {
+  expect(() => parseSyncArgs([])).toThrow(/--club/);
+  expect(parseSyncArgs(["--all-renang"])).toEqual({ club: null, allRenang: true });
+  expect(parseSyncArgs(["--club", "bmsc"])).toEqual({ club: "bmsc", allRenang: false });
 });
 
 test("re-sync with no upstream change is a no-op", async () => {

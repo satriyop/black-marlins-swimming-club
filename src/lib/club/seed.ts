@@ -94,7 +94,7 @@ async function ensureUser(
 }
 
 export async function seedClub(sql: Sql): Promise<number> {
-  const existing = await sql<{ id: number }>`select id from clubs limit 1`;
+  const existing = await sql<{ id: number }>`select id from clubs where slug = 'bmsc'`;
   if (existing[0]) return existing[0].id;
 
   const satriyoId = await ensureUser(sql, SATRIYO_ID, "Admin Utama", SATRIYO_EMAIL);
