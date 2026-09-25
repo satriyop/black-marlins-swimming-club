@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { accessFor, UNINVITED_MESSAGE } from "../src/lib/club/access";
 import { hatsFor } from "../src/lib/club/hats";
-import { acceptInvite, createInvite } from "../src/lib/club/invites";
+import { acceptInvite, createInvite, recreateInvite } from "../src/lib/club/invites";
 import { getPublicClubContact, submitAccessHelp } from "../src/lib/club/members";
 import { CLUB_NOT_CHOSEN } from "../src/lib/club/membership";
 import { getMonthlyReport } from "../src/lib/club/monthly-report";
@@ -144,6 +144,25 @@ test("an invite for BMSC cannot be accepted in an Apta context", async () => {
   expect((await hatsFor(f.actor("joiner", f.bmsc))).staff).toBe("coach");
   expect((await hatsFor(f.actor("joiner", f.apta))).staff).toBeNull();
   expect((await listSwimmers(f.actor("joiner", f.apta))).map((swimmer) => swimmer.fullName)).toEqual([]);
+});
+
+test("recreating an invite stays on the club in context when the admin has both hats", async () => {
+  const f = await twoClubs();
+  await f.sql`insert into club_staff (club_id, user_id, role) values (${f.apta}, 'admin-a', 'club_admin')`;
+  const invite = await createInvite(f.actor("admin-a", f.bmsc), {
+    kind: "staff",
+    email: "joiner@example.test",
+    confirmedEmail: "joiner@example.test",
+    role: "coach",
+  });
+  const recreated = await recreateInvite(f.actor("admin-a", f.bmsc), { id: invite.id });
+  const rows = await f.sql<{ club_id: number; revoked_at: string | null }>`
+    select club_id, revoked_at::text from invites where id in (${invite.id}, ${recreated.id}) order by id
+  `;
+  expect(rows[0]?.club_id).toBe(f.bmsc);
+  expect(rows[0]?.revoked_at).toBeTruthy();
+  expect(rows[1]?.club_id).toBe(f.bmsc);
+  expect(rows[1]?.revoked_at).toBeNull();
 });
 
 test("no hat and two clubs is uninvited when no club was resolved", async () => {

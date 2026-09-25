@@ -430,7 +430,7 @@ export async function recreateInvite(
   if (!row.email) throw new Error("Undangan tidak berlaku.");
   const payload = typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload;
   return actor.sql.transaction(async (sql) => {
-    const tx = { sql, userId: actor.userId };
+    const tx = { sql, userId: actor.userId, clubId };
     await revokeInvite(tx, { id: input.id });
     const created = await createInvite(tx, {
       kind: row.kind,
