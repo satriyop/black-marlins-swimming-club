@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { clubIdForHost, isMarlinsBrand, UnknownClubHostError } from "@/lib/club/hostname";
-import { resolveRequestClub } from "@/lib/club/request-club.server";
 
 export type ClubChrome = {
   name: string;
@@ -17,6 +16,7 @@ export type ClubChrome = {
 export async function loadClubChrome(sql: Sql): Promise<ClubChrome | null> {
   let id: number | null = null;
   try {
+    const { resolveRequestClub } = await import("@/lib/club/request-club.server");
     id = await resolveRequestClub(sql);
   } catch (err) {
     if (err instanceof UnknownClubHostError) return null;

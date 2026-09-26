@@ -2,7 +2,6 @@ import { getSql } from "@/lib/db";
 import type { Actor } from "./actor";
 import { clubIdFor, contextClubId } from "./membership";
 import { acceptPendingInvitesForEmail } from "./invites";
-import { resolveRequestClub } from "./request-club.server";
 
 export type ClubActor = Actor & { clubId: number | null };
 
@@ -13,7 +12,8 @@ export type ClubActor = Actor & { clubId: number | null };
  */
 export async function loadClub(userId: string, clubId?: number): Promise<ClubActor> {
   const sql = await getSql();
-  const fromHost = clubId == null ? await resolveRequestClub(sql) : null;
+  const fromHost =
+    clubId == null ? await import("./request-club.server").then((mod) => mod.resolveRequestClub(sql)) : null;
   const pinned = clubId ?? fromHost ?? undefined;
   const requested: Actor = { sql, userId, ...(pinned != null ? { clubId: pinned } : {}) };
   const context = await contextClubId(requested);
