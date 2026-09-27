@@ -1,6 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
-import { clubIdForHost, isMarlinsBrand, UnknownClubHostError } from "@/lib/club/hostname";
+import { clubIdForHost, hostnameFromHost, isLocalDevHost, isMarlinsBrand, UnknownClubHostError } from "@/lib/club/hostname";
+
+function marlinsChrome(): ClubChrome {
+  return {
+    name: "Black Marlins Swimming Club",
+    shortName: "BMSC",
+    city: "Klaten",
+    province: "Jawa Tengah",
+    slug: "bmsc",
+    marlins: true,
+    crestSrc: "/images/crest.jpg",
+    title: "Black Marlins Swimming Club",
+  };
+}
 
 export type ClubChrome = {
   name: string;
@@ -23,13 +36,14 @@ export async function loadClubChrome(sql: Sql): Promise<ClubChrome | null> {
     throw err;
   }
   if (id == null) {
-    try {
-      id = await clubIdForHost(sql, null);
-    } catch {
-      return null;
-    }
+    id = await clubIdForHost(sql, null);
   }
-  if (id == null) return null;
+  if (id == null) {
+    const { currentHostHeader } = await import("@/lib/club/request-club.server");
+    const hostname = hostnameFromHost(currentHostHeader());
+    if (hostname && isLocalDevHost(hostname)) return marlinsChrome();
+    return null;
+  }
   const rows = await sql<{
     name: string;
     short_name: string;

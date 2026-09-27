@@ -1,5 +1,4 @@
 import type { Sql } from "@/lib/db";
-import { CLUB_NOT_CHOSEN } from "./membership";
 
 export class UnknownClubHostError extends Error {
   constructor() {
@@ -31,7 +30,8 @@ export function isMarlinsBrand(club: { slug: string | null; shortName: string })
 /**
  * Club for this Host.
  * A matching hostname wins. An unknown hostname is null and must not fall through.
- * Local dev (or a missing host) uses the only Club, and refuses to guess when several exist.
+ * Local dev (or a missing host) uses the only Club. Several clubs and no hostname return null
+ * instead of the first row, so a shared dev database does not pin every request to one Club.
  */
 export async function clubIdForHost(sql: Sql, host: string | null | undefined): Promise<number | null> {
   const hostname = hostnameFromHost(host);
@@ -44,6 +44,5 @@ export async function clubIdForHost(sql: Sql, host: string | null | undefined): 
   }
   const rows = await sql<{ id: number }>`select id from clubs`;
   if (rows.length === 1) return rows[0]!.id;
-  if (rows.length === 0) return null;
-  throw new Error(CLUB_NOT_CHOSEN);
+  return null;
 }

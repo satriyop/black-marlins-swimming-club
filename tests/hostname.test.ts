@@ -1,13 +1,7 @@
 import { expect, test } from "vitest";
 import { auth, authBaseURL } from "../src/lib/auth/server";
 import { listSwimmers } from "../src/lib/club/swimmers";
-import {
-  clubIdForHost,
-  hostnameFromHost,
-  isLocalDevHost,
-  UnknownClubHostError,
-} from "../src/lib/club/hostname";
-import { CLUB_NOT_CHOSEN } from "../src/lib/club/membership";
+import { clubIdForHost, hostnameFromHost, isLocalDevHost, UnknownClubHostError } from "../src/lib/club/hostname";
 import { clubManifest } from "../src/lib/pwa/manifest";
 import { createClubHarness } from "./harness";
 
@@ -47,7 +41,7 @@ test("the request host selects that club and an unknown host selects none", asyn
   expect(await clubIdForHost(h.sql, "https://apta.klaten.org")).toBe(apta);
   expect(await clubIdForHost(h.sql, "evil.example")).toBeNull();
   expect(await clubIdForHost(h.sql, "APTA.KLATEN.ORG")).toBe(apta);
-  await expect(clubIdForHost(h.sql, "localhost")).rejects.toThrow(CLUB_NOT_CHOSEN);
+  expect(await clubIdForHost(h.sql, "localhost")).toBeNull();
 
   expect((await listSwimmers(h.actor("usr_both", await clubIdForHost(h.sql, "apta.klaten.org") ?? 0))).map((s) => s.fullName)).toEqual([
     "Alya Apta",
