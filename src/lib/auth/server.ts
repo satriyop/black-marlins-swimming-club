@@ -22,26 +22,24 @@ const isProd = env("NODE_ENV") === "production";
 export const authConfigured = !authDisabled && Boolean(googleClientId && googleClientSecret);
 
 const LOCAL_DEV_ORIGINS: string[] = [
+  "http://localhost:*",
+  "http://127.0.0.1:*",
+  "http://[::1]:*",
   "http://localhost:8080",
   "http://127.0.0.1:8080",
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "http://[::1]:8080",
+  "http://127.0.0.1:3010",
+  "http://127.0.0.1:3011",
 ];
 
 /** Hosts whose login may stay on the request host. No fallback: an unknown host must not bounce to BMSC. */
 export const authBaseURL = {
   allowedHosts: [
     "localhost",
-    "localhost:8080",
-    "localhost:3000",
-    "localhost:4173",
+    "localhost:*",
     "127.0.0.1",
-    "127.0.0.1:8080",
-    "127.0.0.1:3000",
-    "127.0.0.1:4173",
+    "127.0.0.1:*",
     "[::1]",
-    "[::1]:8080",
+    "[::1]:*",
     "bmsc.klaten.org",
   ],
   protocol: (isProd ? "https" : "auto") as "https" | "auto",
