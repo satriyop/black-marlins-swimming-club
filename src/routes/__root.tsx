@@ -8,8 +8,7 @@ import appCss from "../styles.css?url";
 import { APPEARANCE_SCRIPT } from "@/lib/appearance";
 import { InstallPromptProvider } from "@/components/pwa/install-app";
 import { PwaUpdateManager } from "@/components/pwa/update-manager";
-
-const APP_NAME = "Black Marlins Swimming Club";
+import { getClubChrome } from "@/lib/server/fns";
 
 function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -24,16 +23,18 @@ function Providers({ children }: { children: ReactNode }) {
 }
 
 export const Route = createRootRoute({
-  head: () => ({
+  loader: () => getClubChrome(),
+  head: ({ loaderData }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { title: APP_NAME },
+      { title: loaderData?.title ?? "Klub tidak ditemukan" },
       { name: "theme-color", content: "#061018" },
       {
         name: "description",
-        content:
-          "Sistem klub Black Marlins Swimming Club Klaten — perenang, latihan, prestasi, dan event.",
+        content: loaderData
+          ? `${loaderData.title} — perenang, latihan, prestasi, dan event.`
+          : "Klub tidak ditemukan.",
       },
     ],
     links: [

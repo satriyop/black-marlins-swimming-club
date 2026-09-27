@@ -1,8 +1,9 @@
-import { Link } from "@tanstack/react-router";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ADULT_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
 import { getPublicClubContact } from "@/lib/server/fns";
+import type { ClubChrome } from "@/lib/server/fns-chrome";
 import { Button } from "@/components/ui/button";
 import { MarlinMark } from "@/components/swim/mark";
 
@@ -31,16 +32,30 @@ function GoogleGlyph() {
   );
 }
 
-export function Splash({ label = "Memuat klub…" }: { label?: string }) {
+const rootRoute = getRouteApi("__root__");
+
+function Crest({ chrome, className, alt }: { chrome: ClubChrome | null; className: string; alt: string }) {
+  if (chrome?.crestSrc) {
+    return <img src={chrome.crestSrc} alt={alt} className={className} />;
+  }
+  const mark = (chrome?.shortName || "Klub").slice(0, 3);
+  return (
+    <div className={`${className} grid place-items-center bg-muted font-display text-foreground`} aria-hidden="true">
+      {mark}
+    </div>
+  );
+}
+
+export function Splash({ label = "Memuat klub…", chrome = null }: { label?: string; chrome?: ClubChrome | null }) {
   return (
     <div className="grid min-h-dvh place-items-center bg-background px-6 text-foreground">
       <div className="flex flex-col items-center text-center">
-        <img
-          src="/images/crest.jpg"
-          alt="Black Marlins Swimming Club"
+        <Crest
+          chrome={chrome}
+          alt={chrome?.title ?? "Klub"}
           className="mb-4 size-20 rounded-full object-cover outline outline-1 -outline-offset-1 outline-white/15"
         />
-        <p className="font-display text-4xl">BMSC</p>
+        <p className="font-display text-4xl">{chrome?.marlins ? "BMSC" : chrome?.shortName ?? "Klub"}</p>
         <p className="mt-2 text-sm text-muted-foreground">{label}</p>
       </div>
     </div>
@@ -55,8 +70,14 @@ export function LoginScreen({
   errorCode?: string;
 }) {
   const google = ADULT_PROVIDERS.find((p) => p.idp === "google");
+  const chrome = rootRoute.useLoaderData();
   const [error, setError] = useState<string | null>(null);
   const [installOpen, setInstallOpen] = useState(false);
+  const brand = chrome?.marlins
+    ? { eyebrow: "Klaten · Jawa Tengah", title: "Black Marlins", subtitle: "Swimming Club" }
+    : chrome
+      ? { eyebrow: `${chrome.city} · ${chrome.province}`, title: chrome.name, subtitle: null }
+      : null;
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
@@ -68,22 +89,30 @@ export function LoginScreen({
       <div className="absolute inset-0 login-overlay" />
       <div className="relative mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12">
         <div className="rise-in mb-8 flex flex-col items-center text-center">
-          <img
-            src="/images/crest.jpg"
-            alt="Lambang Black Marlins Swimming Club"
+          <Crest
+            chrome={chrome}
+            alt={chrome ? `Lambang ${chrome.title}` : ""}
             className="mb-5 size-28 rounded-full object-cover shadow-elevated outline outline-1 -outline-offset-1 outline-white/15"
           />
-          <p className="text-xs font-semibold tracking-[0.28em] text-primary uppercase">
-            Klaten · Jawa Tengah
-          </p>
-          <h1 className="font-display mt-2 text-5xl leading-none md:text-6xl">Black Marlins</h1>
-          <p className="font-display mt-1 text-2xl text-foam">Swimming Club</p>
-          <p className="mt-4 max-w-sm text-sm text-muted-foreground">
-            Kelola perenang, sesi latihan, tes waktu, dan kejuaraan klub dalam satu tempat.
-          </p>
+          {brand ? (
+            <>
+              <p className="text-xs font-semibold tracking-[0.28em] text-primary uppercase">{brand.eyebrow}</p>
+              <h1 className="font-display mt-2 text-5xl leading-none [overflow-wrap:anywhere] md:text-6xl">
+                {brand.title}
+              </h1>
+              {brand.subtitle ? <p className="font-display mt-1 text-2xl text-foam">{brand.subtitle}</p> : null}
+              <p className="mt-4 max-w-sm text-sm text-muted-foreground">
+                Kelola perenang, sesi latihan, tes waktu, dan kejuaraan klub dalam satu tempat.
+              </p>
+            </>
+          ) : (
+            <h1 className="font-display mt-2 text-4xl leading-none">Klub tidak ditemukan</h1>
+          )}
         </div>
         <div className="rise-in rise-in-2 rounded-2xl border border-border bg-card/90 p-5 shadow-elevated backdrop-blur-sm">
-          {authEnabled ? (
+          {!chrome ? (
+            <p className="text-sm text-muted-foreground">Hostname ini belum terdaftar pada sebuah klub.</p>
+          ) : authEnabled ? (
             <div className="grid gap-3">
               {google ? (
                 <Button
@@ -126,15 +155,23 @@ export function LoginScreen({
             Tablet kolam
           </Link>
         </p>
-        <div className="rise-in mt-3 flex justify-center">
-          <InstallAppButton surface="login" onOpen={() => setInstallOpen(true)} />
-        </div>
+        {chrome ? (
+          <div className="rise-in mt-3 flex justify-center">
+            <InstallAppButton surface="login" onOpen={() => setInstallOpen(true)} />
+          </div>
+        ) : null}
         <LoginPublicContact />
-        <p className="rise-in rise-in-3 mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <MarlinMark className="size-4" />
-          Pelatih Hardiyanto Wibowo
-        </p>
-        <InstallAppDialog open={installOpen} onOpenChange={setInstallOpen} />
+        {chrome?.marlins ? (
+          <p className="rise-in rise-in-3 mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <MarlinMark className="size-4" />
+            Pelatih Hardiyanto Wibowo
+          </p>
+        ) : null}
+        <InstallAppDialog
+          open={installOpen}
+          onOpenChange={setInstallOpen}
+          appName={chrome?.marlins ? "Black Marlins" : chrome?.shortName ?? "Klub"}
+        />
       </div>
     </main>
   );

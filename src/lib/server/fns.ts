@@ -14,6 +14,7 @@ export {
   setSwimmerLockerPin,
 } from "./fns-swimmers";
 export { lookupKiosk, unlockKioskSession, readKioskGreeting, readKioskHome, checkInKioskSession } from "./fns-kiosk";
+export { getClubChrome } from "./fns-chrome";
 export {
   listPractices,
   getPractice,
