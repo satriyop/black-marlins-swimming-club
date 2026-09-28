@@ -6,6 +6,8 @@ import {
   normalizeResultRow,
   parseEventDescr,
   parseSpectraDate,
+  spectraEventDate,
+  spectraResultStatus,
 } from "../scripts/spectra-athlete-parse.mjs";
 
 // Real events_resultbyevent2.php rows captured via DevTools 2026-09-17
@@ -80,6 +82,20 @@ test("parseEventDescr handles the two-word Individual Medley stroke", () => {
   expect(parseEventDescr("200 M INDIVIDUAL MEDLEY MEN, LCM").stroke).toBe("ganti");
 });
 
+test("spectraEventDate derives and bounds the meet day from the event number", () => {
+  expect(spectraEventDate("2026-09-25", "2026-09-27", "101")).toBe("2026-09-25");
+  expect(spectraEventDate("2026-09-25", "2026-09-27", "301")).toBe("2026-09-27");
+  expect(spectraEventDate("2026-09-25", "2026-09-27", "401")).toBe("2026-09-27");
+  expect(spectraEventDate("2026-09-25", "2026-09-27", "custom")).toBe("2026-09-25");
+});
+
+test("spectraResultStatus recognizes non-finishing outcomes", () => {
+  expect(spectraResultStatus("DQ")).toBe("dq");
+  expect(spectraResultStatus("_", "DNS")).toBe("dns");
+  expect(spectraResultStatus("Did not finish")).toBe("dnf");
+  expect(spectraResultStatus("01:05.32")).toBe("selesai");
+});
+
 test("isRelay flags relay events for exclusion", () => {
   expect(isRelay({ jenis: "RELAY" })).toBe(true);
   expect(isRelay({ jenis: "INDIVIDUAL" })).toBe(false);
@@ -100,6 +116,7 @@ test("normalizeResultRow maps a placed swimmer's row", () => {
     stroke: "dada",
     course: "50",
     timeMs: 185700, // 3:05.70
+    status: "selesai",
     place: 1,
     heat: 4,
     lane: 3,
@@ -111,6 +128,22 @@ test("normalizeResultRow maps juara:1000 to place:null (not placed, not DQ)", ()
   const result = normalizeResultRow(UNPLACED_ROW, "KRAPPROVBYL2026");
   expect(result.place).toBeNull();
   expect(result.timeMs).toBe(247270); // 4:07.27 -- still a real finishing time
+});
+
+test("normalizeResultRow preserves non-finishing outcomes from heat and swim-off fields", () => {
+  const heatDq = normalizeResultRow(
+    { ...WINNER_ROW, hasilfinal: "_", hasilseri: "DQ", hasiloff: "_" },
+    "KRAPPROVBYL2026",
+  );
+  expect(heatDq.status).toBe("dq");
+  expect(heatDq.timeMs).toBeNull();
+
+  const swimOffDns = normalizeResultRow(
+    { ...WINNER_ROW, hasilfinal: "_", hasilseri: "_", hasiloff: "DNS" },
+    "KRAPPROVBYL2026",
+  );
+  expect(swimOffDns.status).toBe("dns");
+  expect(swimOffDns.timeMs).toBeNull();
 });
 
 test("normalizeResultRow rejects a row that doesn't look like events_resultbyevent2.php", () => {
@@ -165,6 +198,7 @@ test("normalizeAthleteHistoryRow maps a placed result (kode is the meet code her
     stroke: "bebas",
     course: "50",
     timeMs: 148360, // 2:28.36
+    status: "selesai",
     place: 2,
     notes: null,
   });

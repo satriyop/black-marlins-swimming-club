@@ -38,6 +38,37 @@ export function parseTimeToMs(raw) {
   return null;
 }
 
+/** Spectra writes non-finishing outcomes into result/time or note fields.
+ * Keep those outcomes instead of treating every non-numeric value as a
+ * result that simply has no usable time.
+ * @param {...unknown} values
+ * @returns {"selesai" | "dns" | "dq" | "dnf"} */
+export function spectraResultStatus(...values) {
+  const text = values
+    .map((value) => String(value ?? "").toUpperCase())
+    .join(" ");
+  if (/\bDQ\b|DISQUALIF/.test(text)) return "dq";
+  if (/\bDNS\b|DID NOT START/.test(text)) return "dns";
+  if (/\bDNF\b|DID NOT FINISH/.test(text)) return "dnf";
+  return "selesai";
+}
+
+/** Spectra numbers a multi-day meet as 1xx, 2xx, 3xx, ... but its
+ * event-result rows omit the race date. Derive the day within the meet and
+ * clamp it to the published meet range. Non-numeric/custom event numbers use
+ * the meet start date.
+ * @param {string} startDate @param {string | null} endDate @param {string} eventNumber */
+export function spectraEventDate(startDate, endDate, eventNumber) {
+  const parsed = Number.parseInt(String(eventNumber), 10);
+  const day = Number.isFinite(parsed) ? Math.floor(parsed / 100) : 1;
+  if (day <= 1) return startDate;
+  const value = new Date(`${startDate}T00:00:00Z`);
+  if (Number.isNaN(value.getTime())) return startDate;
+  value.setUTCDate(value.getUTCDate() + day - 1);
+  const candidate = value.toISOString().slice(0, 10);
+  return endDate && candidate > endDate ? endDate : candidate;
+}
+
 /** @type {Record<string, number>} */
 const MONTHS = {
   JANUARY: 1, FEBRUARY: 2, MARCH: 3, APRIL: 4, MAY: 5, JUNE: 6,
@@ -91,7 +122,8 @@ export function isRelay(row) {
  * @param {{
  *   id?: string, nama?: string, lahir?: string, sex?: string, club?: string,
  *   kode?: string, kelumur?: string, nomordescr?: string, hasilfinal?: string,
- *   juara?: string, seri3?: string, lin3?: string, note?: string
+ *   hasilseri?: string, hasiloff?: string, juara?: string, seri3?: string,
+ *   lin3?: string, note?: string, ket1?: string
  * }} row
  * @param {string} meetCode
  */
@@ -100,7 +132,19 @@ export function normalizeResultRow(row, meetCode) {
     throw new Error(`spectra-athlete-parse: unexpected events_resultbyevent2.php row shape: ${JSON.stringify(row)}`);
   }
   const { distanceM, stroke, gender, course } = parseEventDescr(row.nomordescr ?? "");
-  const timeMs = row.hasilfinal ? parseTimeToMs(row.hasilfinal) : null;
+  const status = spectraResultStatus(
+    row.hasilfinal,
+    row.hasilseri,
+    row.hasiloff,
+    row.note,
+    row.ket1,
+  );
+  const timeMs =
+    status === "selesai"
+      ? [row.hasilfinal, row.hasilseri, row.hasiloff]
+          .map((value) => parseTimeToMs(value ?? ""))
+          .find((value) => value != null) ?? null
+      : null;
   const place = row.juara && row.juara !== "1000" ? Number(row.juara) : null;
   const heatMatch = String(row.seri3 ?? "").match(/(\d+)/);
   return {
@@ -116,10 +160,11 @@ export function normalizeResultRow(row, meetCode) {
     stroke,
     course,
     timeMs,
+    status,
     place,
     heat: heatMatch ? Number(heatMatch[1]) : null,
     lane: row.lin3 ? Number(row.lin3) : null,
-    notes: row.note || null,
+    notes: row.note || row.ket1 || null,
   };
 }
 
@@ -146,7 +191,8 @@ export function normalizeAthleteHistoryRow(row) {
     throw new Error(`spectra-athlete-parse: unexpected athlete_time2.php row shape: ${JSON.stringify(row)}`);
   }
   const { distanceM, stroke, course } = parseEventDescr(row.nomordescr ?? "");
-  const timeMs = row.hasil ? parseTimeToMs(row.hasil) : null;
+  const status = spectraResultStatus(row.hasil, row.note);
+  const timeMs = status === "selesai" && row.hasil ? parseTimeToMs(row.hasil) : null;
   const place = row.juara && row.juara !== "1000" ? Number(row.juara) : null;
   return {
     meetCode: row.kode,
@@ -158,6 +204,7 @@ export function normalizeAthleteHistoryRow(row) {
     stroke,
     course,
     timeMs,
+    status,
     place,
     notes: row.note || null,
   };

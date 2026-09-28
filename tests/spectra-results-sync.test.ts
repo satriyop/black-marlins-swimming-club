@@ -30,6 +30,34 @@ const SECOND_EVENT_ROW = {
   acara: "113",
 };
 
+const CURRENT_MEET_RESULT_ROW = {
+  id: "43720",
+  nama: "TEST SWIMMER",
+  lahir: "01 JANUARY 2013",
+  sex: "MEN",
+  club: "BLACK MARLINS SWIMMING CLUB KLATEN",
+  kode: "301",
+  nomorkode: "A01",
+  nomordescr: "200 M FREESTYLE MEN, LCM",
+  jenis: "INDIVIDUAL",
+  kelumur: "GROUP 3",
+  note: "",
+  hasilfinal: "02:26.74",
+  urut3: "2",
+  juara: "2",
+  ket1: "",
+  seri3: "Heat 02",
+  lin3: "4",
+  hasilseri: "_",
+  seri1: "",
+  lin1: "",
+  urut1: "1000",
+  hasiloff: "_",
+  seri2: "",
+  lin2: "",
+  urut2: "1000",
+};
+
 async function seedClubAndSwimmer(sql: ReturnType<typeof createClubHarness> extends Promise<infer T> ? T["sql"] : never) {
   await sql.query(
     `insert into clubs (name, short_name, city, province, coach_name)
@@ -161,6 +189,7 @@ test("imports a new result for an already-matched swimmer, skipping relays and D
   expect(stats).toEqual({
     total: 3,
     inserted: 1,
+    updated: 0,
     skippedNoMeet: 0,
     skippedNoTime: 1,
     skippedNoDate: 0,
@@ -185,6 +214,117 @@ test("imports a new result for an already-matched swimmer, skipping relays and D
     is_pb: true,
     spectra_result_ref: "43720:POPDAJATENG2026:101",
   });
+});
+
+test("imports a current-meet result even while athlete history is stale", async () => {
+  const { sql, actor } = await createClubHarness();
+  const { clubId, swimmerId } = await seedClubAndSwimmer(sql);
+  const dates = await sql.query<{ start_date: string; result_date: string }>(
+    `insert into meets (club_id, name, level, course, start_date, end_date, status, spectra_event_code)
+     values ($1, 'Semarang Open', 'pengcab', '50', current_date - 2, current_date, 'berlangsung', 'SMGOPEN2026')
+     returning start_date::text, (start_date + 2)::text as result_date`,
+    [clubId],
+  );
+
+  const stats = await syncSpectraResultsForSwimmer(
+    { ...actor("usr_coach"), clubId },
+    { swimmerId, athleteId: "43720" },
+    {
+      fetchAthleteHistory: async () => [HISTORY_ROW],
+      fetchAthleteMeetResults: async (meetCode, athleteId) => {
+        expect({ meetCode, athleteId }).toEqual({ meetCode: "SMGOPEN2026", athleteId: "43720" });
+        return [CURRENT_MEET_RESULT_ROW];
+      },
+    },
+  );
+
+  expect(stats.inserted).toBe(1);
+  const rows = await sql.query<{
+    result_date: string;
+    status: string;
+    time_ms: number | null;
+    spectra_result_ref: string;
+  }>(
+    `select result_date::text, status, time_ms, spectra_result_ref
+     from results where club_id = $1`,
+    [clubId],
+  );
+  expect(rows).toEqual([
+    {
+      result_date: dates[0]!.result_date,
+      status: "selesai",
+      time_ms: 146740,
+      spectra_result_ref: "43720:SMGOPEN2026:301",
+    },
+  ]);
+});
+
+test("imports a current-meet DQ instead of dropping it as a missing time", async () => {
+  const { sql, actor } = await createClubHarness();
+  const { clubId, swimmerId } = await seedClubAndSwimmer(sql);
+  await sql.query(
+    `insert into meets (club_id, name, level, course, start_date, end_date, status, spectra_event_code)
+     values ($1, 'Semarang Open', 'pengcab', '50', current_date - 2, current_date, 'berlangsung', 'SMGOPEN2026')`,
+    [clubId],
+  );
+
+  const stats = await syncSpectraResultsForSwimmer(
+    { ...actor("usr_coach"), clubId },
+    { swimmerId, athleteId: "43720" },
+    {
+      fetchAthleteHistory: async () => [HISTORY_ROW],
+      fetchAthleteMeetResults: async () => [
+        { ...CURRENT_MEET_RESULT_ROW, kode: "311", hasilfinal: "DQ", juara: "1000" },
+      ],
+    },
+  );
+
+  expect(stats.inserted).toBe(1);
+  expect(stats.skippedNoTime).toBe(0);
+  const rows = await sql.query<{ status: string; time_ms: number | null }>(
+    "select status, time_ms from results where club_id = $1",
+    [clubId],
+  );
+  expect(rows).toEqual([{ status: "dq", time_ms: null }]);
+});
+
+test("updates a previously imported live result when Spectra revises it", async () => {
+  const { sql, actor } = await createClubHarness();
+  const { clubId, swimmerId } = await seedClubAndSwimmer(sql);
+  await sql.query(
+    `insert into meets (club_id, name, level, course, start_date, end_date, status, spectra_event_code)
+     values ($1, 'Semarang Open', 'pengcab', '50', current_date - 2, current_date, 'berlangsung', 'SMGOPEN2026')`,
+    [clubId],
+  );
+  const bound = { ...actor("usr_coach"), clubId };
+  const fetchAthleteHistory = async () => [HISTORY_ROW];
+
+  await syncSpectraResultsForSwimmer(
+    bound,
+    { swimmerId, athleteId: "43720" },
+    {
+      fetchAthleteHistory,
+      fetchAthleteMeetResults: async () => [CURRENT_MEET_RESULT_ROW],
+    },
+  );
+  const revised = await syncSpectraResultsForSwimmer(
+    bound,
+    { swimmerId, athleteId: "43720" },
+    {
+      fetchAthleteHistory,
+      fetchAthleteMeetResults: async () => [
+        { ...CURRENT_MEET_RESULT_ROW, hasilfinal: "02:25.00", juara: "1" },
+      ],
+    },
+  );
+
+  expect(revised.inserted).toBe(0);
+  expect(revised.updated).toBe(1);
+  const rows = await sql.query<{ time_ms: number; place: number; is_pb: boolean }>(
+    "select time_ms, place, is_pb from results where club_id = $1",
+    [clubId],
+  );
+  expect(rows).toEqual([{ time_ms: 145000, place: 1, is_pb: true }]);
 });
 
 test("re-running is a no-op (idempotent via spectra_result_ref)", async () => {
@@ -230,6 +370,7 @@ test("a result whose meet was never synced locally (out of region) is skipped, n
   expect(stats).toEqual({
     total: 1,
     inserted: 0,
+    updated: 0,
     skippedNoMeet: 1,
     skippedNoTime: 0,
     skippedNoDate: 0,
@@ -254,6 +395,7 @@ test("a row with an unparseable date is skipped, not inserted with a null result
   expect(stats).toEqual({
     total: 1,
     inserted: 0,
+    updated: 0,
     skippedNoMeet: 0,
     skippedNoTime: 0,
     skippedNoDate: 1,

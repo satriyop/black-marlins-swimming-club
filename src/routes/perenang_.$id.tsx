@@ -33,6 +33,7 @@ import { formatTime } from "@/lib/swim/time";
 import { formatDateId } from "@/lib/utils";
 import { CoachFeedbackJournal } from "@/components/swim/coach-feedback-journal";
 import { LockerPinCard } from "@/components/swim/locker-pin";
+import { spectraSyncFeedback } from "@/lib/club/spectra-sync-feedback";
 
 export const Route = createFileRoute("/perenang_/$id")({ component: Page });
 
@@ -273,9 +274,8 @@ function SpectraSyncButton({ swimmerId }: { swimmerId: number }) {
   const mut = useMutation({
     mutationFn: () => syncSpectraSwimmer({ data: { swimmerId } }),
     onSuccess: async (res) => {
-      toast.success(
-        res.inserted > 0 ? `${res.inserted} hasil baru dari Spectra SwimPro` : "Sudah sinkron, tidak ada hasil baru",
-      );
+      const feedback = spectraSyncFeedback(res);
+      toast[feedback.kind](feedback.message);
       await qc.invalidateQueries();
     },
     onError: (e: Error) => toast.error(e.message),
