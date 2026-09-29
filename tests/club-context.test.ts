@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { accessFor, UNINVITED_MESSAGE } from "../src/lib/club/access";
 import { hatsFor } from "../src/lib/club/hats";
 import { acceptInvite, createInvite, recreateInvite } from "../src/lib/club/invites";
-import { getPublicClubContact, submitAccessHelp } from "../src/lib/club/members";
+import { getClubSupportContact, getPublicClubContact, submitAccessHelp } from "../src/lib/club/members";
 import { CLUB_NOT_CHOSEN } from "../src/lib/club/membership";
 import { getMonthlyReport } from "../src/lib/club/monthly-report";
 import { seedClub } from "../src/lib/club/seed";
@@ -179,12 +179,27 @@ test("no hat and two clubs is uninvited when no club was resolved", async () => 
 
 test("public contact and access-help use the resolved club, not the first row", async () => {
   const f = await twoClubs();
+  await f.sql`
+    update clubs set support_phone = case id
+      when ${f.apta} then '0812 1111 2222'
+      when ${f.bmsc} then '0813 3333 4444'
+      else support_phone
+    end
+  `;
   await expect(getPublicClubContact(f.sql)).rejects.toThrow(CLUB_NOT_CHOSEN);
+  await expect(getClubSupportContact(f.sql)).rejects.toThrow(CLUB_NOT_CHOSEN);
   const apta = await getPublicClubContact(f.sql, f.apta);
-  expect(apta?.name).toBe("Apta Swimming");
-  expect(apta?.supportEmail).toBe("apta@example.test");
+  expect(apta).toEqual({ whatsappUrl: "https://wa.me/6281211112222" });
+  expect(JSON.stringify(apta)).not.toMatch(/bmsc@example\.test|apta@example\.test|6281333334444/);
+  const aptaStaff = await getClubSupportContact(f.sql, f.apta);
+  expect(aptaStaff?.name).toBe("Apta Swimming");
+  expect(aptaStaff?.supportEmail).toBe("apta@example.test");
+  expect(aptaStaff?.whatsappUrl).toBe("https://wa.me/6281211112222");
   const bmsc = await getPublicClubContact(f.sql, f.bmsc);
-  expect(bmsc?.supportEmail).toBe("bmsc@example.test");
+  expect(bmsc).toEqual({ whatsappUrl: "https://wa.me/6281333334444" });
+  expect(JSON.stringify(bmsc)).not.toContain("6281211112222");
+  const bmscStaff = await getClubSupportContact(f.sql, f.bmsc);
+  expect(bmscStaff?.supportEmail).toBe("bmsc@example.test");
 
   await submitAccessHelp(f.actor("stranger", f.apta), { kind: "access", message: "Undang ke Apta" });
   const filed = await f.sql<{ club_id: number; message: string }>`

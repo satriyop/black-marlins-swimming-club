@@ -2,6 +2,7 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ADULT_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
+import { WhatsAppLink } from "@/components/club/whatsapp-link";
 import { getPublicClubContact } from "@/lib/server/fns";
 import type { ClubChrome } from "@/lib/server/fns-chrome";
 import { Button } from "@/components/ui/button";
@@ -179,14 +180,11 @@ export function LoginScreen({
 
 function LoginPublicContact() {
   const q = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
-  const info = q.data;
-  if (!info?.supportEmail && !info?.supportPhone && !info?.supportUrl) return null;
+  const url = q.data?.whatsappUrl;
+  if (!url) return null;
   return (
-    <p className="rise-in mt-4 text-center text-xs text-muted-foreground">
-      Bantuan
-      {info.supportEmail ? ` · ${info.supportEmail}` : ""}
-      {info.supportPhone ? ` · ${info.supportPhone}` : ""}
-      {info.supportUrl ? ` · ${info.supportUrl}` : ""}
-    </p>
+    <div className="rise-in mt-4 flex justify-center">
+      <WhatsAppLink url={url} />
+    </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   listMyAccessHelp,
   listAdminHandoff,
   getPublicClubContact as loadPublicClubContact,
+  getClubSupportContact as loadClubSupportContact,
   listMembers,
   resolveAccessHelp,
   saveClubSupport,
@@ -115,16 +116,26 @@ export const listClubAdminHandoff = createServerFn({ method: "GET" }).middleware
   return listAdminHandoff(actor);
 });
 
-export const getPublicClubContact = createServerFn({ method: "GET" }).handler(async () => {
+async function loadRequestContact<T>(
+  load: (sql: Awaited<ReturnType<typeof getSql>>, clubId?: number) => Promise<T | null>,
+): Promise<T | null> {
   const sql = await getSql();
   try {
     const { resolveRequestClub } = await import("@/lib/club/request-club.server");
     const id = await resolveRequestClub(sql);
-    return loadPublicClubContact(sql, id ?? undefined);
+    return load(sql, id ?? undefined);
   } catch (err) {
     if (err instanceof UnknownClubHostError) return null;
     throw err;
   }
+}
+
+export const getPublicClubContact = createServerFn({ method: "GET" }).handler(async () => {
+  return loadRequestContact(loadPublicClubContact);
+});
+
+export const getClubSupportContact = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(async () => {
+  return loadRequestContact(loadClubSupportContact);
 });
 
 export const saveClubSupportContact = createServerFn({ method: "POST" }).middleware([authMiddleware]).validator((input: { email?: string; phone?: string; url?: string }) => input).handler(async ({ context, data }) => {

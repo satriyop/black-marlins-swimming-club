@@ -9,7 +9,9 @@ import {
   revokeInvite,
 } from "../src/lib/club/invites";
 import {
+  getClubSupportContact,
   getPublicClubContact,
+  whatsappUrlFromPhone,
   linkGuardian,
   listMembers,
   listMyAccessHelp,
@@ -145,7 +147,15 @@ test("uninvited signed-in user can request access without seeing the skuad", asy
   ).rejects.toThrow(/Tidak diizinkan/);
 });
 
-test("admin can set https support contact and it is public", async () => {
+test("whatsapp url uses indonesia country code", () => {
+  expect(whatsappUrlFromPhone("0812 3456 7890")).toBe("https://wa.me/6281234567890");
+  expect(whatsappUrlFromPhone("+62 812-0000-1111")).toBe("https://wa.me/6281200001111");
+  expect(whatsappUrlFromPhone("81234567890")).toBe("https://wa.me/6281234567890");
+  expect(whatsappUrlFromPhone("123")).toBeNull();
+  expect(whatsappUrlFromPhone("+1 415 555 1212")).toBeNull();
+});
+
+test("admin can set https support contact; public payload is whatsapp only", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   await expect(
@@ -153,12 +163,16 @@ test("admin can set https support contact and it is public", async () => {
   ).rejects.toThrow(/https/);
   await saveClubSupport(h.actor(SATRIYO_ID), {
     email: "admin@bmsc.test",
-    phone: "+62 812 0000",
+    phone: "+62 812 0000 1111",
     url: "https://bmsc.klaten.org",
   });
   const pub = await getPublicClubContact(h.sql);
-  expect(pub?.supportEmail).toBe("admin@bmsc.test");
-  expect(pub?.supportUrl).toBe("https://bmsc.klaten.org");
+  expect(pub).toEqual({ whatsappUrl: "https://wa.me/6281200001111" });
+  expect(JSON.stringify(pub)).not.toMatch(/admin@bmsc\.test|klaten\.org/);
+  const signedIn = await getClubSupportContact(h.sql);
+  expect(signedIn?.supportEmail).toBe("admin@bmsc.test");
+  expect(signedIn?.supportUrl).toBe("https://bmsc.klaten.org");
+  expect(signedIn?.whatsappUrl).toBe("https://wa.me/6281200001111");
 });
 
 test("admin can link an existing wali to an existing child", async () => {

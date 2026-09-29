@@ -20,7 +20,7 @@ import { signOut } from "@/lib/auth/client";
 import { returnPathForLocation } from "@/lib/auth/return-path";
 import {
   getAccess,
-  getPublicClubContact,
+  getClubSupportContact,
   listMyClubAccessHelp,
   reopenClubOnboarding,
   saveClubTaskView,
@@ -372,7 +372,7 @@ function UninvitedHelp() {
   const searchStr = useRouterState({ select: (s) => s.location.searchStr });
   const next = returnPathForLocation(pathname, searchStr);
   const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
-  const contact = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
+  const contact = useQuery({ queryKey: ["club-support-contact"], queryFn: () => getClubSupportContact() });
   const mine = useQuery({ queryKey: ["my-access-help"], queryFn: () => listMyClubAccessHelp() });
   const [message, setMessage] = useState("");
   const qc = useQueryClient();
