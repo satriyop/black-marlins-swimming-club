@@ -2,6 +2,7 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ADULT_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
+import { ClubCrest } from "@/components/club/crest";
 import { WhatsAppLink } from "@/components/club/whatsapp-link";
 import { getPublicClubContact } from "@/lib/server/fns";
 import type { ClubChrome } from "@/lib/server/fns-chrome";
@@ -35,23 +36,11 @@ function GoogleGlyph() {
 
 const rootRoute = getRouteApi("__root__");
 
-function Crest({ chrome, className, alt }: { chrome: ClubChrome | null; className: string; alt: string }) {
-  if (chrome?.crestSrc) {
-    return <img src={chrome.crestSrc} alt={alt} className={className} />;
-  }
-  const mark = (chrome?.shortName || "Klub").slice(0, 3);
-  return (
-    <div className={`${className} grid place-items-center bg-muted font-display text-foreground`} aria-hidden="true">
-      {mark}
-    </div>
-  );
-}
-
 export function Splash({ label = "Memuat klub…", chrome = null }: { label?: string; chrome?: ClubChrome | null }) {
   return (
     <div className="grid min-h-dvh place-items-center bg-background px-6 text-foreground">
       <div className="flex flex-col items-center text-center">
-        <Crest
+        <ClubCrest
           chrome={chrome}
           alt={chrome?.title ?? "Klub"}
           className="mb-4 size-20 rounded-full object-cover outline outline-1 -outline-offset-1 outline-white/15"
@@ -90,7 +79,7 @@ export function LoginScreen({
       <div className="absolute inset-0 login-overlay" />
       <div className="relative mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12">
         <div className="rise-in mb-8 flex flex-col items-center text-center">
-          <Crest
+          <ClubCrest
             chrome={chrome}
             alt={chrome ? `Lambang ${chrome.title}` : ""}
             className="mb-5 size-28 rounded-full object-cover shadow-elevated outline outline-1 -outline-offset-1 outline-white/15"
