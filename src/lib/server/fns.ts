@@ -82,5 +82,6 @@ export {
   listMyClubAccessHelp,
   resolveClubAccessHelp,
   getPublicClubContact,
+  getClubSupportContact,
   saveClubSupportContact,
 } from "./fns-invites";

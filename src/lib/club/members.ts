@@ -225,17 +225,30 @@ export async function submitAccessHelp(
 }
 
 export type PublicClubContact = {
+  whatsappUrl: string | null;
+};
+
+export type ClubSupportContact = {
   name: string;
   city: string;
   supportEmail: string | null;
   supportPhone: string | null;
   supportUrl: string | null;
+  whatsappUrl: string | null;
 };
 
-export async function getPublicClubContact(
-  sql: Actor["sql"],
-  clubId?: number,
-): Promise<PublicClubContact | null> {
+/** Indonesia-only wa.me link. A leading 0 or 8 is rewritten to 62; anything else must already start with 62. */
+export function whatsappUrlFromPhone(phone: string | null | undefined): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  let local = digits;
+  if (local.startsWith("0")) local = `62${local.slice(1)}`;
+  else if (local.startsWith("8")) local = `62${local}`;
+  else if (!local.startsWith("62")) return null;
+  return `https://wa.me/${local}`;
+}
+
+async function loadClubSupportRow(sql: Actor["sql"], clubId?: number) {
   const id = clubId ?? (await soleClubId(sql));
   if (id == null) return null;
   const rows = await sql<{
@@ -247,7 +260,23 @@ export async function getPublicClubContact(
   }>`
     select name, city, support_email, support_phone, support_url from clubs where id = ${id}
   `;
-  const row = rows[0];
+  return rows[0] ?? null;
+}
+
+export async function getPublicClubContact(
+  sql: Actor["sql"],
+  clubId?: number,
+): Promise<PublicClubContact | null> {
+  const row = await loadClubSupportRow(sql, clubId);
+  if (!row) return null;
+  return { whatsappUrl: whatsappUrlFromPhone(row.support_phone) };
+}
+
+export async function getClubSupportContact(
+  sql: Actor["sql"],
+  clubId?: number,
+): Promise<ClubSupportContact | null> {
+  const row = await loadClubSupportRow(sql, clubId);
   if (!row) return null;
   return {
     name: row.name,
@@ -255,6 +284,7 @@ export async function getPublicClubContact(
     supportEmail: row.support_email,
     supportPhone: row.support_phone,
     supportUrl: row.support_url,
+    whatsappUrl: whatsappUrlFromPhone(row.support_phone),
   };
 }
 

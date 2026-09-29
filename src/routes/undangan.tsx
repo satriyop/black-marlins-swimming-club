@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   createClubInvite,
   getAccess,
-  getPublicClubContact,
+  getClubSupportContact,
   linkClubGuardian,
   listClubAccessHelp,
   listClubAdminHandoff,
@@ -761,7 +761,7 @@ function MembersDirectory() {
 }
 
 function SupportContactForm() {
-  const contact = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
+  const contact = useQuery({ queryKey: ["club-support-contact"], queryFn: () => getClubSupportContact() });
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [url, setUrl] = useState("");
@@ -776,6 +776,7 @@ function SupportContactForm() {
     mutationFn: () => saveClubSupportContact({ data: { email, phone, url } }),
     onSuccess: async () => {
       toast.success("Kontak bantuan disimpan");
+      await qc.invalidateQueries({ queryKey: ["club-support-contact"] });
       await qc.invalidateQueries({ queryKey: ["public-contact"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -790,7 +791,7 @@ function SupportContactForm() {
     >
       <h3 className="font-medium">Kontak bantuan publik</h3>
       <p className="text-xs text-muted-foreground">
-        Tampil di undangan gagal dan akun belum diundang. Tidak menampilkan nama anggota.
+        Nomor telepon menjadi ikon WhatsApp di halaman masuk dan undangan. Email dan tautan hanya untuk akun yang sudah masuk. Tidak menampilkan nama anggota.
       </p>
       <Field label="Email">
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />

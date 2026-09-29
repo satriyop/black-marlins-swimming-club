@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info, type LucideIcon } from "lucide-react";
+import { WhatsAppLink } from "@/components/club/whatsapp-link";
 import { acceptClubInvite, getInvitePreview, getPublicClubContact } from "@/lib/server/fns";
 import { ADULT_PROVIDERS, signIn, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -223,21 +224,11 @@ function Page() {
 
 function InviteContact() {
   const q = useQuery({ queryKey: ["public-contact"], queryFn: () => getPublicClubContact() });
-  const info = q.data;
-  if (!info?.supportEmail && !info?.supportPhone && !info?.supportUrl) return null;
+  const url = q.data?.whatsappUrl;
+  if (!url) return null;
   return (
-    <p className="text-sm text-muted-foreground">
-      Kontak klub
-      {info.supportEmail ? ` · ${info.supportEmail}` : ""}
-      {info.supportPhone ? ` · ${info.supportPhone}` : ""}
-      {info.supportUrl ? (
-        <>
-          {" · "}
-          <a href={info.supportUrl} className="text-primary hover:underline">
-            {info.supportUrl}
-          </a>
-        </>
-      ) : null}
-    </p>
+    <div className="flex justify-start">
+      <WhatsAppLink url={url} />
+    </div>
   );
 }
