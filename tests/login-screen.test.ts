@@ -49,6 +49,9 @@ test("accept invite is a server function and /terima exists", () => {
   const dockerignore = readFileSync(join(root, ".dockerignore"), "utf8");
   expect(fns).toContain("export const acceptClubInvite");
   expect(terima).toContain('createFileRoute("/terima")');
+  expect(terima).toContain("ClubCrest");
+  expect(terima).not.toContain("/images/crest.jpg");
+  expect(terima).not.toContain('alt="Black Marlins Swimming Club"');
   expect(dockerignore).toMatch(/^node_modules$/m);
   expect(dockerignore).toMatch(/^\.env$/m);
 });

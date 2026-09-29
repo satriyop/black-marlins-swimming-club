@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info, type LucideIcon } from "lucide-react";
+import { ClubCrest } from "@/components/club/crest";
 import { WhatsAppLink } from "@/components/club/whatsapp-link";
 import { acceptClubInvite, getInvitePreview, getPublicClubContact } from "@/lib/server/fns";
 import { ADULT_PROVIDERS, signIn, signOut } from "@/lib/auth/client";
@@ -45,6 +46,8 @@ function StatusCard({
   );
 }
 
+const rootRoute = getRouteApi("__root__");
+
 export const Route = createFileRoute("/terima")({
   validateSearch: (search: Record<string, unknown>) => ({
     token: typeof search.token === "string" ? search.token : "",
@@ -52,6 +55,7 @@ export const Route = createFileRoute("/terima")({
   component: Page,
 });
 function Page() {
+  const chrome = rootRoute.useLoaderData();
   const { token } = Route.useSearch();
   const { user, isPending: sessionPending } = useCurrentUserState();
   const [signInError, setSignInError] = useState("");
@@ -81,11 +85,12 @@ function Page() {
       : "";
   return (
     <main className="mx-auto grid max-w-md gap-4 px-4 py-12">
-      <img
-        src="/images/crest.jpg"
-        alt="Black Marlins Swimming Club"
-        className="size-16 rounded-full"
+      <ClubCrest
+        chrome={chrome}
+        alt={chrome ? `Lambang ${chrome.title}` : ""}
+        className="size-16 rounded-full object-cover"
       />
+      {chrome ? <p className="text-sm font-medium">{chrome.title}</p> : null}
       <h1 className="text-page-title">Terima undangan</h1>
       {mut.isSuccess ? (
         <StatusCard
