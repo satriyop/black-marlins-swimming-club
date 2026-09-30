@@ -25,8 +25,9 @@ export const saveActivity = createServerFn({ method: "POST" }).middleware([authM
   if (!input.activityDate) throw new Error("Tanggal wajib diisi");
   return input;
 }).handler(async ({ context, data }) => {
-  const { sql, clubId, userId } = await requireClub(context.userId);
-  const hats = await hatsFor({ sql, userId });
+  const actor = await requireClub(context.userId);
+  const { sql, clubId } = actor;
+  const hats = await hatsFor(actor);
   if (!canWriteActivity(hats)) throw new Error("Tidak diizinkan");
   if (data.id) {
     await sql`update activities set title = ${data.title.trim()}, kind = ${data.kind}, activity_date = ${data.activityDate}, start_time = ${data.startTime || null}, end_time = ${data.endTime || null}, location = ${data.location?.trim() || null}, description = ${data.description?.trim() || null} where id = ${data.id} and club_id = ${clubId}`;

@@ -58,7 +58,7 @@ export const listSwimmers = createServerFn({ method: "GET" }).middleware([authMi
 
 export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMiddleware]).validator((input: { id: number }) => input).handler(async ({ context, data }) => {
   const actor = await requireClub(context.userId);
-  const { sql, clubId, userId } = actor;
+  const { sql, clubId } = actor;
   const [hats, prefs] = await Promise.all([hatsFor(actor), loadPrefs(actor)]);
   const staffView = hats.staff != null && prefs.taskView === "club";
   const rows = await sql<SwimmerRow>`select * from swimmers where id = ${data.id} and club_id = ${clubId} limit 1`;
@@ -80,7 +80,7 @@ export const getSwimmer = createServerFn({ method: "GET" }).middleware([authMidd
       select coalesce(sum(case when status = 'hadir' then 1 else 0 end), 0)::int as hadir, count(*) filter (where status <> 'belum')::int as total
       from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id}`,
     sql<{ n: number }>`select coalesce(sum(meters_completed), 0)::int as n from practice_attendance where club_id = ${clubId} and swimmer_id = ${data.id} and status = 'hadir'`,
-    listAttendanceHistory({ sql, userId }, data.id),
+    listAttendanceHistory(actor, data.id),
     sql<{
       id: number; meet_id: number; swimmer_id: number; swimmer_name: string; stroke: string; distance_m: number;
       age_group: string | null; seed_time_ms: number | null; registration_status: RegistrationStatus; registration_reason: string | null; status: string; lane: number | null; heat: string | null;
