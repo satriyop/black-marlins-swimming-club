@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 import { accessFor, UNINVITED_MESSAGE } from "../src/lib/club/access";
+import { listAttendanceHistory } from "../src/lib/club/attendance";
 import { hatsFor } from "../src/lib/club/hats";
+import { loadRegistration } from "../src/lib/club/registration";
 import { acceptInvite, createInvite, recreateInvite } from "../src/lib/club/invites";
 import { getClubSupportContact, getPublicClubContact, submitAccessHelp } from "../src/lib/club/members";
 import { CLUB_NOT_CHOSEN } from "../src/lib/club/membership";
@@ -104,6 +106,31 @@ test("hats on both clubs show only the club in context", async () => {
   expect((await hatsFor(f.actor("both", f.apta))).guardianSwimmerIds).toEqual([]);
   await expect(hatsFor(f.actor("both"))).rejects.toThrow(CLUB_NOT_CHOSEN);
   await expect(listSwimmers(f.actor("both"))).rejects.toThrow(CLUB_NOT_CHOSEN);
+});
+
+test("a staff member of both clubs still loads the pinned club's attendance and registration", async () => {
+  const f = await twoClubs();
+  const practice = await f.sql<{ id: number }>`
+    insert into practices (club_id, session_date, kind, title)
+    values (${f.bmsc}, '2026-09-11', 'teknik', 'Pagi')
+    returning id
+  `;
+  await f.sql`
+    insert into practice_attendance (club_id, practice_id, swimmer_id, status)
+    values (${f.bmsc}, ${practice[0]!.id}, ${f.bima}, 'hadir')
+  `;
+  const history = await listAttendanceHistory(f.actor("both", f.bmsc), f.bima);
+  expect(history.map((row) => row.status)).toEqual(["hadir"]);
+  await expect(listAttendanceHistory(f.actor("both"), f.bima)).rejects.toThrow(CLUB_NOT_CHOSEN);
+
+  const meet = await f.sql<{ id: number }>`
+    insert into meets (club_id, name, level, course, start_date, status)
+    values (${f.bmsc}, 'Tes Dua Klub', 'klub', '50', '2026-10-01', 'rencana')
+    returning id
+  `;
+  const registration = await loadRegistration(f.actor("both", f.bmsc), meet[0]!.id);
+  expect(registration.staff).toBe(true);
+  await expect(loadRegistration(f.actor("both"), meet[0]!.id)).rejects.toThrow(CLUB_NOT_CHOSEN);
 });
 
 test("a BMSC guardian cannot load an Apta swimmer", async () => {

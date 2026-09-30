@@ -70,9 +70,11 @@ export const getMeet = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator((input: { id: number }) => input)
   .handler(async ({ context, data }) => {
-    const { sql: connection, clubId, userId } = await requireClub(context.userId);
-    return connection.transaction(async (sql) => {
-      const hats = await hatsFor({ sql, userId });
+    const actor = await requireClub(context.userId);
+    const { clubId } = actor;
+    return actor.sql.transaction(async (sql) => {
+      const scoped = { sql, userId: actor.userId, clubId };
+      const hats = await hatsFor(scoped);
       const rows = await sql<{
         id: number;
         name: string;
@@ -138,7 +140,7 @@ export const getMeet = createServerFn({ method: "GET" })
       };
       return {
         meet,
-        registration: await loadRegistration({ sql, userId }, data.id),
+        registration: await loadRegistration(scoped, data.id),
         entries: entries
           .filter((e) => canSeeSwimmer(hats, e.swimmer_id))
           .map((e): MeetEntry => ({
