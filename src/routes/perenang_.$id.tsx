@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { SelectNative } from "@/components/ui/input";
 import { SwimmerDialog } from "./perenang";
 import { eventCode } from "@/lib/swim/constants";
-import { sortEvents, type EventListOrder } from "@/lib/swim/event-order";
+import { preferredEvent, sortEvents, type EventListOrder } from "@/lib/swim/event-order";
 import { formatTime } from "@/lib/swim/time";
 import { cn, formatDateId } from "@/lib/utils";
 import { CoachFeedbackJournal } from "@/components/swim/coach-feedback-journal";
@@ -202,7 +202,7 @@ function Page() {
           </div>
         </section>
         <section className="lg:col-span-3">
-          <ProgressChart results={results} order={eventOrder} />
+          <ProgressChart key={swimmer.id} results={results} order={eventOrder} />
         </section>
       </div>
       <section className="mt-6">
@@ -423,11 +423,10 @@ function ProgressChart({
     return sortEvents([...map.values()], order, (row) => row.latest);
   }, [results, order]);
   const [key, setKey] = useState(() => {
-    const most = [...options].sort((a, b) => b.n - a.n)[0];
+    const most = preferredEvent(options, "", optionKey);
     return most ? optionKey(most) : "";
   });
-  const selected =
-    options.find((o) => `${o.stroke}-${o.distanceM}-${o.course}-${o.kind}` === key) ?? options[0];
+  const selected = preferredEvent(options, key, optionKey);
   const comparable = selected ? progressSeries(results, selected) : [];
   const series = comparable.map((r) => ({
     date: formatDateId(r.resultDate, "d MMM yyyy"),
@@ -441,18 +440,11 @@ function ProgressChart({
           <SelectNative
             aria-label="Nomor dan sumber tren"
             className="sm:w-80"
-            value={
-              selected
-                ? `${selected.stroke}-${selected.distanceM}-${selected.course}-${selected.kind}`
-                : ""
-            }
+            value={selected ? optionKey(selected) : ""}
             onChange={(e) => setKey(e.target.value)}
           >
             {options.map((o) => (
-              <option
-                key={`${o.stroke}-${o.distanceM}-${o.course}-${o.kind}`}
-                value={`${o.stroke}-${o.distanceM}-${o.course}-${o.kind}`}
-              >
+              <option key={optionKey(o)} value={optionKey(o)}>
                 {eventCode(o.distanceM, o.stroke, o.course)} ·{" "}
                 {o.kind === "official" ? "Resmi" : "Tes"}
               </option>
