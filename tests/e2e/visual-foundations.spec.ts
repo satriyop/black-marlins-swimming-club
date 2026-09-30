@@ -58,7 +58,9 @@ for (const theme of ["dark", "light"]) {
   }
 
   test(`semantic status and control text have measured contrast in ${theme}`, async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
+    // Outline controls inherit color. A light OS scheme keeps that inherited color
+    // on the light foreground for a few frames after the in-app switch to dark.
+    await page.emulateMedia({ reducedMotion: "reduce", colorScheme: theme });
     await page.goto(fixture);
     await changeAppAppearance(page, theme);
     await page.keyboard.press("Escape");

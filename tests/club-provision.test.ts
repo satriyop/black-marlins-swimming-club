@@ -22,7 +22,11 @@ const apta = {
 test("provision creates an empty club, invites club admin, and grants superadmin", async () => {
   const h = await createClubHarness();
   const query = h.sql.query.bind(h.sql);
-  const created = await provisionClub(query, { ...apta, inviteAdmin: "ketua@example.test" });
+  const created = await provisionClub(query, {
+    ...apta,
+    venue: "Tempursari, Ngawen, Klaten RT 14 RW 06",
+    inviteAdmin: "ketua@example.test",
+  });
   expect(created.created).toBe(true);
   expect(created.swimmers).toBe(0);
   expect(created.inviteToken).toBeTruthy();
@@ -51,6 +55,8 @@ test("provision creates an empty club, invites club admin, and grants superadmin
     [created.clubId],
   );
   expect(invites).toEqual([{ email: "ketua@example.test", role: "club_admin" }]);
+  const venue = await h.sql.query<{ venue: string }>("select venue from clubs where id = $1", [created.clubId]);
+  expect(venue[0]?.venue).toBe("Tempursari, Ngawen, Klaten RT 14 RW 06");
 });
 
 test("provision refuses to guess a club", () => {

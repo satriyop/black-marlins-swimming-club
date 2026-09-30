@@ -33,6 +33,10 @@ describe("PWA identity", () => {
       ["icons/icon-512.png", [512, 512]],
       ["icons/icon-maskable-512.png", [512, 512]],
       ["icons/apple-touch-icon.png", [180, 180]],
+      ["icons/apta-192.png", [192, 192]],
+      ["icons/apta-512.png", [512, 512]],
+      ["icons/apta-maskable-512.png", [512, 512]],
+      ["icons/apta-apple-touch.png", [180, 180]],
     ]);
     for (const [path, expected] of dimensions) {
       const png = readFileSync(join(root, "public", path));

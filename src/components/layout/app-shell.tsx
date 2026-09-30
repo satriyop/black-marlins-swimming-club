@@ -110,7 +110,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               />
             ) : (
               <span className="grid size-11 place-items-center rounded-full bg-muted font-display text-sm">
-                {(chrome?.shortName ?? "Klub").slice(0, 3)}
+                {chrome?.mark ?? "Klu"}
               </span>
             )}
             <div className="min-w-0">
@@ -161,7 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <img src={chrome.crestSrc} alt="" className="size-9 shrink-0 rounded-full object-cover" />
               ) : (
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted font-display text-xs">
-                  {(chrome?.shortName ?? "Klub").slice(0, 3)}
+                  {chrome?.mark ?? "Klu"}
                 </span>
               )}
               <span className="font-display text-lg leading-none">

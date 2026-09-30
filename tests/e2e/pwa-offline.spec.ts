@@ -5,6 +5,10 @@ import type { BrowserContext, Page } from "@playwright/test";
 const PUBLIC_CACHE_PATHS = [
   "/favicon.svg",
   "/icons/apple-touch-icon.png",
+  "/icons/apta-192.png",
+  "/icons/apta-512.png",
+  "/icons/apta-apple-touch.png",
+  "/icons/apta-maskable-512.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-maskable-512.png",

@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { auth, authBaseURL } from "../src/lib/auth/server";
 import { listSwimmers } from "../src/lib/club/swimmers";
-import { clubIdForHost, hostnameFromHost, isLocalDevHost, UnknownClubHostError } from "../src/lib/club/hostname";
+import { clubIdForHost, clubMonogram, crestSrcFor, hostnameFromHost, isLocalDevHost, UnknownClubHostError } from "../src/lib/club/hostname";
 import { clubManifest } from "../src/lib/pwa/manifest";
 import { createClubHarness } from "./harness";
 
@@ -66,6 +66,24 @@ test("session cookies stay on the host and login does not fall back to another o
   expect(authBaseURL).not.toHaveProperty("fallback");
   expect(auth.options.advanced?.defaultCookieAttributes?.domain).toBeUndefined();
   expect(auth.options.advanced?.crossSubDomainCookies?.enabled).toBe(false);
+});
+
+test("Apta uses its crest and the letters ASC; another club stays a monogram", () => {
+  expect(crestSrcFor({ slug: "bmsc", shortName: "BMSC" })).toBe("/images/crest.jpg");
+  expect(crestSrcFor({ slug: "apta", shortName: "Apta SC" })).toBe("/images/crests/apta.jpg");
+  expect(crestSrcFor({ slug: "lain", shortName: "Lainnya" })).toBeNull();
+  expect(clubMonogram({ slug: "apta", shortName: "Apta SC" })).toBe("ASC");
+  expect(clubMonogram({ slug: "lain", shortName: "Lainnya" })).toBe("Lai");
+  const apta = clubManifest({ name: "Apta Swimming Club", shortName: "Apta SC", slug: "apta" });
+  expect(apta.icons).toEqual([
+    { src: "/icons/apta-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/icons/apta-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/icons/apta-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ]);
+  expect(JSON.stringify(apta)).not.toContain("Black Marlins");
+  expect(clubManifest({ name: "Black Marlins Swimming Club Klaten", shortName: "BMSC", slug: "bmsc" }).icons[0]?.src).toBe(
+    "/icons/icon-192.png",
+  );
 });
 
 test("the install manifest names the club on that hostname", () => {
