@@ -26,7 +26,6 @@ function rank(table: Record<string, number>, key: string | undefined): number {
   return table[key] ?? 9;
 }
 
-/** Kolam 50 m, then 25 m. Stroke Bebas, Punggung, Dada, Kupu, Ganti. Distance ascending. Resmi before Tes. */
 export function compareProgramOrder(a: OrderedEvent, b: OrderedEvent): number {
   const course = rank(COURSE_RANK, a.course) - rank(COURSE_RANK, b.course);
   if (course) return course;
@@ -49,4 +48,15 @@ export function sortEvents<T extends OrderedEvent>(
     }
     return compareProgramOrder(a, b);
   });
+}
+
+/** A stored choice wins. Otherwise the most finished swims, then program order, so a display sort cannot move the chart. */
+export function preferredEvent<T extends OrderedEvent & { n: number }>(
+  rows: readonly T[],
+  key: string,
+  keyOf: (row: T) => string,
+): T | undefined {
+  const chosen = rows.find((row) => keyOf(row) === key);
+  if (chosen) return chosen;
+  return [...rows].sort((a, b) => b.n - a.n || compareProgramOrder(a, b))[0];
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { compareProgramOrder, sortEvents } from "../src/lib/swim/event-order";
+import { compareProgramOrder, preferredEvent, sortEvents } from "../src/lib/swim/event-order";
 
 const rows = [
   { stroke: "bebas", distanceM: 50, course: "25", kind: "official" as const, on: "2025-09-21" },
@@ -44,4 +44,28 @@ test("latest puts the newest date first and keeps program order on a tie", () =>
     (row) => row.on,
   ).map(label);
   expect(sameDay).toEqual(["50 bebas 25 official", "25 kupu 25 official", "100 ganti 25 official"]);
+});
+
+test("a missing chart choice stays on the busiest event in either display order", () => {
+  const events = [
+    { stroke: "bebas", distanceM: 50, course: "50", kind: "official" as const, n: 1, on: "2026-09-27" },
+    { stroke: "dada", distanceM: 50, course: "50", kind: "official" as const, n: 3, on: "2026-07-04" },
+  ];
+  const keyOf = (row: (typeof events)[number]) =>
+    `${row.stroke}-${row.distanceM}-${row.course}-${row.kind}`;
+  for (const order of ["program", "latest"] as const) {
+    const shown = sortEvents(events, order, (row) => row.on);
+    expect(keyOf(preferredEvent(shown, "", keyOf)!)).toBe("dada-50-50-official");
+    expect(keyOf(preferredEvent(shown, "bebas-50-50-official", keyOf)!)).toBe("bebas-50-50-official");
+  }
+});
+
+test("a tie for the most swims uses program order", () => {
+  const events = [
+    { stroke: "dada", distanceM: 50, course: "50", kind: "official" as const, n: 2 },
+    { stroke: "bebas", distanceM: 50, course: "50", kind: "official" as const, n: 2 },
+  ];
+  const keyOf = (row: (typeof events)[number]) =>
+    `${row.stroke}-${row.distanceM}-${row.course}-${row.kind}`;
+  expect(keyOf(preferredEvent(events, "", keyOf)!)).toBe("bebas-50-50-official");
 });
