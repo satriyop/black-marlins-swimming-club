@@ -91,6 +91,7 @@ export type Practice = {
   originalLocation: string | null;
   revision: number;
   incompleteAck: boolean;
+  autoClosed: boolean;
   seriesId: number | null;
   occurrenceDate: string | null;
   presentCount?: number;
@@ -228,6 +229,12 @@ export type Dashboard = {
     createdAt: string;
   }[];
   unreadCount: number;
+  autoClosedYesterday: {
+    id: number;
+    title: string;
+    sessionDate: string;
+    startTime: string | null;
+  }[];
   stats: {
     swimmerCount: number;
     practicesThisMonth: number;

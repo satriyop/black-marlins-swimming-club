@@ -47,7 +47,7 @@ test("guardian home uses a recurring day before attendance opens and ignores old
     sets: [],
   });
   const home = await getDashboardData(h.actor(RATIH_ID));
-  expect(home.upcomingPractices.map((practice) => practice.title)).toContain("Sesi lama");
+  expect(home.upcomingPractices.map((practice) => practice.title)).not.toContain("Sesi lama");
   expect(home.nextScheduledTraining).toMatchObject({
     scheduleId: schedule.id,
     practiceId: null,

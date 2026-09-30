@@ -132,7 +132,7 @@ test("late, cancelled, and completed sessions reject family notices", async () =
       swimmerId: past.luigiId,
       kind: "izin",
     }),
-  ).rejects.toThrow(/Batas waktu/);
+  ).rejects.toThrow(/sudah ditutup atau dibatalkan/);
   const open = await sessionWithLuigi(h);
   const { completePractice } = await import("../src/lib/club/practice");
   await completePractice(h.actor(SATRIYO_ID), {
@@ -147,6 +147,23 @@ test("late, cancelled, and completed sessions reject family notices", async () =
       kind: "izin",
     }),
   ).rejects.toThrow(/ditutup|dibatalkan/);
+  const { reopenPractice } = await import("../src/lib/club/practice");
+  const cancelled = await loadPractice(h.actor(SATRIYO_ID), past.practiceId);
+  await reopenPractice(h.actor(SATRIYO_ID), {
+    id: past.practiceId,
+    reason: "Catatan salah",
+    expectedRevision: cancelled.revision,
+  });
+  await expect(
+    saveAbsenceNotice(h.actor(RATIH_ID), {
+      practiceId: past.practiceId,
+      swimmerId: past.luigiId,
+      kind: "izin",
+    }),
+  ).rejects.toThrow(/Batas waktu izin sudah lewat/);
+  const reopened = await loadPractice(h.actor(SATRIYO_ID), past.practiceId);
+  expect(reopened.status).toBe("scheduled");
+  expect(reopened.autoClosed).toBe(false);
 });
 
 test("coach final attendance stays independent of an active notice", async () => {

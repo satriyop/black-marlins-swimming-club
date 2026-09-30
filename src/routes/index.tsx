@@ -223,6 +223,7 @@ function DashboardView({ data }: { data: Awaited<ReturnType<typeof getDashboard>
         guardian={guardian}
         familyCount={family.length}
       />
+      {clubView ? <AutoClosedYesterday items={data.autoClosedYesterday} /> : null}
       <OverduePractices items={overdue} practiceCta={practiceCta} />
 
       {completed.map((p) => (
@@ -414,6 +415,33 @@ function NextPractice({
           untuk mulai melihat latihan.
         </p>
       ) : null}
+    </section>
+  );
+}
+
+function AutoClosedYesterday({ items }: { items: Dashboard["autoClosedYesterday"] }) {
+  if (items.length === 0) return null;
+  return (
+    <section aria-labelledby="auto-closed-sessions" className="grid min-w-0 gap-2">
+      <h2 id="auto-closed-sessions" className="text-card-title">
+        Ditutup otomatis
+      </h2>
+      {items.map((item) => (
+        <Link
+          key={item.id}
+          to="/latihan/$id"
+          params={{ id: String(item.id) }}
+          className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3"
+        >
+          <span className="min-w-0">
+            <span className="block font-semibold [overflow-wrap:anywhere]">{item.title}</span>
+            <span className="block text-sm text-muted-foreground">
+              {formatDateId(item.sessionDate, "EEEE, d MMM")} · Buka kembali
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0" />
+        </Link>
+      ))}
     </section>
   );
 }

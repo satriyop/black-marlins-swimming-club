@@ -6,6 +6,7 @@ import { canSeeSwimmer, hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
 import { loadPrefs } from "./prefs";
 import { mapPractice, type PracticeRow } from "./practice";
+import { closePastPractices, previousIsoDate } from "./practice-close";
 import { listScheduledTrainingDays } from "./series";
 import { listSwimmers } from "./swimmers";
 import { listRecentSharedFeedback } from "./feedback";
@@ -64,12 +65,13 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
         .map((s) => s.id)
     : swimmers.map((s) => s.id);
   const { date: jakartaDate } = jakartaNowParts();
+  await closePastPractices(sql, clubId, jakartaDate);
   const scheduledDays = await listScheduledTrainingDays(actor, { fromDate: jakartaDate, days: 31 });
   const upcomingPractices = await sql<PracticeRow>`
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
            total_meters, notes, status, cancel_reason, reopen_reason,
            original_session_date::text as original_session_date, original_start_time, original_location,
-           revision, incomplete_ack, series_id, occurrence_date::text as occurrence_date
+           revision, incomplete_ack, auto_closed, series_id, occurrence_date::text as occurrence_date
     from practices
     where club_id = ${clubId}
       and status in ('scheduled', 'in_progress')
@@ -80,13 +82,28 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
            total_meters, notes, status, cancel_reason, reopen_reason,
            original_session_date::text as original_session_date, original_start_time, original_location,
-           revision, incomplete_ack, series_id, occurrence_date::text as occurrence_date
+           revision, incomplete_ack, auto_closed, series_id, occurrence_date::text as occurrence_date
     from practices
     where club_id = ${clubId}
       and status in ('completed', 'cancelled')
       and session_date = ${jakartaDate}::date
     order by start_time
     limit 4
+  `;
+  const yesterday = previousIsoDate(jakartaDate);
+  const autoClosedYesterday = await sql<{
+    id: number;
+    title: string;
+    session_date: string;
+    start_time: string | null;
+  }>`
+    select id, title, session_date::text as session_date, start_time
+    from practices
+    where club_id = ${clubId}
+      and session_date = ${yesterday}::date
+      and auto_closed = true
+      and status in ('completed', 'cancelled')
+    order by start_time, id
   `;
   const upcomingMeets = await sql<{
     id: number;
@@ -302,6 +319,12 @@ export async function getDashboardData(actor: Actor): Promise<Dashboard> {
       createdAt: a.created_at,
     })),
     unreadCount: unreadTotal[0]?.n ?? 0,
+    autoClosedYesterday: autoClosedYesterday.map((row) => ({
+      id: row.id,
+      title: row.title,
+      sessionDate: row.session_date.slice(0, 10),
+      startTime: row.start_time,
+    })),
     stats: {
       swimmerCount: swimmers.filter((s) => s.status === "aktif").length,
       practicesThisMonth: monthPractices[0]?.n ?? 0,

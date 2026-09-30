@@ -250,7 +250,7 @@ test("Hari Ini skips completed and cancelled sessions", async () => {
   expect(dash.upcomingPractices[0]?.id).toBe(next.id);
 });
 
-test("Hari Ini keeps an open session after start and shows today's cancellation", async () => {
+test("Hari Ini closes an untouched past session and shows today's cancellation", async () => {
   const h = await createClubHarness();
   await seedClub(h.sql);
   const today = todayIso();
@@ -262,7 +262,7 @@ test("Hari Ini keeps an open session after start and shows today's cancellation"
     expectedRevision: 1,
   });
   const dash = await getDashboardData(h.actor(SATRIYO_ID));
-  expect(dash.upcomingPractices.map((p) => p.title)).toContain("Terlambat");
+  expect(dash.upcomingPractices.map((p) => p.title)).not.toContain("Terlambat");
   expect(dash.upcomingPractices.map((p) => p.title)).not.toContain("Batal hari ini");
   expect(dash.noticePractices.map((p) => p.title)).toContain("Batal hari ini");
 });

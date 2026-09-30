@@ -4,6 +4,7 @@ import { canSeeSwimmer, hatsFor } from "./hats";
 import { clubIdFor } from "./membership";
 import { canWritePractice } from "./permissions";
 import type { Attendance, Practice, PracticeDetail, PracticeStatus } from "@/lib/swim/types";
+import { closePastPractices } from "./practice-close";
 import { jakartaNowParts } from "@/lib/utils";
 
 export type PracticeSetInput = {
@@ -34,6 +35,7 @@ export type PracticeRow = {
   original_location: string | null;
   revision: number;
   incomplete_ack: boolean;
+  auto_closed?: boolean;
   series_id: number | null;
   occurrence_date: string | null;
 };
@@ -62,11 +64,12 @@ export async function listPracticeSummaries(
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
   const today = input.today ?? jakartaNowParts().date;
+  await closePastPractices(actor.sql, clubId, today);
   const select = `
     select p.id, p.session_date::text as session_date, p.start_time, p.duration_min, p.location,
            p.kind, p.title, p.focus, p.total_meters, p.notes, p.status, p.cancel_reason,
            p.reopen_reason, p.original_session_date::text as original_session_date,
-           p.original_start_time, p.original_location, p.revision, p.incomplete_ack,
+           p.original_start_time, p.original_location, p.revision, p.incomplete_ack, p.auto_closed,
            p.series_id, p.occurrence_date::text as occurrence_date,
            coalesce(sum(case when a.on_roll and a.status = 'hadir' then 1 else 0 end), 0)::int as present_count,
            coalesce(sum(case when a.on_roll then 1 else 0 end), 0)::int as roster_count
@@ -125,6 +128,7 @@ export function mapPractice(p: PracticeRow) {
     originalLocation: p.original_location,
     revision: p.revision,
     incompleteAck: p.incomplete_ack,
+    autoClosed: p.auto_closed === true,
     seriesId: p.series_id,
     occurrenceDate: asDate(p.occurrence_date),
   };
@@ -143,7 +147,7 @@ async function loadRow(actor: Actor, clubId: number, id: number): Promise<Practi
     select id, session_date::text as session_date, start_time, duration_min, location, kind, title, focus,
            total_meters, notes, status, cancel_reason, reopen_reason,
            original_session_date::text as original_session_date, original_start_time, original_location,
-           revision, incomplete_ack, series_id, occurrence_date::text as occurrence_date
+           revision, incomplete_ack, auto_closed, series_id, occurrence_date::text as occurrence_date
     from practices where id = ${id} and club_id = ${clubId} limit 1
   `;
   const row = rows[0];
@@ -353,6 +357,7 @@ export async function loadPractice(actor: Actor, id: number): Promise<PracticeDe
   const clubId = await clubIdFor(actor);
   if (clubId == null) throw new Error("Tidak diizinkan");
   const hats = await hatsFor(actor);
+  await closePastPractices(actor.sql, clubId, jakartaNowParts().date);
   const row = await loadRow(actor, clubId, id);
   const sets = await actor.sql<{
     id: number;
@@ -555,6 +560,7 @@ export async function reopenPractice(
         completed_at = null,
         completed_by = null,
         incomplete_ack = false,
+        auto_closed = false,
         cancel_reason = null,
         revision = revision + 1
     where id = ${input.id} and club_id = ${clubId} and revision = ${row.revision}

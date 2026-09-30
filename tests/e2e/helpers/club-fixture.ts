@@ -10,10 +10,18 @@ export type ClubFixtureOptions = {
   results?: boolean;
   primaryChildName?: string;
   overduePractice?: boolean;
+  yesterdayPractice?: boolean;
 };
 
 function jakartaToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+}
+
+function jakartaYesterday() {
+  const [year, month, day] = jakartaToday().split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day!));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 /** Only synthetic rows in a local test database; cleanup never touches pre-existing records. */
@@ -118,6 +126,29 @@ export async function createClubFixture(
       await pool.query(
         "insert into practices (club_id, session_date, start_time, location, kind, title, status) values ($1,$2::date,'15:30','Kolam lama','renang','Latihan lama belum selesai','in_progress')",
         [clubId, "2020-01-01"],
+      );
+    }
+    if (options.yesterdayPractice) {
+      const yesterday = jakartaYesterday();
+      const present = await pool.query(
+        "insert into swimmers (club_id, full_name, date_of_birth, gender) values ($1,'Perenang Hadir','2014-06-01','putra') returning id",
+        [clubId],
+      );
+      const blank = await pool.query(
+        "insert into swimmers (club_id, full_name, date_of_birth, gender) values ($1,'Perenang Kosong','2014-06-01','putri') returning id",
+        [clubId],
+      );
+      const marked = await pool.query(
+        "insert into practices (club_id, session_date, start_time, location, kind, title, status) values ($1,$2::date,'15:30','Kolam kemarin','renang','Latihan kemarin tercatat','in_progress') returning id",
+        [clubId, yesterday],
+      );
+      await pool.query(
+        "insert into practice_attendance (club_id, practice_id, swimmer_id, status, on_roll) values ($1,$2,$3,'hadir',true), ($1,$2,$4,'belum',true)",
+        [clubId, marked.rows[0].id, present.rows[0].id, blank.rows[0].id],
+      );
+      await pool.query(
+        "insert into practices (club_id, session_date, start_time, location, kind, title, status) values ($1,$2::date,'16:00','Kolam kemarin','renang','Latihan kemarin kosong','scheduled')",
+        [clubId, yesterday],
       );
     }
     if (options.results !== false && swimmerId) {
