@@ -75,7 +75,11 @@ test("Apta uses its crest and the letters ASC; another club stays a monogram", (
   expect(clubMonogram({ slug: "apta", shortName: "Apta SC" })).toBe("ASC");
   expect(clubMonogram({ slug: "lain", shortName: "Lainnya" })).toBe("Lai");
   const apta = clubManifest({ name: "Apta Swimming Club", shortName: "Apta SC", slug: "apta" });
-  expect(apta.icons.map((icon) => icon.src)).toEqual(["/images/crests/apta.jpg", "/images/crests/apta.jpg"]);
+  expect(apta.icons).toEqual([
+    { src: "/icons/apta-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/icons/apta-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/icons/apta-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ]);
   expect(JSON.stringify(apta)).not.toContain("Black Marlins");
   expect(clubManifest({ name: "Black Marlins Swimming Club Klaten", shortName: "BMSC", slug: "bmsc" }).icons[0]?.src).toBe(
     "/icons/icon-192.png",

@@ -14,6 +14,10 @@ const publicAssets = new Set([
   "/icons/icon-512.png",
   "/icons/icon-maskable-512.png",
   "/icons/apple-touch-icon.png",
+  "/icons/apta-192.png",
+  "/icons/apta-512.png",
+  "/icons/apta-maskable-512.png",
+  "/icons/apta-apple-touch.png",
 ]);
 const networkOnlyNavigation = new Set(["/terima"]);
 

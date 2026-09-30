@@ -1,4 +1,4 @@
-import { crestSrcFor, isMarlinsBrand } from "@/lib/club/hostname";
+import { isMarlinsBrand } from "@/lib/club/hostname";
 
 const ICONS = [
   { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
@@ -6,17 +6,19 @@ const ICONS = [
   { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
 ];
 
+const ICONS_BY_SLUG: Record<string, typeof ICONS> = {
+  apta: [
+    { src: "/icons/apta-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/icons/apta-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/icons/apta-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ],
+};
+
 export type ManifestClub = { name: string; shortName: string; slug: string | null } | null;
 
 export function clubManifest(club: ManifestClub) {
   const marlins = club != null && isMarlinsBrand(club);
-  const crest = club != null ? crestSrcFor(club) : null;
-  const icons = crest && !marlins
-    ? [
-        { src: crest, sizes: "192x192", type: "image/jpeg", purpose: "any" },
-        { src: crest, sizes: "512x512", type: "image/jpeg", purpose: "any" },
-      ]
-    : ICONS;
+  const icons = club?.slug && ICONS_BY_SLUG[club.slug] && !marlins ? ICONS_BY_SLUG[club.slug] : ICONS;
   const name = club == null ? "Klub" : marlins ? "Black Marlins Swimming Club" : club.name;
   const shortName = club == null ? "Klub" : marlins ? "Black Marlins" : club.shortName;
   return {

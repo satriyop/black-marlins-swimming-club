@@ -35,7 +35,7 @@ const MARK_BY_SLUG: Record<string, string> = {
   apta: "ASC",
 };
 
-/** Photo for this club. Black Marlins keeps its crest. A slug with its own file uses that. Everyone else is a monogram. */
+/** Photo URL for this club, or null when the caller should draw letters. */
 export function crestSrcFor(club: { slug: string | null; shortName: string }): string | null {
   if (isMarlinsBrand(club)) return "/images/crest.jpg";
   if (club.slug && CREST_BY_SLUG[club.slug]) return CREST_BY_SLUG[club.slug];
