@@ -29,8 +29,9 @@ import { Badge } from "@/components/ui/badge";
 import { SelectNative } from "@/components/ui/input";
 import { SwimmerDialog } from "./perenang";
 import { eventCode } from "@/lib/swim/constants";
+import { sortEvents, type EventListOrder } from "@/lib/swim/event-order";
 import { formatTime } from "@/lib/swim/time";
-import { formatDateId } from "@/lib/utils";
+import { cn, formatDateId } from "@/lib/utils";
 import { CoachFeedbackJournal } from "@/components/swim/coach-feedback-journal";
 import { LockerPinCard } from "@/components/swim/locker-pin";
 import { spectraSyncFeedback } from "@/lib/club/spectra-sync-feedback";
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/perenang_/$id")({ component: Page });
 
 function Page() {
   const { hats, taskView } = useAccess();
+  const [eventOrder, setEventOrder] = useState<EventListOrder>("program");
   const swimmerId = Number(Route.useParams().id);
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -156,12 +158,17 @@ function Page() {
           </ul>
         </section>
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-5">
-        <section className="lg:col-span-2">
-          <h2 className="font-display mb-3 text-2xl">Rekor pribadi (Personal Best)</h2>
-          <p className="mb-3 text-sm text-muted-foreground">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl">Rekor pribadi (Personal Best)</h2>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
             Waktu terbaik dari hasil resmi dan tes latihan. Bandingkan sumber yang sama pada grafik.
           </p>
+        </div>
+        <EventOrderSwitch order={eventOrder} onChange={setEventOrder} />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <section className="lg:col-span-2">
           <div className="overflow-hidden rounded-2xl bg-card shadow-border">
             {pbs.length === 0 ? (
               <p className="px-4 py-6 text-sm text-muted-foreground">
@@ -176,7 +183,7 @@ function Page() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {pbs.map((p) => (
+                  {sortEvents(pbs, eventOrder, (p) => p.resultDate).map((p) => (
                     <tr key={`${p.stroke}-${p.distanceM}-${p.course}`}>
                       <td className="px-4 py-2.5">
                         {eventCode(p.distanceM, p.stroke, p.course)}
@@ -195,7 +202,7 @@ function Page() {
           </div>
         </section>
         <section className="lg:col-span-3">
-          <ProgressChart results={results} />
+          <ProgressChart results={results} order={eventOrder} />
         </section>
       </div>
       <section className="mt-6">
@@ -341,34 +348,84 @@ function ProfileSummary({
   );
 }
 
+function optionKey(o: { stroke: string; distanceM: number; course: string; kind: string }) {
+  return `${o.stroke}-${o.distanceM}-${o.course}-${o.kind}`;
+}
+
+function EventOrderSwitch({
+  order,
+  onChange,
+}: {
+  order: EventListOrder;
+  onChange: (order: EventListOrder) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Urutan nomor"
+      className="grid grid-cols-2 rounded-lg border border-input p-1 text-sm"
+    >
+      {(
+        [
+          ["program", "Nomor"],
+          ["latest", "Terbaru"],
+        ] as const
+      ).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          className={cn(
+            "min-h-11 rounded-md px-3 py-2 font-medium",
+            order === value ? "bg-selected font-semibold text-primary" : "text-muted-foreground",
+          )}
+          aria-pressed={order === value}
+          onClick={() => onChange(value)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ProgressChart({
   results,
+  order,
 }: {
   results: Awaited<ReturnType<typeof getSwimmer>>["results"];
+  order: EventListOrder;
 }) {
   const options = useMemo(() => {
     const map = new Map<
       string,
-      { stroke: string; distanceM: number; course: string; kind: "official" | "test"; n: number }
+      {
+        stroke: string;
+        distanceM: number;
+        course: string;
+        kind: "official" | "test";
+        n: number;
+        latest: string;
+      }
     >();
     for (const r of results) {
       if (r.timeMs == null || r.timeMs <= 0 || r.status !== "selesai") continue;
       const k = `${r.stroke}-${r.distanceM}-${r.course}-${r.kind}`;
+      const prev = map.get(k);
       map.set(k, {
         stroke: r.stroke,
         distanceM: r.distanceM,
         course: r.course,
         kind: r.kind,
-        n: (map.get(k)?.n ?? 0) + 1,
+        n: (prev?.n ?? 0) + 1,
+        latest: !prev || r.resultDate > prev.latest ? r.resultDate : prev.latest,
       });
     }
-    return [...map.values()].sort((a, b) => b.n - a.n);
-  }, [results]);
-  const [key, setKey] = useState(() =>
-    options[0]
-      ? `${options[0].stroke}-${options[0].distanceM}-${options[0].course}-${options[0].kind}`
-      : "",
-  );
+    return sortEvents([...map.values()], order, (row) => row.latest);
+  }, [results, order]);
+  const [key, setKey] = useState(() => {
+    const most = [...options].sort((a, b) => b.n - a.n)[0];
+    return most ? optionKey(most) : "";
+  });
   const selected =
     options.find((o) => `${o.stroke}-${o.distanceM}-${o.course}-${o.kind}` === key) ?? options[0];
   const comparable = selected ? progressSeries(results, selected) : [];
