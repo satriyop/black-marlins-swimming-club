@@ -3,7 +3,8 @@
  * Operator-only Club row. Empty roster. Not a seed, and not kiko.
  *   DATABASE_URL=… node scripts/provision-club.mjs \
  *     --slug apta --hostname apta.klaten.org \
- *     --name "Apta Swimming" --short-name Apta --city Klaten --province "Jawa Tengah" --sport renang
+ *     --name "Apta Swimming Club" --short-name "Apta SC" --city Klaten --province "Jawa Tengah" \
+ *     --venue "Tempursari, Ngawen, Klaten RT 14 RW 06" --sport renang
  *   DATABASE_URL=… node scripts/provision-club.mjs --club apta --invite-admin ketua@example.com
  *   DATABASE_URL=… node scripts/provision-club.mjs --club apta --superadmin satriyo@example.com
  */
@@ -33,6 +34,7 @@ export function parseProvisionArgs(argv) {
     country: flag(argv, "--country") || "Indonesia",
     coachName: flag(argv, "--coach") || flag(argv, "--short-name") || "Ketua",
     sport: flag(argv, "--sport") || "renang",
+    venue: flag(argv, "--venue"),
     inviteAdmin: flag(argv, "--invite-admin"),
     superadmin: flag(argv, "--superadmin"),
   };
@@ -51,8 +53,8 @@ export async function provisionClub(query, input) {
       throw new Error("A new Club needs --slug, --hostname, --name, --short-name, --city, and --province");
     }
     rows = await query(
-      `insert into clubs (name, short_name, city, province, country, coach_name, slug, hostname, sport)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `insert into clubs (name, short_name, city, province, country, coach_name, venue, slug, hostname, sport)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        returning id`,
       [
         input.name,
@@ -61,6 +63,7 @@ export async function provisionClub(query, input) {
         input.province,
         input.country || "Indonesia",
         input.coachName || input.shortName,
+        input.venue || null,
         input.slug,
         input.hostname,
         input.sport || "renang",

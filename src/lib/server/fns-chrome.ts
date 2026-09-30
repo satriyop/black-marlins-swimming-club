@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
-import { clubIdForHost, hostnameFromHost, isLocalDevHost, isMarlinsBrand, UnknownClubHostError } from "@/lib/club/hostname";
+import { clubIdForHost, clubMonogram, crestSrcFor, hostnameFromHost, isLocalDevHost, isMarlinsBrand, UnknownClubHostError } from "@/lib/club/hostname";
 
 function marlinsChrome(): ClubChrome {
   return {
@@ -11,6 +11,8 @@ function marlinsChrome(): ClubChrome {
     slug: "bmsc",
     marlins: true,
     crestSrc: "/images/crest.jpg",
+    mark: "BMSC",
+    venue: null,
     title: "Black Marlins Swimming Club",
   };
 }
@@ -23,6 +25,8 @@ export type ClubChrome = {
   slug: string | null;
   marlins: boolean;
   crestSrc: string | null;
+  mark: string;
+  venue: string | null;
   title: string;
 };
 
@@ -50,10 +54,12 @@ export async function loadClubChrome(sql: Sql): Promise<ClubChrome | null> {
     city: string;
     province: string;
     slug: string | null;
-  }>`select name, short_name, city, province, slug from clubs where id = ${id}`;
+    venue: string | null;
+  }>`select name, short_name, city, province, slug, venue from clubs where id = ${id}`;
   const row = rows[0];
   if (!row) return null;
-  const marlins = isMarlinsBrand({ slug: row.slug, shortName: row.short_name });
+  const identity = { slug: row.slug, shortName: row.short_name };
+  const marlins = isMarlinsBrand(identity);
   return {
     name: row.name,
     shortName: row.short_name,
@@ -61,7 +67,9 @@ export async function loadClubChrome(sql: Sql): Promise<ClubChrome | null> {
     province: row.province,
     slug: row.slug,
     marlins,
-    crestSrc: marlins ? "/images/crest.jpg" : null,
+    crestSrc: crestSrcFor(identity),
+    mark: clubMonogram(identity),
+    venue: row.venue,
     title: marlins ? "Black Marlins Swimming Club" : row.name,
   };
 }

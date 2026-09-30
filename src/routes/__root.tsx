@@ -38,9 +38,15 @@ export const Route = createRootRoute({
       },
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      loaderData?.crestSrc && !loaderData.marlins
+        ? { rel: "icon", type: "image/jpeg", href: loaderData.crestSrc }
+        : { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon.png" },
+      {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: loaderData?.crestSrc && !loaderData.marlins ? loaderData.crestSrc : "/icons/apple-touch-icon.png",
+      },
       { rel: "stylesheet", href: appCss },
     ],
   }),

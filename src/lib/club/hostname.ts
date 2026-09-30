@@ -27,6 +27,27 @@ export function isMarlinsBrand(club: { slug: string | null; shortName: string })
   return club.slug === "bmsc" || club.shortName === "BMSC";
 }
 
+const CREST_BY_SLUG: Record<string, string> = {
+  apta: "/images/crests/apta.jpg",
+};
+
+const MARK_BY_SLUG: Record<string, string> = {
+  apta: "ASC",
+};
+
+/** Photo for this club. Black Marlins keeps its crest. A slug with its own file uses that. Everyone else is a monogram. */
+export function crestSrcFor(club: { slug: string | null; shortName: string }): string | null {
+  if (isMarlinsBrand(club)) return "/images/crest.jpg";
+  if (club.slug && CREST_BY_SLUG[club.slug]) return CREST_BY_SLUG[club.slug];
+  return null;
+}
+
+/** Letters inside the circle when the club has no crest photo. */
+export function clubMonogram(club: { slug: string | null; shortName: string } | null): string {
+  if (club?.slug && MARK_BY_SLUG[club.slug]) return MARK_BY_SLUG[club.slug];
+  return (club?.shortName || "Klub").slice(0, 3);
+}
+
 /**
  * Club for this Host.
  * A matching hostname wins. An unknown hostname is null and must not fall through.

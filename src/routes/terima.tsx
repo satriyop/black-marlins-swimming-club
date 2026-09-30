@@ -91,6 +91,7 @@ function Page() {
         className="size-16 rounded-full object-cover"
       />
       {chrome ? <p className="text-sm font-medium">{chrome.title}</p> : null}
+      {chrome?.venue ? <p className="-mt-2 text-sm text-muted-foreground">{chrome.venue}</p> : null}
       <h1 className="text-page-title">Terima undangan</h1>
       {mut.isSuccess ? (
         <StatusCard

@@ -65,9 +65,11 @@ export function LoginScreen({
   const [installOpen, setInstallOpen] = useState(false);
   const brand = chrome?.marlins
     ? { eyebrow: "Klaten · Jawa Tengah", title: "Black Marlins", subtitle: "Swimming Club" }
-    : chrome
-      ? { eyebrow: `${chrome.city} · ${chrome.province}`, title: chrome.name, subtitle: null }
-      : null;
+    : chrome?.slug === "apta"
+      ? { eyebrow: `${chrome.city} · ${chrome.province}`, title: "Apta", subtitle: "Swimming Club" }
+      : chrome
+        ? { eyebrow: `${chrome.city} · ${chrome.province}`, title: chrome.name, subtitle: null }
+        : null;
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
@@ -94,6 +96,7 @@ export function LoginScreen({
               <p className="mt-4 max-w-sm text-sm text-muted-foreground">
                 Kelola perenang, sesi latihan, tes waktu, dan kejuaraan klub dalam satu tempat.
               </p>
+              {chrome?.venue ? <p className="mt-2 max-w-sm text-xs text-muted-foreground">{chrome.venue}</p> : null}
             </>
           ) : (
             <h1 className="font-display mt-2 text-4xl leading-none">Klub tidak ditemukan</h1>
