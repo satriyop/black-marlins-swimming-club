@@ -141,6 +141,9 @@ function Page() {
               {data.originalLocation ? ` · ${data.originalLocation}` : ""}
             </p>
           ) : null}
+          {data.autoClosed ? (
+            <p className="mt-2 text-sm text-muted-foreground">Ditutup otomatis.</p>
+          ) : null}
           {data.status === "cancelled" && data.cancelReason ? (
             <p className="mt-2 text-sm text-destructive">Dibatalkan: {data.cancelReason}</p>
           ) : null}
