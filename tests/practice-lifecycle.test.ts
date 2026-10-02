@@ -18,12 +18,22 @@ import { createClubHarness } from "./harness";
 
 const set = { block: "utama", reps: 4, distanceM: 50, stroke: "bebas" };
 
+function isoOffset(days: number): string {
+  const [year, month, day] = todayIso().split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day!));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+const openDate = isoOffset(7);
+const movedDate = isoOffset(8);
+
 async function makeSession(
   h: Awaited<ReturnType<typeof createClubHarness>>,
   extra: { sessionDate?: string; title?: string; startTime?: string } = {},
 ) {
   return savePracticeRecord(h.actor(SATRIYO_ID), {
-    sessionDate: extra.sessionDate ?? "2026-10-01",
+    sessionDate: extra.sessionDate ?? openDate,
     startTime: extra.startTime ?? "15:30",
     kind: "teknik",
     title: extra.title ?? "Teknik",
@@ -43,7 +53,7 @@ test("editing a session keeps the same id and attendance rows", async () => {
   await h.sql`update practice_attendance set status = 'hadir', meters_completed = 200 where id = ${att.id}`;
   const updated = await savePracticeRecord(h.actor(SATRIYO_ID), {
     id: saved.id,
-    sessionDate: "2026-10-02",
+    sessionDate: movedDate,
     startTime: "16:00",
     kind: "sprint",
     title: "Sprint sore",
@@ -63,8 +73,8 @@ test("editing a session keeps the same id and attendance rows", async () => {
   });
   const loaded = await loadPractice(h.actor(SATRIYO_ID), saved.id);
   expect(loaded.title).toBe("Sprint sore");
-  expect(loaded.sessionDate).toBe("2026-10-02");
-  expect(loaded.originalSessionDate).toBe("2026-10-01");
+  expect(loaded.sessionDate).toBe(movedDate);
+  expect(loaded.originalSessionDate).toBe(openDate);
   expect(loaded.originalStartTime).toBe("15:30");
   expect(loaded.revision).toBe(2);
 });
@@ -75,7 +85,7 @@ test("stale revision does not overwrite a concurrent edit", async () => {
   const saved = await makeSession(h);
   await savePracticeRecord(h.actor(SATRIYO_ID), {
     id: saved.id,
-    sessionDate: "2026-10-01",
+    sessionDate: openDate,
     startTime: "15:30",
     kind: "teknik",
     title: "Diedit dulu",
@@ -85,7 +95,7 @@ test("stale revision does not overwrite a concurrent edit", async () => {
   await expect(
     savePracticeRecord(h.actor(SATRIYO_ID), {
       id: saved.id,
-      sessionDate: "2026-10-01",
+      sessionDate: openDate,
       startTime: "15:30",
       kind: "teknik",
       title: "Diedit belakangan",
@@ -177,7 +187,7 @@ test("complete requires acknowledging unmarked rows and does not auto-mark alfa"
   await expect(
     savePracticeRecord(h.actor(SATRIYO_ID), {
       id: saved.id,
-      sessionDate: "2026-10-01",
+      sessionDate: openDate,
       kind: "teknik",
       title: "Tidak boleh",
       sets: [set],
@@ -207,7 +217,7 @@ test("reopen of a completed session needs a reason and restores edits", async ()
   expect(loaded.reopenReason).toBe("Koreksi jarak");
   const edited = await savePracticeRecord(h.actor(SATRIYO_ID), {
     id: saved.id,
-    sessionDate: "2026-10-01",
+    sessionDate: openDate,
     kind: "teknik",
     title: "Setelah dibuka",
     sets: [set],
