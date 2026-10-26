@@ -1,6 +1,6 @@
 import { getRequest } from "@tanstack/react-start/server";
 import { gateIdentityEnabled } from "./gate-identity.server";
-import { auth, authConfigured } from "./server";
+import { allowRequestHost, auth, authConfigured } from "./server";
 
 const databaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
 export { authConfigured };
@@ -25,6 +25,8 @@ export async function getSessionUser(bearerToken?: string): Promise<VerifiedUser
     headers = new Headers(request.headers);
     headers.set("Authorization", `Bearer ${bearerToken}`);
   }
+  // Homepage (and other SSR) must allow the Club host before Better Auth reads it.
+  await allowRequestHost(request);
   const session = await auth.api.getSession({ headers });
   if (!session?.user) return null;
   return { id: session.user.id, email: session.user.email ?? null };

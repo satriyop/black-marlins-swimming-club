@@ -62,6 +62,7 @@ test("local dev with one club uses that club", async () => {
 
 test("session cookies stay on the host and login does not fall back to another origin", () => {
   expect(authBaseURL.allowedHosts).toContain("bmsc.klaten.org");
+  expect(authBaseURL.allowedHosts).toContain("apta.klaten.org");
   expect(authBaseURL.allowedHosts).toContain("localhost");
   expect(authBaseURL).not.toHaveProperty("fallback");
   expect(auth.options.advanced?.defaultCookieAttributes?.domain).toBeUndefined();

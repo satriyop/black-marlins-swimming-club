@@ -41,9 +41,17 @@ export const authBaseURL = {
     "[::1]",
     "[::1]:*",
     "bmsc.klaten.org",
+    "apta.klaten.org",
   ],
   protocol: (isProd ? "https" : "auto") as "https" | "auto",
 };
+
+function mutableAllowedHosts(): string[] {
+  const configured = auth.options.baseURL;
+  return configured && typeof configured === "object" && "allowedHosts" in configured
+    ? configured.allowedHosts
+    : authBaseURL.allowedHosts;
+}
 
 /** Add this request's host only when a Club row owns it, so Apta login stays on Apta. */
 export async function allowRequestHost(request: Request): Promise<void> {
@@ -54,13 +62,24 @@ export async function allowRequestHost(request: Request): Promise<void> {
   const rows = await sql<{ id: number }>`select id from clubs where lower(hostname) = ${name}`;
   if (!rows[0]) return;
   const headerHost = raw.split(",")[0]?.trim().toLowerCase() ?? "";
-  const configured = auth.options.baseURL;
-  const list =
-    configured && typeof configured === "object" && "allowedHosts" in configured
-      ? configured.allowedHosts
-      : authBaseURL.allowedHosts;
+  const list = mutableAllowedHosts();
   for (const host of [name, headerHost]) {
     if (host && !list.includes(host)) list.push(host);
+  }
+}
+
+/** Push every Club hostname into allowedHosts so a new club does not need another PR. */
+async function seedAllowedHostsFromClubs(): Promise<void> {
+  try {
+    const sql = await getSql();
+    const rows = await sql<{ hostname: string }>`select hostname from clubs where hostname is not null`;
+    const list = mutableAllowedHosts();
+    for (const row of rows) {
+      const name = hostnameFromHost(row.hostname) ?? row.hostname.trim().toLowerCase();
+      if (name && !isLocalDevHost(name) && !list.includes(name)) list.push(name);
+    }
+  } catch {
+    /* the process can boot before the database is open */
   }
 }
 
@@ -117,6 +136,8 @@ export const auth = betterAuth({
   },
   plugins: [gateIdentitySessions(), bearer(), tanstackStartCookies()],
 });
+
+void seedAllowedHostsFromClubs();
 
 export function readSessionToken(): string | null {
   return getCookie(SESSION_TOKEN_COOKIE) ?? null;
