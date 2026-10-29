@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { auth, authBaseURL } from "../src/lib/auth/server";
+import { allowRequestHost, auth, authBaseURL } from "../src/lib/auth/server";
 import { listSwimmers } from "../src/lib/club/swimmers";
 import { clubIdForHost, clubMonogram, crestSrcFor, hostnameFromHost, isLocalDevHost, UnknownClubHostError } from "../src/lib/club/hostname";
 import { clubManifest } from "../src/lib/pwa/manifest";
@@ -98,4 +98,16 @@ test("the install manifest names the club on that hostname", () => {
   expect(apta.short_name).toBe("Apta");
   expect(JSON.stringify(clubManifest(null))).not.toContain("Black Marlins");
   expect(JSON.stringify(apta)).not.toContain("token");
+});
+
+test("allowRequestHost short-circuits when the host is already allowed", async () => {
+  const live =
+    auth.options.baseURL && typeof auth.options.baseURL === "object" && "allowedHosts" in auth.options.baseURL
+      ? auth.options.baseURL.allowedHosts
+      : authBaseURL.allowedHosts;
+  expect(live).toContain("apta.klaten.org");
+  const before = live.slice();
+  await allowRequestHost(new Request("https://apta.klaten.org/", { headers: { host: "apta.klaten.org" } }));
+  await allowRequestHost(new Request("https://bmsc.klaten.org/", { headers: { host: "bmsc.klaten.org" } }));
+  expect(live).toEqual(before);
 });

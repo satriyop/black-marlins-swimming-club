@@ -58,11 +58,13 @@ export async function allowRequestHost(request: Request): Promise<void> {
   const raw = request.headers.get("host");
   const name = hostnameFromHost(raw);
   if (!raw || !name || isLocalDevHost(name)) return;
+  const list = mutableAllowedHosts();
+  const headerHost = raw.split(",")[0]?.trim().toLowerCase() ?? "";
+  // Already allowed (static list or a prior request) — skip the clubs lookup.
+  if (list.includes(name) && (!headerHost || list.includes(headerHost))) return;
   const sql = await getSql();
   const rows = await sql<{ id: number }>`select id from clubs where lower(hostname) = ${name}`;
   if (!rows[0]) return;
-  const headerHost = raw.split(",")[0]?.trim().toLowerCase() ?? "";
-  const list = mutableAllowedHosts();
   for (const host of [name, headerHost]) {
     if (host && !list.includes(host)) list.push(host);
   }
